@@ -1,0 +1,4 @@
+interface:
+  display_name: "Project Scoper"
+  short_description: "Deep project scoping and requirements discovery"
+  default_prompt: "Use $project-scoper to investigate a project idea, ask scoping questions, and produce a scope document at the requested output path from the template."
