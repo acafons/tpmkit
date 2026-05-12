@@ -73,3 +73,6 @@ Testing/
 
 # spec files
 .spec/
+
+# TPM simulator state (host bind mount for tpmkit container)
+.tpm-state/
