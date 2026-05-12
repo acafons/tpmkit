@@ -1,5 +1,6 @@
-# Prerequisites
-*.d
+# Prerequisites (compiler-generated dependency files)
+build/**/*.d
+build-*/**/*.d
 
 # Compiled Object files
 *.slo
