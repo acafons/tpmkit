@@ -74,6 +74,12 @@ if docker inspect "$CONTAINER_NAME" &>/dev/null; then
         echo "  docker rm -f $CONTAINER_NAME && $0" >&2
     fi
 else
+    if ! docker image inspect "$IMAGE" &>/dev/null; then
+        echo "Error: Docker image '$IMAGE' not found." >&2
+        echo "Build it from the repository root, for example:" >&2
+        echo "  docker build -t \"$IMAGE\" \"$REPO_ROOT\"" >&2
+        exit 1
+    fi
     echo "Creating container '$CONTAINER_NAME' from image '$IMAGE'..."
     # PID 1 reaps orphaned children; without this, `tail` as CMD leaves tpm_server/tpm2-abrmd zombies.
     run_args=(
