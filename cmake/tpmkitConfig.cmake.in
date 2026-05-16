@@ -1,0 +1,19 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+find_dependency(Microsoft.GSL CONFIG)
+find_dependency(tl-expected CONFIG QUIET)
+if(NOT TARGET tl::expected)
+    find_path(TPMKIT_TL_EXPECTED_INCLUDE_DIR NAMES tl/expected.hpp REQUIRED)
+    add_library(tpmkit_tl_expected_headers INTERFACE)
+    target_include_directories(
+        tpmkit_tl_expected_headers
+        INTERFACE "${TPMKIT_TL_EXPECTED_INCLUDE_DIR}"
+    )
+    add_library(tl::expected ALIAS tpmkit_tl_expected_headers)
+endif()
+
+include("${CMAKE_CURRENT_LIST_DIR}/tpmkitTargets.cmake")
+
+check_required_components(tpmkit)

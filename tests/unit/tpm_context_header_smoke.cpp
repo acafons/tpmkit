@@ -1,0 +1,15 @@
+#include <tpmkit/tpm_context.h>
+
+#include <type_traits>
+
+static_assert(std::is_move_constructible<tpmkit::tpm_context>::value, "tpm_context must move construct");
+static_assert(std::is_move_assignable<tpmkit::tpm_context>::value, "tpm_context must move assign");
+static_assert(!std::is_copy_constructible<tpmkit::tpm_context>::value, "tpm_context must not copy construct");
+static_assert(!std::is_copy_assignable<tpmkit::tpm_context>::value, "tpm_context must not copy assign");
+
+int tpmkit_tpm_context_header_smoke()
+{
+    tpmkit::tpm_context_config config;
+
+    return std::holds_alternative<tpmkit::tcti_string_config>(config.tcti) ? 0 : 1;
+}
