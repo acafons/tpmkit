@@ -2,11 +2,13 @@
 #
 # Run (or restart) the tpmkit Docker image with a host directory mounted for TPM state and logs.
 # Default host path: <repo>/.tpm-state  ->  container: /home/app/.tpm-state (same as TPMKIT_STATE_DIR in the image).
+# The repository is mounted read/write at /workspace/tpmkit for build and test commands.
 #
 # Environment overrides:
 #   TPMKIT_IMAGE            Image reference (default: tpmkit:latest)
 #   TPMKIT_CONTAINER_NAME   Container name (default: tpmkit-dev)
 #   TPMKIT_HOST_DATA        Host directory to bind-mount (default: <repo>/.tpm-state)
+#   TPMKIT_CONTAINER_REPO   In-container repository path (default: /workspace/tpmkit)
 #   NO_COLOR                 Set (any value) to disable ANSI highlight for "already running"
 
 set -euo pipefail
@@ -18,6 +20,7 @@ IMAGE="${TPMKIT_IMAGE:-tpmkit:latest}"
 CONTAINER_NAME="${TPMKIT_CONTAINER_NAME:-tpmkit-dev}"
 HOST_DATA="${TPMKIT_HOST_DATA:-$REPO_ROOT/.tpm-state}"
 CONTAINER_STATE_DIR="/home/app/.tpm-state"
+CONTAINER_REPO="${TPMKIT_CONTAINER_REPO:-/workspace/tpmkit}"
 
 # Bold yellow on stdout when interactive; respect https://no-color.org/
 emit_highlight() {
@@ -45,6 +48,7 @@ while [[ $# -gt 0 ]]; do
             echo ""
             echo "Creates ${HOST_DATA} on the host (if needed) and mounts it at ${CONTAINER_STATE_DIR}"
             echo "so tpm-start.sh logs and NVChip are visible under the repo's .tpm-state/ tree."
+            echo "Mounts ${REPO_ROOT} at ${CONTAINER_REPO} for build and test commands."
             echo "Uses docker run --init so PID 1 reaps zombie children (needed for tpm_server / tpm2-abrmd)."
             echo ""
             echo "See also: scripts/stop-tpmkit-docker.sh, scripts/tpmkit-docker-status.sh"
@@ -85,8 +89,11 @@ else
     run_args=(
         --init
         --name "$CONTAINER_NAME"
+        -v "$REPO_ROOT:$CONTAINER_REPO"
         -v "$HOST_DATA:$CONTAINER_STATE_DIR"
         -e "TPMKIT_STATE_DIR=$CONTAINER_STATE_DIR"
+        -e "TPMKIT_REPO_DIR=$CONTAINER_REPO"
+        -w "$CONTAINER_REPO"
     )
     if [[ "$DETACH" == "true" ]]; then
         docker run -d "${run_args[@]}" "$IMAGE"

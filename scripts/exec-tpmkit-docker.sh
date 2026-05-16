@@ -6,6 +6,8 @@
 #
 # Environment:
 #   TPMKIT_CONTAINER_NAME   Container name (default: tpmkit-dev)
+#   TPMKIT_CONTAINER_REPO   In-container repository path (default: /workspace/tpmkit)
+#   TPMKIT_DOCKER_USER      Optional docker exec user (for example root)
 #
 # Examples:
 #   exec-tpmkit-docker.sh 'ps aux | grep -i tpm'
@@ -18,6 +20,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 CONTAINER_NAME="${TPMKIT_CONTAINER_NAME:-tpmkit-dev}"
+CONTAINER_REPO="${TPMKIT_CONTAINER_REPO:-/workspace/tpmkit}"
+DOCKER_USER="${TPMKIT_DOCKER_USER:-}"
 
 usage() {
     echo "Usage: ${0##*/} [-h|--help] [--] <command...>"
@@ -29,7 +33,7 @@ usage() {
     echo "  ${0##*/} 'ps aux | grep -i tpm'"
     echo ""
     echo "Context: ${REPO_ROOT}"
-    echo "Env:     TPMKIT_CONTAINER_NAME (default: tpmkit-dev)"
+    echo "Env:     TPMKIT_CONTAINER_NAME (default: tpmkit-dev), TPMKIT_CONTAINER_REPO (default: /workspace/tpmkit), TPMKIT_DOCKER_USER"
 }
 
 while [[ $# -gt 0 ]]; do
@@ -77,7 +81,34 @@ if [[ "$running" != "true" ]]; then
     exit 1
 fi
 
-remote_cmd=$(printf '%q ' "$@")
-remote_cmd=${remote_cmd%"${remote_cmd##*[![:space:]]}"} # trim trailing whitespace
+if [[ $# -eq 1 ]]; then
+    remote_cmd=$1
+else
+    remote_cmd=$(printf '%q ' "$@")
+    remote_cmd=${remote_cmd%"${remote_cmd##*[![:space:]]}"} # trim trailing whitespace
+fi
 
-exec docker exec "${docker_exec_opts[@]}" "$CONTAINER_NAME" sh -c "$remote_cmd"
+user_opts=()
+if [[ -n "$DOCKER_USER" ]]; then
+    user_opts=(-u "$DOCKER_USER")
+fi
+
+if ! docker exec "$CONTAINER_NAME" test -d "$CONTAINER_REPO" >/dev/null 2>&1; then
+    echo "Error: repository path '$CONTAINER_REPO' is not available in container '$CONTAINER_NAME'." >&2
+    echo "Recreate the container with: ${SCRIPT_DIR}/stop-tpmkit-docker.sh && ${SCRIPT_DIR}/run-tpmkit-docker.sh" >&2
+    exit 1
+fi
+
+if [[ ${#docker_exec_opts[@]} -gt 0 ]]; then
+    if [[ ${#user_opts[@]} -gt 0 ]]; then
+        exec docker exec "${docker_exec_opts[@]}" "${user_opts[@]}" -w "$CONTAINER_REPO" "$CONTAINER_NAME" sh -c "$remote_cmd"
+    fi
+
+    exec docker exec "${docker_exec_opts[@]}" -w "$CONTAINER_REPO" "$CONTAINER_NAME" sh -c "$remote_cmd"
+fi
+
+if [[ ${#user_opts[@]} -gt 0 ]]; then
+    exec docker exec "${user_opts[@]}" -w "$CONTAINER_REPO" "$CONTAINER_NAME" sh -c "$remote_cmd"
+fi
+
+exec docker exec -w "$CONTAINER_REPO" "$CONTAINER_NAME" sh -c "$remote_cmd"
