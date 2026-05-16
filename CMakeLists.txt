@@ -6,11 +6,11 @@
 #   cmake --preset tsan
 #   cmake --preset coverage
 # Equivalent direct configure examples:
-#   cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
-#   cmake -S . -B build-asan -DCMAKE_BUILD_TYPE=Debug -Dtpmkit_USE_ASAN=ON
-#   cmake -S . -B build-ubsan -DCMAKE_BUILD_TYPE=Debug -Dtpmkit_USE_UBSAN=ON
-#   cmake -S . -B build-tsan -DCMAKE_BUILD_TYPE=Debug -Dtpmkit_USE_TSAN=ON
-#   cmake -S . -B build-coverage -DCMAKE_BUILD_TYPE=Debug -DTPMKIT_COVERAGE=ON
+#   cmake -S . -B build/debug -DCMAKE_BUILD_TYPE=Debug
+#   cmake -S . -B build/asan -DCMAKE_BUILD_TYPE=Debug -Dtpmkit_USE_ASAN=ON
+#   cmake -S . -B build/ubsan -DCMAKE_BUILD_TYPE=Debug -Dtpmkit_USE_UBSAN=ON
+#   cmake -S . -B build/tsan -DCMAKE_BUILD_TYPE=Debug -Dtpmkit_USE_TSAN=ON
+#   cmake -S . -B build/coverage -DCMAKE_BUILD_TYPE=Debug -DTPMKIT_COVERAGE=ON
 
 cmake_minimum_required(VERSION 3.20)
 

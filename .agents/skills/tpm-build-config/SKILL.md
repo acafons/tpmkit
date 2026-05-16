@@ -90,12 +90,12 @@ CTest presets bake these defaults in; override at the command line only when cha
 
 The analyzers that gate CI run locally against the project's `.clang-tidy` and cppcheck suppression list — there is no separate "local" config. Use these to catch issues before the CI round-trip.
 
-**Prerequisite:** configure with `-DCMAKE_EXPORT_COMPILE_COMMANDS=ON` (enabled by default in the debug presets). Confirm `build/compile_commands.json` exists before invoking any analyzer.
+**Prerequisite:** configure with `-DCMAKE_EXPORT_COMPILE_COMMANDS=ON` (enabled by default in the debug presets). Confirm `build/debug/compile_commands.json` exists before invoking any analyzer.
 
-- **Whole-tree clang-tidy:** `run-clang-tidy -p build/ -quiet` runs the project `.clang-tidy` across every translation unit in parallel. Use before opening a PR.
-- **Changed lines only:** `git diff -U0 origin/main -- '*.cpp' '*.h' | clang-tidy-diff.py -p1 -path build/` limits analysis to lines changed against the base branch. Use during iteration.
-- **Single file:** `clang-tidy -p build/ <path>` for targeted re-checks while fixing a warning.
-- **cppcheck:** `cppcheck --project=build/compile_commands.json --enable=warning,style,performance,portability --inline-suppr --error-exitcode=1`. Slower than clang-tidy; run once clang-tidy is clean.
+- **Whole-tree clang-tidy:** `run-clang-tidy -p build/debug/ -quiet` runs the project `.clang-tidy` across every translation unit in parallel. Use before opening a PR.
+- **Changed lines only:** `git diff -U0 origin/main -- '*.cpp' '*.h' | clang-tidy-diff.py -p1 -path build/debug/` limits analysis to lines changed against the base branch. Use during iteration.
+- **Single file:** `clang-tidy -p build/debug/ <path>` for targeted re-checks while fixing a warning.
+- **cppcheck:** `cppcheck --project=build/debug/compile_commands.json --enable=warning,style,performance,portability --inline-suppr --error-exitcode=1`. Slower than clang-tidy; run once clang-tidy is clean.
 
 Output discipline:
 
