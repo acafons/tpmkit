@@ -2,7 +2,9 @@ sidecar: git@github.com:acafons/tpmkit-specs.git
 namespaces:
   - name: tpmkit
     patterns:
-      - '**/SPEC.md'
+      - "**/SPEC.md"
       - docs/specs/**
       - .claude/plans/**
-      - '**/*.spec.md'
+      - "**/*.spec.md"
+      - .compozy/**
+      - .spec/**
