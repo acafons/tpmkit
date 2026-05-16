@@ -1,6 +1,18 @@
 {
   "version": 1,
   "skills": {
+    "qa-execution": {
+      "source": "pedronauck/skills",
+      "sourceType": "github",
+      "skillPath": "skills/mine/qa-execution/SKILL.md",
+      "computedHash": "0bf8f735bc3c5b7a94f94c8d15fb5f3c0d286789212fcd5047f2e76aab336af3"
+    },
+    "qa-report": {
+      "source": "pedronauck/skills",
+      "sourceType": "github",
+      "skillPath": "skills/mine/qa-report/SKILL.md",
+      "computedHash": "04b040c534702daffee00fdd01aeaeadf12f8f1d0144ea2f16e43756b26c6cab"
+    },
     "skill-best-practices": {
       "source": "pedronauck/skills",
       "sourceType": "github",
