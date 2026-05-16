@@ -61,6 +61,9 @@ compile_commands.json
 
 # vcpkg
 vcpkg_installed/
+buildtrees/
+downloads/
+packages/
 
 # debug information files
 *.dwo
@@ -77,3 +80,6 @@ Testing/
 
 # TPM simulator state (host bind mount for tpmkit container)
 .tpm-state/
+
+# compozy
+.compozy/
