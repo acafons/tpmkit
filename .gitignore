@@ -83,3 +83,11 @@ Testing/
 
 # compozy
 .compozy/
+
+# >>> skeeper ignored specs >>>
+.skeeper/
+**/SPEC.md
+docs/specs/**
+.claude/plans/**
+**/*.spec.md
+# <<< skeeper ignored specs <<<
