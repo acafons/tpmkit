@@ -6,5 +6,5 @@ namespaces:
       - docs/specs/**
       - .claude/plans/**
       - "**/*.spec.md"
-      - .compozy/**
-      - .spec/**
+      - .compozy/**/*.md
+      - .spec/**/*.md
