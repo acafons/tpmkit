@@ -81,13 +81,12 @@ Testing/
 # TPM simulator state (host bind mount for tpmkit container)
 .tpm-state/
 
-# compozy
-.compozy/
-
 # >>> skeeper ignored specs >>>
 .skeeper/
 **/SPEC.md
 docs/specs/**
 .claude/plans/**
 **/*.spec.md
+.compozy/**/*.md
+.spec/**/*.md
 # <<< skeeper ignored specs <<<
