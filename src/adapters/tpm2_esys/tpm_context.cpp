@@ -217,6 +217,10 @@ start_tpm(ESYS_CONTEXT* const esys, const tpm_context_config::startup_mode mode,
     log_event(log, log_level::info, events::startup_invoked, invoked_fields);
 
     if (mode == tpm_context_config::startup_mode::skip) {
+        const std::array<log_field, 1U> completed_fields{{
+            {events::fields::result, "skipped"},
+        }};
+        log_event(log, log_level::info, events::startup_completed, completed_fields);
         return {};
     }
 

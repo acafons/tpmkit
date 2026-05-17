@@ -98,4 +98,9 @@ const tpm_context_config& fake_tpm_context::last_config() const noexcept
     return config_;
 }
 
+void* fake_tpm_context::esys_handle() const noexcept
+{
+    return nullptr;
+}
+
 } // namespace tpmkit::testing

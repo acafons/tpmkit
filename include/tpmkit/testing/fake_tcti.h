@@ -8,6 +8,8 @@
  * without a live TPM endpoint.
  */
 
+#include <tpmkit/api.h>
+
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -47,7 +49,7 @@ namespace tpmkit::testing {
  * programming provides the basic guarantee.
  * @since v0.1
  */
-class fake_tcti final {
+class TPMKIT_API fake_tcti final {
 public:
     /**
      * @brief Construct an empty fake TCTI.

@@ -84,7 +84,7 @@ TEST(fake_tcti, transmit_underflow_returns_deterministic_io_error)
 {
     tpmkit::testing::fake_tcti fake;
 
-    EXPECT_EQ(transmit(fake), TSS2_BASE_RC_IO_ERROR);
+    EXPECT_EQ(transmit(fake), TSS2_TCTI_RC_IO_ERROR);
 }
 
 TEST(fake_tcti, receive_underflow_returns_deterministic_io_error)
@@ -93,7 +93,7 @@ TEST(fake_tcti, receive_underflow_returns_deterministic_io_error)
     std::array<std::uint8_t, 4> response{};
     std::size_t response_size = response.size();
 
-    EXPECT_EQ(receive(fake, response_size, response.data()), TSS2_BASE_RC_IO_ERROR);
+    EXPECT_EQ(receive(fake, response_size, response.data()), TSS2_TCTI_RC_IO_ERROR);
 }
 
 TEST(fake_tcti, receive_size_query_does_not_consume_response)

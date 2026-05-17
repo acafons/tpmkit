@@ -9,6 +9,8 @@
  * backend.
  */
 
+#include <tpmkit/api.h>
+
 #include <gsl/span>
 
 #include <string_view>
@@ -65,7 +67,7 @@ struct log_field {
  * @exception_safety Destructor is noexcept; `log` is noexcept.
  * @since v0.1
  */
-class logger {
+class TPMKIT_API logger {
 public:
     /**
      * @brief Destroy the logger adapter.
@@ -86,10 +88,8 @@ public:
      * @thread_safety Thread-safe. Implementations must handle concurrent calls.
      * @exception_safety noexcept; sink failures are swallowed by the adapter.
      */
-    virtual void log(
-        log_level level,
-        std::string_view message,
-        gsl::span<const log_field> fields) noexcept = 0;
+    virtual void log(log_level level, std::string_view message,
+                     gsl::span<const log_field> fields) noexcept = 0;
 };
 
 } // namespace tpmkit

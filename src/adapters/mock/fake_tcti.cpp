@@ -201,7 +201,7 @@ private:
     {
         const std::lock_guard<std::mutex> lock{mu_};
         if (queue_.empty()) {
-            return TSS2_BASE_RC_IO_ERROR;
+            return TSS2_TCTI_RC_IO_ERROR;
         }
 
         queued_result& next = queue_.front();
@@ -262,7 +262,7 @@ private:
         const std::lock_guard<std::mutex> lock{mu_};
         ++transmits_observed_;
         if (queue_.empty()) {
-            return TSS2_BASE_RC_IO_ERROR;
+            return TSS2_TCTI_RC_IO_ERROR;
         }
 
         return TSS2_RC_SUCCESS;

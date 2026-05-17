@@ -168,6 +168,7 @@ add_library(tpmkit::tpmkit ALIAS tpmkit)
 target_compile_features(tpmkit PUBLIC cxx_std_17)
 target_sources(tpmkit
     PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/tpmkit/api.h>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/tpmkit/exception.h>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/tpmkit/logger.h>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/tpmkit/noop_logger.h>
@@ -195,6 +196,15 @@ target_link_libraries(tpmkit
         TSS2::ESYS
         TSS2::TCTILDR
 )
+set_target_properties(tpmkit PROPERTIES
+    CXX_VISIBILITY_PRESET hidden
+    VISIBILITY_INLINES_HIDDEN ON
+    VERSION ${PROJECT_VERSION}
+    SOVERSION ${PROJECT_VERSION_MAJOR}
+)
+if(NOT BUILD_SHARED_LIBS)
+    target_compile_definitions(tpmkit PUBLIC TPMKIT_STATIC_DEFINE)
+endif()
 
 # TPM2 TSS libraries stay PRIVATE implementation dependencies. Static-library
 # consumers may still see them as link-only requirements, but TSS headers do
@@ -220,10 +230,16 @@ target_include_directories(tpmkit_testing
 )
 target_link_libraries(tpmkit_testing
     PUBLIC
-        tpmkit
-    PRIVATE
-        TSS2::TCTILDR
+        Microsoft.GSL::GSL
+        tl::expected
 )
+set_target_properties(tpmkit_testing PROPERTIES
+    CXX_VISIBILITY_PRESET hidden
+    VISIBILITY_INLINES_HIDDEN ON
+)
+if(NOT BUILD_SHARED_LIBS)
+    target_compile_definitions(tpmkit_testing PUBLIC TPMKIT_STATIC_DEFINE)
+endif()
 
 if(TPMKIT_BUILD_DOCS)
     find_package(Doxygen REQUIRED)
@@ -403,6 +419,18 @@ if(tpmkit_BUILD_TESTS)
             -DTPMKIT_BINARY_ROOT=${CMAKE_CURRENT_BINARY_DIR}/cmake_smoke_downstream/on
             -DTPMKIT_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/cmake_smoke_downstream/install-on
             -DTPMKIT_INSTALL_TESTING=ON
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake_smoke_downstream/run.cmake
+    )
+
+    add_test(
+        NAME cmake_smoke_downstream_shared_install_without_testing
+        COMMAND
+            ${CMAKE_COMMAND}
+            -DTPMKIT_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
+            -DTPMKIT_BINARY_ROOT=${CMAKE_CURRENT_BINARY_DIR}/cmake_smoke_downstream/shared-off
+            -DTPMKIT_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/cmake_smoke_downstream/install-shared-off
+            -DTPMKIT_INSTALL_TESTING=OFF
+            -DTPMKIT_BUILD_SHARED_LIBS=ON
             -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake_smoke_downstream/run.cmake
     )
 endif()

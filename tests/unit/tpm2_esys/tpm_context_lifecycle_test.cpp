@@ -119,16 +119,28 @@ TEST(tpm_context_lifecycle, create_with_owned_tcti_clear_starts_and_finalizes)
 
 TEST(tpm_context_lifecycle, create_with_skip_does_not_transmit_startup)
 {
+    auto log = std::make_shared<tpmkit::testing::recording_logger>();
     tpmkit::testing::fake_tcti fake;
 
     {
-        auto result = tpmkit::tpm_context::create(owned_config(fake, startup_mode::skip));
+        auto result = tpmkit::tpm_context::create(owned_config(fake, startup_mode::skip, log));
 
         ASSERT_TRUE(result.has_value());
         EXPECT_EQ(fake.transmits_observed(), 0U);
     }
 
     EXPECT_EQ(fake.finalizes_observed(), 1U);
+
+    const auto records = log->snapshot();
+    bool found_completion = false;
+    for (const auto& record : records) {
+        if (std::string_view{record.message} == events::startup_completed &&
+            field_value(record, events::fields::result) == "skipped") {
+            found_completion = true;
+        }
+    }
+
+    EXPECT_TRUE(found_completion);
 }
 
 TEST(tpm_context_lifecycle, startup_initialize_response_is_success)
@@ -198,8 +210,7 @@ TEST(tpm_context_lifecycle, startup_failure_finalizes_tcti_before_returning_erro
     const auto result = tpmkit::tpm_context::create(owned_config(fake, startup_mode::clear));
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_TRUE(result.error().category == tpmkit::error_category::resource_error ||
-                result.error().category == tpmkit::error_category::backend_error);
+    EXPECT_EQ(result.error().category, tpmkit::error_category::resource_error);
     EXPECT_EQ(fake.finalizes_observed(), 1U);
 }
 

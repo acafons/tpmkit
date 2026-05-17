@@ -7,6 +7,7 @@
  * Declares the recording logger shipped by the `tpmkit_testing` target.
  */
 
+#include <tpmkit/api.h>
 #include <tpmkit/logger.h>
 
 #include <mutex>
@@ -55,7 +56,7 @@ struct log_record {
  * @see logger
  * @since v0.1
  */
-class recording_logger final : public logger {
+class TPMKIT_API recording_logger final : public logger {
 public:
     /**
      * @brief Remove every captured record.
@@ -75,10 +76,8 @@ public:
      * @thread_safety Thread-safe.
      * @exception_safety noexcept; allocation failures drop the record.
      */
-    void log(
-        log_level level,
-        std::string_view message,
-        gsl::span<const log_field> fields) noexcept final;
+    void log(log_level level, std::string_view message,
+             gsl::span<const log_field> fields) noexcept final;
 
     /**
      * @brief Return an isolated copy of the records captured so far.

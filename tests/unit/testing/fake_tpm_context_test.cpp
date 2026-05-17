@@ -66,6 +66,26 @@ TEST(fake_tpm_context, successful_context_exposes_last_config_for_introspection)
               "mssim:host=localhost,port=2321");
 }
 
+template <class Context> void assert_context_shape(Context& context)
+{
+    static_cast<void>(context.esys_handle());
+}
+
+TEST(fake_tpm_context, mirrors_real_context_esys_handle_shape)
+{
+    tpmkit::tpm_context_config config;
+    config.tcti = tpmkit::tcti_string_config{"mssim:host=localhost,port=2321"};
+    config.startup = startup_mode::skip;
+
+    tpmkit::outcome<tpmkit::testing::fake_tpm_context> created =
+        tpmkit::testing::fake_tpm_context::create(std::move(config));
+
+    ASSERT_TRUE(created.has_value());
+    tpmkit::testing::fake_tpm_context context = std::move(created).value();
+    assert_context_shape(context);
+    EXPECT_EQ(context.esys_handle(), nullptr);
+}
+
 TEST(fake_tpm_context, is_move_only)
 {
     static_assert(std::is_move_constructible<tpmkit::testing::fake_tpm_context>::value,

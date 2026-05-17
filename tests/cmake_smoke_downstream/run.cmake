@@ -14,8 +14,13 @@ if(NOT DEFINED TPMKIT_INSTALL_TESTING)
     message(FATAL_ERROR "TPMKIT_INSTALL_TESTING is required")
 endif()
 
+if(NOT DEFINED TPMKIT_BUILD_SHARED_LIBS)
+    set(TPMKIT_BUILD_SHARED_LIBS OFF)
+endif()
+
 set(tpmkit_build_dir "${TPMKIT_BINARY_ROOT}/tpmkit-build")
 set(downstream_build_dir "${TPMKIT_BINARY_ROOT}/downstream-build")
+set(testing_only_build_dir "${TPMKIT_BINARY_ROOT}/downstream-testing-only-build")
 set(testing_failure_build_dir "${TPMKIT_BINARY_ROOT}/downstream-testing-required-build")
 set(tpmkit_config_dir "${TPMKIT_INSTALL_PREFIX}/lib/cmake/tpmkit")
 
@@ -30,6 +35,7 @@ execute_process(
         -S "${TPMKIT_SOURCE_DIR}"
         -B "${tpmkit_build_dir}"
         -DCMAKE_BUILD_TYPE=Debug
+        -DBUILD_SHARED_LIBS=${TPMKIT_BUILD_SHARED_LIBS}
         -Dtpmkit_BUILD_TESTS=OFF
         -DTPMKIT_INSTALL_TESTING=${TPMKIT_INSTALL_TESTING}
     RESULT_VARIABLE result
@@ -103,6 +109,38 @@ execute_process(
 )
 if(NOT result EQUAL 0)
     message(FATAL_ERROR "Running downstream smoke project failed")
+endif()
+
+if(TPMKIT_INSTALL_TESTING)
+    execute_process(
+        COMMAND
+            "${CMAKE_COMMAND}"
+            -S "${TPMKIT_SOURCE_DIR}/tests/cmake_smoke_downstream"
+            -B "${testing_only_build_dir}"
+            -DTPMKIT_SMOKE_PACKAGE_PATH=${tpmkit_config_dir}
+            -DTPMKIT_SMOKE_TESTING_ONLY=ON
+            -DTPMKIT_SMOKE_REQUIRE_TESTING=ON
+        RESULT_VARIABLE result
+    )
+    if(NOT result EQUAL 0)
+        message(FATAL_ERROR "Configuring testing-only downstream smoke project failed")
+    endif()
+
+    execute_process(
+        COMMAND "${CMAKE_COMMAND}" --build "${testing_only_build_dir}" --parallel 2
+        RESULT_VARIABLE result
+    )
+    if(NOT result EQUAL 0)
+        message(FATAL_ERROR "Building testing-only downstream smoke project failed")
+    endif()
+
+    execute_process(
+        COMMAND "${CMAKE_CTEST_COMMAND}" --test-dir "${testing_only_build_dir}" --output-on-failure
+        RESULT_VARIABLE result
+    )
+    if(NOT result EQUAL 0)
+        message(FATAL_ERROR "Running testing-only downstream smoke project failed")
+    endif()
 endif()
 
 if(NOT TPMKIT_INSTALL_TESTING)

@@ -35,7 +35,7 @@ namespace tpmkit::testing {
  * @see tpmkit::tpm_context
  * @since v0.1
  */
-class fake_tpm_context final {
+class TPMKIT_API fake_tpm_context final {
 public:
     /**
      * @brief Destroy the fake context.
@@ -104,6 +104,15 @@ public:
      * @exception_safety noexcept.
      */
     [[nodiscard]] const tpm_context_config& last_config() const noexcept;
+
+    /**
+     * @brief Return the fake backend handle.
+     *
+     * @return Always nullptr because this fake does not initialize ESYS.
+     * @thread_safety Thread-compatible.
+     * @exception_safety noexcept.
+     */
+    [[nodiscard]] void* esys_handle() const noexcept;
 
 private:
     explicit fake_tpm_context(tpm_context_config config) noexcept;

@@ -8,6 +8,7 @@
  * carrier used to select a TCTI source and startup behavior.
  */
 
+#include <tpmkit/api.h>
 #include <tpmkit/logger.h>
 #include <tpmkit/result.h>
 
@@ -115,7 +116,7 @@ struct tpm_context_config {
  * strong guarantee on failure.
  * @since v0.1
  */
-class tpm_context final {
+class TPMKIT_API tpm_context final {
 public:
     /**
      * @brief Destroy the TPM context and release backend resources.

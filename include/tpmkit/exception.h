@@ -8,6 +8,8 @@
  * reserved for programmer errors, allocation failure, and contract violations.
  */
 
+#include <tpmkit/api.h>
+
 #include <stdexcept>
 #include <string>
 
@@ -26,7 +28,7 @@ namespace tpmkit {
  * noexcept.
  * @since v0.1
  */
-class tpmkit_error : public std::runtime_error {
+class TPMKIT_API tpmkit_error : public std::runtime_error {
 public:
     /**
      * @brief Construct an exception with a string message.
@@ -38,10 +40,7 @@ public:
      * @thread_safety Thread-safe for construction of independent objects.
      * @exception_safety Strong; failure to construct has no side effects.
      */
-    explicit tpmkit_error(const std::string& message)
-        : std::runtime_error(message)
-    {
-    }
+    explicit tpmkit_error(const std::string& message) : std::runtime_error(message) {}
 
     /**
      * @brief Construct an exception with a C string message.
@@ -53,10 +52,7 @@ public:
      * @thread_safety Thread-safe for construction of independent objects.
      * @exception_safety Strong; failure to construct has no side effects.
      */
-    explicit tpmkit_error(const char* message)
-        : std::runtime_error(message)
-    {
-    }
+    explicit tpmkit_error(const char* message) : std::runtime_error(message) {}
 };
 
 } // namespace tpmkit
