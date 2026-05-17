@@ -274,11 +274,11 @@ private:
         ++finalizes_observed_;
     }
 
+    std::size_t finalizes_observed_{0U};
     mutable std::mutex mu_;
     std::deque<queued_result> queue_;
     fake_tcti_storage storage_;
     std::size_t transmits_observed_{0U};
-    std::size_t finalizes_observed_{0U};
 };
 
 fake_tcti::fake_tcti() : impl_{std::make_unique<impl>()} {}

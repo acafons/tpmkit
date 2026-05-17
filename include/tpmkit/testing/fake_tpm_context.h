@@ -9,6 +9,7 @@
  * introspection.
  */
 
+#include <tpmkit/testing/testing_api.h>
 #include <tpmkit/tpm_context.h>
 
 /**
@@ -35,7 +36,7 @@ namespace tpmkit::testing {
  * @see tpmkit::tpm_context
  * @since v0.1
  */
-class TPMKIT_API fake_tpm_context final {
+class TPMKIT_TESTING_API fake_tpm_context final {
 public:
     /**
      * @brief Destroy the fake context.

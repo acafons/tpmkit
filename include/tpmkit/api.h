@@ -8,7 +8,7 @@
 #if defined(TPMKIT_STATIC_DEFINE)
 #define TPMKIT_API
 #elif defined(_WIN32)
-#if defined(tpmkit_EXPORTS) || defined(tpmkit_testing_EXPORTS)
+#if defined(tpmkit_EXPORTS)
 #define TPMKIT_API __declspec(dllexport)
 #else
 #define TPMKIT_API __declspec(dllimport)

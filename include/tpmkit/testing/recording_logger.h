@@ -7,8 +7,8 @@
  * Declares the recording logger shipped by the `tpmkit_testing` target.
  */
 
-#include <tpmkit/api.h>
 #include <tpmkit/logger.h>
+#include <tpmkit/testing/testing_api.h>
 
 #include <mutex>
 #include <string>
@@ -56,7 +56,7 @@ struct log_record {
  * @see logger
  * @since v0.1
  */
-class TPMKIT_API recording_logger final : public logger {
+class TPMKIT_TESTING_API recording_logger final : public logger {
 public:
     /**
      * @brief Remove every captured record.

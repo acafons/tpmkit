@@ -89,6 +89,9 @@ TEST(tpm_context_swtpm, invalid_device_tcti_returns_domain_error)
         string_config("device:/dev/nonexistent", tpmkit::tpm_context_config::startup_mode::skip));
 
     ASSERT_FALSE(result.has_value());
+    // resource_error / backend_error when the device TCTI module is installed but the
+    // path does not exist; input_error when the device TCTI module is absent entirely.
     EXPECT_TRUE(result.error().category == tpmkit::error_category::resource_error ||
-                result.error().category == tpmkit::error_category::backend_error);
+                result.error().category == tpmkit::error_category::backend_error ||
+                result.error().category == tpmkit::error_category::input_error);
 }

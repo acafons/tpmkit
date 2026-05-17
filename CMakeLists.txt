@@ -218,6 +218,7 @@ target_sources(tpmkit_testing
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/tpmkit/testing/fake_tcti.h>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/tpmkit/testing/fake_tpm_context.h>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/tpmkit/testing/recording_logger.h>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/tpmkit/testing/testing_api.h>
     PRIVATE
         src/adapters/mock/fake_tcti.cpp
         src/adapters/mock/fake_tpm_context.cpp

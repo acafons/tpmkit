@@ -34,6 +34,8 @@ public:
     [[nodiscard]] ESYS_CONTEXT* esys() const noexcept;
 
 private:
+    // Non-alphabetical order is intentional: C++ destroys in reverse declaration
+    // order, so esys_ is finalised before tcti_ — matching the TSS teardown contract.
     detail::esys::unique_tcti_ptr tcti_;
     detail::esys::unique_esys_ptr esys_;
     std::shared_ptr<logger> log_;

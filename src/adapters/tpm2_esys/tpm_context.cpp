@@ -132,6 +132,7 @@ void log_tcti_event(logger* const log, const std::string_view event, const std::
     case tpm_context_config::startup_mode::state:
         return TPM2_SU_STATE;
     case tpm_context_config::startup_mode::skip:
+        // Unreachable: start_tpm() returns early for skip before calling this function.
         return TPM2_SU_CLEAR;
     }
 
