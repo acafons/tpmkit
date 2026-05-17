@@ -70,6 +70,10 @@ packages/
 
 # test output & cache
 Testing/
+!include/tpmkit/testing/
+!include/tpmkit/testing/**
+!tests/unit/testing/
+!tests/unit/testing/**
 .cache/
 
 # macOS

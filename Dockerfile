@@ -19,6 +19,7 @@ RUN apt-get update && apt-get install -y \
     automake \
     libarchive-dev \
     build-essential \
+    clang-format \
     g++ \
     gcc \
     git \

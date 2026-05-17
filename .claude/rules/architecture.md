@@ -26,7 +26,12 @@ src/adapters/tpm2_fapi/   FAPI adapter
 src/adapters/tpm2_esys/   ESYS adapter
 src/adapters/mock/        in-memory adapter for tests
 src/composition/          factories that pick and wire adapters
-tests/                    unit tests against the domain with mock adapters
+tests/unit/public_api/    installed API behavior and public-header smoke tests
+tests/unit/domain/        unit tests against the domain with mock adapters
+tests/unit/testing/       public test-helper tests
+tests/unit/testing/<adapter>/  adapter-shaped public test-helper tests
+tests/unit/<adapter>/          isolated adapter unit tests with no live backend
+tests/integration/<adapter>/   real adapter tests against the backend
 ```
 
 ## How to implement a port
@@ -65,6 +70,9 @@ For the full walkthrough — file paths, CMake wiring, the per-adapter list, and
 
 ## Testing implications
 
+- Public API tests live under `tests/unit/public_api/` and cover installed headers, value types, configuration objects, and public API contracts.
 - Domain tests use mock adapters and run with no third-party dependencies linked.
+- Public testing-helper tests live under `tests/unit/testing/`; helper tests tied to an adapter or third-party ABI live under `tests/unit/testing/<adapter>/`.
+- Adapter-internal unit tests live under `tests/unit/<adapter>/` and may compile against backend SDK headers or constants, but they do not open real backend resources.
 - Each adapter has its own integration tests that exercise the real third-party library.
 - The mock adapter for a given port lives next to the real adapters under `src/adapters/mock/` so the contract is tested uniformly.

@@ -1,3 +1,4 @@
+#include <tpmkit/testing/fake_tcti.h>
 #include <tpmkit/testing/fake_tpm_context.h>
 
 #include <gtest/gtest.h>
@@ -17,6 +18,22 @@ TEST(fake_tpm_context, default_config_with_empty_tcti_string_returns_input_error
 
     ASSERT_FALSE(created.has_value());
     EXPECT_EQ(created.error().category, tpmkit::error_category::input_error);
+}
+
+TEST(fake_tpm_context, malformed_string_configs_return_input_error)
+{
+    const char* const values[]{" \t\n ", "swtpm", " mssim:host=localhost", ":socket=/tmp/tpm"};
+
+    for (const char* const value : values) {
+        tpmkit::tpm_context_config config;
+        config.tcti = tpmkit::tcti_string_config{value};
+
+        const tpmkit::outcome<tpmkit::testing::fake_tpm_context> created =
+            tpmkit::testing::fake_tpm_context::create(std::move(config));
+
+        ASSERT_FALSE(created.has_value()) << value;
+        EXPECT_EQ(created.error().category, tpmkit::error_category::input_error) << value;
+    }
 }
 
 TEST(fake_tpm_context, valid_string_config_returns_success)
@@ -45,25 +62,20 @@ TEST(fake_tpm_context, successful_context_exposes_last_config_for_introspection)
     const tpmkit::testing::fake_tpm_context context = std::move(created).value();
     EXPECT_EQ(context.last_config().startup, startup_mode::skip);
     ASSERT_TRUE(std::holds_alternative<tpmkit::tcti_string_config>(context.last_config().tcti));
-    EXPECT_EQ(
-        std::get<tpmkit::tcti_string_config>(context.last_config().tcti).config,
-        "mssim:host=localhost,port=2321");
+    EXPECT_EQ(std::get<tpmkit::tcti_string_config>(context.last_config().tcti).config,
+              "mssim:host=localhost,port=2321");
 }
 
 TEST(fake_tpm_context, is_move_only)
 {
-    static_assert(
-        std::is_move_constructible<tpmkit::testing::fake_tpm_context>::value,
-        "fake_tpm_context must be move constructible");
-    static_assert(
-        std::is_move_assignable<tpmkit::testing::fake_tpm_context>::value,
-        "fake_tpm_context must be move assignable");
-    static_assert(
-        !std::is_copy_constructible<tpmkit::testing::fake_tpm_context>::value,
-        "fake_tpm_context must not be copy constructible");
-    static_assert(
-        !std::is_copy_assignable<tpmkit::testing::fake_tpm_context>::value,
-        "fake_tpm_context must not be copy assignable");
+    static_assert(std::is_move_constructible<tpmkit::testing::fake_tpm_context>::value,
+                  "fake_tpm_context must be move constructible");
+    static_assert(std::is_move_assignable<tpmkit::testing::fake_tpm_context>::value,
+                  "fake_tpm_context must be move assignable");
+    static_assert(!std::is_copy_constructible<tpmkit::testing::fake_tpm_context>::value,
+                  "fake_tpm_context must not be copy constructible");
+    static_assert(!std::is_copy_assignable<tpmkit::testing::fake_tpm_context>::value,
+                  "fake_tpm_context must not be copy assignable");
 
     EXPECT_TRUE(std::is_move_constructible<tpmkit::testing::fake_tpm_context>::value);
     EXPECT_TRUE(std::is_move_assignable<tpmkit::testing::fake_tpm_context>::value);
@@ -86,9 +98,8 @@ TEST(fake_tpm_context, move_construction_preserves_moved_to_introspection)
 
     EXPECT_EQ(moved.last_config().startup, startup_mode::state);
     ASSERT_TRUE(std::holds_alternative<tpmkit::tcti_string_config>(moved.last_config().tcti));
-    EXPECT_EQ(
-        std::get<tpmkit::tcti_string_config>(moved.last_config().tcti).config,
-        "mssim:host=localhost,port=2321");
+    EXPECT_EQ(std::get<tpmkit::tcti_string_config>(moved.last_config().tcti).config,
+              "mssim:host=localhost,port=2321");
     EXPECT_NO_THROW((void)original.last_config());
 }
 
@@ -103,6 +114,21 @@ TEST(fake_tpm_context, null_owned_handle_returns_input_error)
 
     ASSERT_FALSE(created.has_value());
     EXPECT_EQ(created.error().category, tpmkit::error_category::input_error);
+}
+
+TEST(fake_tpm_context, null_owned_handle_deleter_returns_input_error)
+{
+    tpmkit::testing::fake_tcti fake;
+    tpmkit::tpm_context_config config;
+    config.tcti = tpmkit::tcti_owned_handle{
+        std::unique_ptr<TSS2_TCTI_CONTEXT, void (*)(TSS2_TCTI_CONTEXT*)>(fake.handle(), nullptr)};
+
+    const tpmkit::outcome<tpmkit::testing::fake_tpm_context> created =
+        tpmkit::testing::fake_tpm_context::create(std::move(config));
+
+    ASSERT_FALSE(created.has_value());
+    EXPECT_EQ(created.error().category, tpmkit::error_category::input_error);
+    EXPECT_EQ(fake.finalizes_observed(), 0U);
 }
 
 } // namespace

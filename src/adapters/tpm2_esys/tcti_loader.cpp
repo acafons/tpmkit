@@ -96,8 +96,9 @@ outcome<unique_tcti_ptr> load_tcti(const tcti_string_config& config, logger* con
     const TSS2_RC info_rc = Tss2_TctiLdr_GetInfo(name.c_str(), &info);
     free_tcti_info(info);
     if (info_rc != TSS2_RC_SUCCESS) {
-        auto translated = translate_tss_rc(info_rc, "tcti_info", log);
-        return tl::unexpected(translated.error());
+        auto translated = translate_tss_rc(info_rc, "tcti_init", log);
+        static_cast<void>(translated);
+        return tl::unexpected(error{error_category::input_error, "Unknown TCTI name"});
     }
 
     TSS2_TCTI_CONTEXT* raw_context = nullptr;

@@ -46,6 +46,12 @@ option(TPMKIT_COVERAGE "Enable coverage instrumentation for Debug builds." OFF)
 option(TPMKIT_BUILD_DOCS "Build API reference documentation with Doxygen." OFF)
 option(TPMKIT_INSTALL_TESTING "Install the tpmkit_testing target export for downstream test utilities." OFF)
 
+set(tpmkit_BUILD_EXAMPLES_DEFAULT ON)
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    set(tpmkit_BUILD_EXAMPLES_DEFAULT OFF)
+endif()
+option(TPMKIT_BUILD_EXAMPLES "Build tpmkit example programs." "${tpmkit_BUILD_EXAMPLES_DEFAULT}")
+
 if(tpmkit_USE_TSAN AND (tpmkit_USE_ASAN OR tpmkit_USE_UBSAN))
     message(FATAL_ERROR "tpmkit_USE_TSAN is mutually exclusive with tpmkit_USE_ASAN and tpmkit_USE_UBSAN.")
 endif()
@@ -129,7 +135,25 @@ if(NOT TARGET tl::expected)
     add_library(tl::expected ALIAS tl_expected_headers)
 endif()
 find_path(TSS2_TCTILDR_INCLUDE_DIR NAMES tss2/tss2_tctildr.h REQUIRED)
+find_path(TSS2_ESYS_INCLUDE_DIR NAMES tss2/tss2_esys.h REQUIRED)
 find_library(TSS2_TCTILDR_LIBRARY NAMES tss2-tctildr REQUIRED)
+find_library(TSS2_ESYS_LIBRARY NAMES tss2-esys REQUIRED)
+
+if(NOT TARGET TSS2::TCTILDR)
+    add_library(TSS2::TCTILDR UNKNOWN IMPORTED)
+    set_target_properties(TSS2::TCTILDR PROPERTIES
+        IMPORTED_LOCATION "${TSS2_TCTILDR_LIBRARY}"
+        INTERFACE_INCLUDE_DIRECTORIES "${TSS2_TCTILDR_INCLUDE_DIR}"
+    )
+endif()
+
+if(NOT TARGET TSS2::ESYS)
+    add_library(TSS2::ESYS UNKNOWN IMPORTED)
+    set_target_properties(TSS2::ESYS PROPERTIES
+        IMPORTED_LOCATION "${TSS2_ESYS_LIBRARY}"
+        INTERFACE_INCLUDE_DIRECTORIES "${TSS2_ESYS_INCLUDE_DIR}"
+    )
+endif()
 
 set(tpmkit_placeholder_source "${CMAKE_CURRENT_BINARY_DIR}/generated/tpmkit_empty.cpp")
 file(WRITE "${tpmkit_placeholder_source}" "")
@@ -152,30 +176,29 @@ target_sources(tpmkit
     PRIVATE
         src/adapters/tpm2_esys/error_translation.cpp
         src/adapters/tpm2_esys/error_translation.h
+        src/adapters/tpm2_esys/impl.h
         src/adapters/tpm2_esys/log_events.h
         src/adapters/tpm2_esys/tcti_loader.cpp
         src/adapters/tpm2_esys/tcti_loader.h
+        src/adapters/tpm2_esys/tpm_context.cpp
 )
 target_include_directories(tpmkit
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-    PRIVATE
-        "${TSS2_TCTILDR_INCLUDE_DIR}"
 )
 target_link_libraries(tpmkit
     PUBLIC
         Microsoft.GSL::GSL
         tl::expected
     PRIVATE
-        "${TSS2_TCTILDR_LIBRARY}"
-)
-set_target_properties(tpmkit PROPERTIES
-    INTERFACE_LINK_LIBRARIES "Microsoft.GSL::GSL;tl::expected"
+        TSS2::ESYS
+        TSS2::TCTILDR
 )
 
-# TPM2 TSS libraries stay PRIVATE on the adapter tasks that use them. Task 03
-# intentionally leaves those dependencies unwired so they cannot leak to users.
+# TPM2 TSS libraries stay PRIVATE implementation dependencies. Static-library
+# consumers may still see them as link-only requirements, but TSS headers do
+# not become part of the public include surface.
 
 add_library(tpmkit_testing "${tpmkit_testing_placeholder_source}")
 add_library(tpmkit::tpmkit_testing ALIAS tpmkit_testing)
@@ -194,12 +217,12 @@ target_include_directories(tpmkit_testing
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-    PRIVATE
-        "${TSS2_TCTILDR_INCLUDE_DIR}"
 )
 target_link_libraries(tpmkit_testing
     PUBLIC
         tpmkit
+    PRIVATE
+        TSS2::TCTILDR
 )
 
 if(TPMKIT_BUILD_DOCS)
@@ -256,6 +279,10 @@ if(TPMKIT_BUILD_DOCS)
         WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
         COMMENT "Generate tpmkit API reference"
     )
+endif()
+
+if(TPMKIT_BUILD_EXAMPLES)
+    add_subdirectory(examples)
 endif()
 
 install(TARGETS tpmkit
@@ -316,7 +343,6 @@ if(tpmkit_BUILD_TESTS)
     enable_testing()
 
     find_package(GTest CONFIG REQUIRED)
-    find_library(TSS2_ESYS_LIBRARY NAMES tss2-esys REQUIRED)
     include(GoogleTest)
 
     add_executable(tpmkit_foundational_tests
@@ -324,20 +350,22 @@ if(tpmkit_BUILD_TESTS)
         tests/integration/foundational_headers_smoke.cpp
         tests/integration/fake_tpm_context_header_self_contained.cpp
         tests/integration/recording_logger_header_self_contained.cpp
+        tests/integration/tpm2_esys/tpm_context_swtpm_test.cpp
         tests/integration/tpm2_esys/tcti_loader_deferred_test.cpp
         tests/integration/tpm_context_header_self_contained.cpp
-        tests/unit/exception_header_smoke.cpp
-        tests/unit/fake_tcti_test.cpp
-        tests/unit/fake_tpm_context_test.cpp
-        tests/unit/foundational_types_test.cpp
-        tests/unit/logger_header_smoke.cpp
-        tests/unit/log_events_test.cpp
-        tests/unit/noop_logger_header_smoke.cpp
-        tests/unit/result_header_smoke.cpp
-        tests/unit/error_translation_test.cpp
-        tests/unit/tpm_context_config_test.cpp
-        tests/unit/tpm_context_header_smoke.cpp
-        tests/unit/tcti_loader_test.cpp
+        tests/unit/public_api/exception_header_smoke.cpp
+        tests/unit/public_api/foundational_types_test.cpp
+        tests/unit/public_api/logger_header_smoke.cpp
+        tests/unit/public_api/noop_logger_header_smoke.cpp
+        tests/unit/public_api/result_header_smoke.cpp
+        tests/unit/public_api/tpm_context_config_test.cpp
+        tests/unit/public_api/tpm_context_header_smoke.cpp
+        tests/unit/testing/fake_tpm_context_test.cpp
+        tests/unit/testing/tpm2_esys/fake_tcti_test.cpp
+        tests/unit/tpm2_esys/error_translation_test.cpp
+        tests/unit/tpm2_esys/log_events_test.cpp
+        tests/unit/tpm2_esys/tpm_context_lifecycle_test.cpp
+        tests/unit/tpm2_esys/tcti_loader_test.cpp
     )
     target_include_directories(tpmkit_foundational_tests
         PRIVATE
@@ -348,8 +376,8 @@ if(tpmkit_BUILD_TESTS)
             GTest::gtest_main
             tpmkit::tpmkit
             tpmkit::tpmkit_testing
-            "${TSS2_ESYS_LIBRARY}"
-            "${TSS2_TCTILDR_LIBRARY}"
+            TSS2::ESYS
+            TSS2::TCTILDR
     )
 
     gtest_discover_tests(tpmkit_foundational_tests

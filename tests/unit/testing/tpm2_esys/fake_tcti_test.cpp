@@ -32,12 +32,11 @@ TSS2_RC get_poll_handles(tpmkit::testing::fake_tcti& fake, std::size_t& poll_han
     return common(fake.handle())->getPollHandles(fake.handle(), nullptr, &poll_handle_count);
 }
 
-TSS2_RC receive(
-    tpmkit::testing::fake_tcti& fake,
-    std::size_t& response_size,
-    std::uint8_t* const response)
+TSS2_RC receive(tpmkit::testing::fake_tcti& fake, std::size_t& response_size,
+                std::uint8_t* const response)
 {
-    return common(fake.handle())->receive(fake.handle(), &response_size, response, TSS2_TCTI_TIMEOUT_NONE);
+    return common(fake.handle())
+        ->receive(fake.handle(), &response_size, response, TSS2_TCTI_TIMEOUT_NONE);
 }
 
 TSS2_RC set_locality(tpmkit::testing::fake_tcti& fake)
@@ -126,6 +125,15 @@ TEST(fake_tcti, transmits_observed_counts_transmit_calls)
     EXPECT_EQ(fake.transmits_observed(), 2U);
 }
 
+TEST(fake_tcti, finalizes_observed_counts_finalize_callbacks)
+{
+    tpmkit::testing::fake_tcti fake;
+
+    common(fake.handle())->finalize(fake.handle());
+
+    EXPECT_EQ(fake.finalizes_observed(), 1U);
+}
+
 TEST(fake_tcti, pushed_failure_is_returned_by_receive_after_transmit)
 {
     tpmkit::testing::fake_tcti fake;
@@ -140,10 +148,14 @@ TEST(fake_tcti, pushed_failure_is_returned_by_receive_after_transmit)
 
 TEST(fake_tcti, move_transfers_a_usable_handle_to_the_new_owner)
 {
-    static_assert(std::is_move_constructible<tpmkit::testing::fake_tcti>::value, "fake_tcti must be move constructible");
-    static_assert(std::is_move_assignable<tpmkit::testing::fake_tcti>::value, "fake_tcti must be move assignable");
-    static_assert(!std::is_copy_constructible<tpmkit::testing::fake_tcti>::value, "fake_tcti must not be copy constructible");
-    static_assert(!std::is_copy_assignable<tpmkit::testing::fake_tcti>::value, "fake_tcti must not be copy assignable");
+    static_assert(std::is_move_constructible<tpmkit::testing::fake_tcti>::value,
+                  "fake_tcti must be move constructible");
+    static_assert(std::is_move_assignable<tpmkit::testing::fake_tcti>::value,
+                  "fake_tcti must be move assignable");
+    static_assert(!std::is_copy_constructible<tpmkit::testing::fake_tcti>::value,
+                  "fake_tcti must not be copy constructible");
+    static_assert(!std::is_copy_assignable<tpmkit::testing::fake_tcti>::value,
+                  "fake_tcti must not be copy assignable");
 
     tpmkit::testing::fake_tcti fake;
     fake.push_response({0x01U});

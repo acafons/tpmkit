@@ -12,7 +12,7 @@ The hexagonal architecture in `.claude/rules/architecture.md` only pays off if t
 Apply this skill in order when writing or modifying a test:
 
 1. **Classify the test tier.** Pick exactly one from the layout below:
-   * **Unit** (`tests/unit/`) — domain through ports against mock adapters; no third-party libraries linked.
+   * **Unit** (`tests/unit/`) — public API behavior, pure domain behavior, public testing helpers, or adapter-internal logic isolated from live backends. Domain unit tests link no third-party libraries; adapter and adapter-shaped testing-helper unit tests may include/link backend SDK headers or constants but must not call a live backend, simulator, filesystem, or network.
    * **Integration** (`tests/integration/<backend>/`) — a specific adapter against the real backend (OpenSSL, FAPI, ESYS, swtpm). Hardware-only cases live here, gated by a `Hardware*` tag.
    * **Contract** (`tests/contract/`) — one parameterized suite per port, instantiated against every adapter (mock, real, fallback). Includes the secret-leak sweep.
    * **Property** (`tests/property/`) — round-trips and invariants over generated inputs (rapidcheck).
@@ -40,10 +40,12 @@ Apply this skill in order when writing or modifying a test:
 ## Test layout
 
 ```
+tests/unit/public_api/         installed API behavior and public-header smoke tests
 tests/unit/domain/             domain tests, mock adapters only
-tests/integration/openssl/     real OpenSSL adapter
-tests/integration/tpm2_fapi/   real FAPI adapter (swtpm by default; Hardware*-tagged subset)
-tests/integration/tpm2_esys/   real ESYS adapter (swtpm by default; Hardware*-tagged subset)
+tests/unit/testing/            backend-neutral public test-helper tests
+tests/unit/testing/<adapter>/  adapter-shaped public test-helper tests; no live backend
+tests/unit/<adapter>/          isolated adapter-internal unit tests; no live backend
+tests/integration/<adapter>/   real adapter tests (swtpm/hardware/backend as needed)
 tests/contract/                shared suite run against every adapter for each port
 tests/property/                property-based tests for domain primitives
 tests/fuzz/                    libFuzzer harnesses
@@ -55,7 +57,10 @@ bench/                         Google Benchmark suites (see performance.md)
 
 ## What gets tested where
 
+- **Public API unit tests** — installed headers, value types, configuration objects, and public API contracts. Header smoke tests live here when they compile public headers directly.
 - **Domain unit tests** — every domain function and use case, exercised through ports against mock adapters. No third-party library linked. Full suite runs in under a second.
+- **Testing-helper unit tests** — public `tpmkit::testing::*` helpers. Backend-neutral helpers live under `tests/unit/testing/`; helpers shaped around an adapter or third-party ABI live under `tests/unit/testing/<adapter>/` (for example `tests/unit/testing/tpm2_esys/`).
+- **Adapter-internal unit tests** — pure translation, validation, schema, and ABI-shim logic for a specific adapter. Place these under `tests/unit/<adapter>/` (for example `tests/unit/tpm2_esys/`). They may compile against the backend SDK when needed for constants or function signatures, but they do not open real backend resources; anything that needs swtpm, hardware, or a real library call belongs in the integration tier.
 - **Adapter integration tests** — verify each adapter satisfies its port using the real backend. Skipped only when the backend is unavailable on the platform.
 - **Contract tests** — one shared suite per port, run against every adapter (mock, real, software fallback) to catch divergence between mock and real behavior. Implement with GoogleTest parameterized tests (`TEST_P` + `INSTANTIATE_TEST_SUITE_P`), one instantiation per adapter — never copy-paste the suite per backend. The **secret-leak sweep** lives here.
 - **Property-based tests** — applied to round-trips (encode/decode, sign/verify, encrypt/decrypt). Generators must reach edge cases (empty, max-size, boundary values).
@@ -88,7 +93,7 @@ Unit tests (`tests/unit/`, `tests/contract/` against mock adapters):
 
 - Use **GoogleTest + GMock**. Mock every collaborator that is not the system under test, including ports — that is what the mock adapters under `src/adapters/mock/` are for.
 - Intercept calls in mocks to validate the **arguments** passed, not just the call count. Use `EXPECT_CALL(...).With(...)` matchers, or capture with `SaveArg`/`SaveArgPointee`, wherever the contract specifies what should be sent.
-- All external dependencies are mocked. No network, no filesystem, no real OpenSSL/TSS calls — those belong in the integration tier.
+- All external dependencies are mocked. No network, no filesystem, no real OpenSSL/TSS calls — those belong in the integration tier. Adapter-internal and adapter-shaped testing-helper unit tests may include third-party headers or link SDK libraries only to compile constants, types, or ABI-compatible fake handles; they must not exercise a live backend.
 - Mocking presupposes runtime polymorphism. GMock can only mock virtual methods (option 1 in `architecture.md`). Ports that need test-time substitution must use option 1; compile-time ports (option 2) and build-time-selected backends (option 3) are not GMock-compatible — they require hand-written stubs satisfying the concept, or a separate test build that links the test stub instead of the real adapter, respectively.
 - Default to `StrictMock<T>` for ports — an unexpected call is a contract violation and the test should fail. Use `NiceMock<T>` only with a written rationale (e.g., a `logger` port whose calls are deliberately ignored). Plain `Mock<T>` (warnings on unexpected calls) is never the right default.
 - Contract violations in this library throw (see `error-handling.md`); test them with `EXPECT_THROW`/`ASSERT_THROW`, not `EXPECT_DEATH`. Death tests apply only to debug-build `assert` failures and are not required for release behavior.

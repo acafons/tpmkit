@@ -1,5 +1,7 @@
 #include "src/adapters/tpm2_esys/tcti_loader.h"
 
+#include "src/adapters/tpm2_esys/log_events.h"
+
 #include <tpmkit/logger.h>
 
 #include <gtest/gtest.h>
@@ -19,10 +21,8 @@ struct log_record {
 
 class recording_logger final : public tpmkit::logger {
 public:
-    void log(
-        const tpmkit::log_level level,
-        const std::string_view message,
-        const gsl::span<const tpmkit::log_field> fields) noexcept final
+    void log(const tpmkit::log_level level, const std::string_view message,
+             const gsl::span<const tpmkit::log_field> fields) noexcept final
     {
         std::vector<std::pair<std::string, std::string>> copied_fields;
         copied_fields.reserve(fields.size());
@@ -74,6 +74,16 @@ TEST(tcti_loader, rejects_missing_colon_shape_before_adapter_boundary_log)
     EXPECT_TRUE(log.records.empty());
 }
 
+TEST(tcti_loader, rejects_missing_name_before_colon)
+{
+    const tpmkit::tcti_string_config config{":socket=/tmp/tpm.sock"};
+
+    const auto result = tpmkit::detail::esys::load_tcti(config, nullptr);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().category, tpmkit::error_category::input_error);
+}
+
 TEST(tcti_loader, does_not_log_client_side_validation_failures)
 {
     recording_logger log;
@@ -86,7 +96,7 @@ TEST(tcti_loader, does_not_log_client_side_validation_failures)
     EXPECT_TRUE(log.records.empty());
 }
 
-TEST(tcti_loader, logs_tss_failure_without_returning_tss_code)
+TEST(tcti_loader, unknown_tcti_name_returns_input_error_without_tss_code)
 {
     recording_logger log;
     const tpmkit::tcti_string_config config{"not_a_real_tcti:config"};
@@ -94,12 +104,16 @@ TEST(tcti_loader, logs_tss_failure_without_returning_tss_code)
     const auto result = tpmkit::detail::esys::load_tcti(config, &log);
 
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().category, tpmkit::error_category::backend_error);
+    EXPECT_EQ(result.error().category, tpmkit::error_category::input_error);
     EXPECT_FALSE(contains_numeric_tss_code(result.error().message));
     ASSERT_EQ(log.records.size(), 1U);
     EXPECT_EQ(log.records.front().level, tpmkit::log_level::error);
     EXPECT_EQ(log.records.front().message, "tpm.context.tss_error");
     EXPECT_EQ(log.records.front().fields.size(), 3U);
+    ASSERT_FALSE(log.records.front().fields.empty());
+    EXPECT_EQ(log.records.front().fields.front().first,
+              std::string{tpmkit::detail::esys::events::fields::operation});
+    EXPECT_EQ(log.records.front().fields.front().second, "tcti_init");
 }
 
 } // namespace

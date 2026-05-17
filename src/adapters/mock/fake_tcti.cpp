@@ -34,12 +34,10 @@ struct fake_tcti_storage {
     void* owner;
 };
 
-static_assert(
-    offsetof(fake_tcti_storage, common) == 0U,
-    "fake_tcti_storage must begin with TSS2_TCTI_CONTEXT_COMMON_V1");
-static_assert(
-    offsetof(TSS2_TCTI_CONTEXT_COMMON_V1, magic) == 0U,
-    "TSS2_TCTI_CONTEXT_COMMON_V1 magic must remain the first ABI field");
+static_assert(offsetof(fake_tcti_storage, common) == 0U,
+              "fake_tcti_storage must begin with TSS2_TCTI_CONTEXT_COMMON_V1");
+static_assert(offsetof(TSS2_TCTI_CONTEXT_COMMON_V1, magic) == 0U,
+              "TSS2_TCTI_CONTEXT_COMMON_V1 magic must remain the first ABI field");
 static_assert(
     std::is_same<decltype(TSS2_TCTI_CONTEXT_COMMON_V1::transmit), TSS2_TCTI_TRANSMIT_FCN>::value,
     "TCTI transmit function pointer type changed");
@@ -52,12 +50,12 @@ static_assert(
 static_assert(
     std::is_same<decltype(TSS2_TCTI_CONTEXT_COMMON_V1::cancel), TSS2_TCTI_CANCEL_FCN>::value,
     "TCTI cancel function pointer type changed");
-static_assert(
-    std::is_same<decltype(TSS2_TCTI_CONTEXT_COMMON_V1::getPollHandles), TSS2_TCTI_GET_POLL_HANDLES_FCN>::value,
-    "TCTI poll-handle function pointer type changed");
-static_assert(
-    std::is_same<decltype(TSS2_TCTI_CONTEXT_COMMON_V1::setLocality), TSS2_TCTI_SET_LOCALITY_FCN>::value,
-    "TCTI locality function pointer type changed");
+static_assert(std::is_same<decltype(TSS2_TCTI_CONTEXT_COMMON_V1::getPollHandles),
+                           TSS2_TCTI_GET_POLL_HANDLES_FCN>::value,
+              "TCTI poll-handle function pointer type changed");
+static_assert(std::is_same<decltype(TSS2_TCTI_CONTEXT_COMMON_V1::setLocality),
+                           TSS2_TCTI_SET_LOCALITY_FCN>::value,
+              "TCTI locality function pointer type changed");
 
 TSS2_TCTI_CONTEXT* as_context(fake_tcti_storage& storage) noexcept
 {
@@ -69,7 +67,8 @@ fake_tcti_storage* as_storage(TSS2_TCTI_CONTEXT* const context) noexcept
     return reinterpret_cast<fake_tcti_storage*>(context);
 }
 
-TSS2_RC copy_response(const response_bytes& response, std::size_t* const size, std::uint8_t* const destination)
+TSS2_RC copy_response(const response_bytes& response, std::size_t* const size,
+                      std::uint8_t* const destination)
 {
     if (size == nullptr) {
         return TSS2_TCTI_RC_BAD_REFERENCE;
@@ -109,8 +108,7 @@ public:
               },
               this,
           }
-    {
-    }
+    {}
 
     impl(const impl&) = delete;
     impl& operator=(const impl&) = delete;
@@ -144,6 +142,12 @@ public:
         return transmits_observed_;
     }
 
+    [[nodiscard]] std::size_t finalizes_observed() const noexcept
+    {
+        const std::lock_guard<std::mutex> lock{mu_};
+        return finalizes_observed_;
+    }
+
 private:
     static TSS2_RC cancel(TSS2_TCTI_CONTEXT* const context) noexcept
     {
@@ -161,13 +165,14 @@ private:
         }
 
         fake_tcti_storage* const storage = as_storage(context);
+        if (storage->owner != nullptr) {
+            static_cast<impl*>(storage->owner)->observe_finalize();
+        }
         storage->owner = nullptr;
     }
 
-    static TSS2_RC get_poll_handles(
-        TSS2_TCTI_CONTEXT* const context,
-        TSS2_TCTI_POLL_HANDLE*,
-        std::size_t* const num_handles) noexcept
+    static TSS2_RC get_poll_handles(TSS2_TCTI_CONTEXT* const context, TSS2_TCTI_POLL_HANDLE*,
+                                    std::size_t* const num_handles) noexcept
     {
         if (context == nullptr || num_handles == nullptr) {
             return TSS2_TCTI_RC_BAD_REFERENCE;
@@ -177,11 +182,8 @@ private:
         return TSS2_RC_SUCCESS;
     }
 
-    static TSS2_RC receive(
-        TSS2_TCTI_CONTEXT* const context,
-        std::size_t* const size,
-        std::uint8_t* const response,
-        int32_t) noexcept
+    static TSS2_RC receive(TSS2_TCTI_CONTEXT* const context, std::size_t* const size,
+                           std::uint8_t* const response, int32_t) noexcept
     {
         try {
             impl* const self = owner_from(context);
@@ -240,10 +242,8 @@ private:
         return TSS2_RC_SUCCESS;
     }
 
-    static TSS2_RC transmit(
-        TSS2_TCTI_CONTEXT* const context,
-        const std::size_t size,
-        const std::uint8_t* const command) noexcept
+    static TSS2_RC transmit(TSS2_TCTI_CONTEXT* const context, const std::size_t size,
+                            const std::uint8_t* const command) noexcept
     {
         try {
             impl* const self = owner_from(context);
@@ -268,16 +268,20 @@ private:
         return TSS2_RC_SUCCESS;
     }
 
+    void observe_finalize() noexcept
+    {
+        const std::lock_guard<std::mutex> lock{mu_};
+        ++finalizes_observed_;
+    }
+
     mutable std::mutex mu_;
     std::deque<queued_result> queue_;
     fake_tcti_storage storage_;
     std::size_t transmits_observed_{0U};
+    std::size_t finalizes_observed_{0U};
 };
 
-fake_tcti::fake_tcti()
-    : impl_{std::make_unique<impl>()}
-{
-}
+fake_tcti::fake_tcti() : impl_{std::make_unique<impl>()} {}
 
 fake_tcti::~fake_tcti() = default;
 
@@ -308,6 +312,11 @@ void fake_tcti::push_response(std::vector<std::uint8_t> bytes)
 std::size_t fake_tcti::transmits_observed() const noexcept
 {
     return impl_->transmits_observed();
+}
+
+std::size_t fake_tcti::finalizes_observed() const noexcept
+{
+    return impl_->finalizes_observed();
 }
 
 } // namespace tpmkit::testing

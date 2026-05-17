@@ -14,6 +14,27 @@ if(NOT TARGET tl::expected)
     add_library(tl::expected ALIAS tpmkit_tl_expected_headers)
 endif()
 
+find_path(TPMKIT_TSS2_TCTILDR_INCLUDE_DIR NAMES tss2/tss2_tctildr.h REQUIRED)
+find_path(TPMKIT_TSS2_ESYS_INCLUDE_DIR NAMES tss2/tss2_esys.h REQUIRED)
+find_library(TPMKIT_TSS2_TCTILDR_LIBRARY NAMES tss2-tctildr REQUIRED)
+find_library(TPMKIT_TSS2_ESYS_LIBRARY NAMES tss2-esys REQUIRED)
+
+if(NOT TARGET TSS2::TCTILDR)
+    add_library(TSS2::TCTILDR UNKNOWN IMPORTED)
+    set_target_properties(TSS2::TCTILDR PROPERTIES
+        IMPORTED_LOCATION "${TPMKIT_TSS2_TCTILDR_LIBRARY}"
+        INTERFACE_INCLUDE_DIRECTORIES "${TPMKIT_TSS2_TCTILDR_INCLUDE_DIR}"
+    )
+endif()
+
+if(NOT TARGET TSS2::ESYS)
+    add_library(TSS2::ESYS UNKNOWN IMPORTED)
+    set_target_properties(TSS2::ESYS PROPERTIES
+        IMPORTED_LOCATION "${TPMKIT_TSS2_ESYS_LIBRARY}"
+        INTERFACE_INCLUDE_DIRECTORIES "${TPMKIT_TSS2_ESYS_INCLUDE_DIR}"
+    )
+endif()
+
 include("${CMAKE_CURRENT_LIST_DIR}/tpmkitTargets.cmake")
 
 check_required_components(tpmkit)

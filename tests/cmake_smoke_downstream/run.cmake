@@ -61,6 +61,11 @@ if(NOT EXISTS "${TPMKIT_INSTALL_PREFIX}/lib/cmake/tpmkit/tpmkitConfig.cmake")
     message(FATAL_ERROR "Installed package config is missing")
 endif()
 
+file(READ "${TPMKIT_INSTALL_PREFIX}/lib/cmake/tpmkit/tpmkitTargets.cmake" tpmkit_targets)
+if(tpmkit_targets MATCHES "/usr/lib/libtss2-")
+    message(FATAL_ERROR "Installed targets export container-local TSS library paths")
+endif()
+
 if(TPMKIT_INSTALL_TESTING)
     if(NOT EXISTS "${TPMKIT_INSTALL_PREFIX}/include/tpmkit/testing/fake_tpm_context.h")
         message(FATAL_ERROR "Testing headers were not installed")
