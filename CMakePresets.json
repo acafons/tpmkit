@@ -129,6 +129,8 @@
       "name": "tsan",
       "configurePreset": "tsan",
       "environment": {
+        "TPMKIT_START_ABRMD": "0",
+        "TPMKIT_SWTPM_TCTI": "mssim:",
         "TSAN_OPTIONS": "halt_on_error=1:second_deadlock_stack=1"
       },
       "output": {

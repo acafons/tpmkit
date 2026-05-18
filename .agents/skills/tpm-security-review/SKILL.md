@@ -1,6 +1,6 @@
 ---
 name: tpm-security-review
-description: Project-specific security review checklist for the tpmkit C++17 library — auditing constant-time comparisons, secret_buffer usage, algorithm allowlist enforcement, public-API input validation, integer-overflow guards, error-message oracle leaks, RNG sources, and TPM authorization handling against the rules in security.md. Use when reviewing a security-sensitive PR, performing a pre-release audit, or validating that a change touches secrets, crypto, or TPM code correctly. Do not use for general code review, performance review, or non-security architectural review.
+description: Project-specific security review checklist for the tpmkit C++17 library — auditing constant-time comparisons, secret_buffer usage, algorithm allowlist enforcement, public-API input validation, integer-overflow guards, error-message oracle leaks, RNG sources, TPM authorization handling, and all sanitizer/security-check findings against the rules in security.md. Use when reviewing a security-sensitive PR, performing a pre-release audit, validating changes under src/adapters/tpm2_* or src/adapters/openssl, or deciding whether memory leaks, buffer overflows, undefined behavior, data races, or failed security checks can pass. Do not use for general code review, performance review, or non-security architectural review.
 ---
 
 # Security Review — tpmkit
@@ -23,6 +23,8 @@ If a PR does not match any of the above, run the regular code review (`tpm-write
 Walk the sections below in order. For each item, mark it as **pass**, **fail with location**, or **N/A with reason**. Do not skip an item because it "obviously passes" — the review's value is the audit trail, not the conclusion. Use the PR description's *Security impact* paragraph as a starting hypothesis, but verify it against the diff line by line.
 
 The review's output is a comment on the PR listing every fail with a file:line reference and a short justification, plus the count of N/A items with their reasons. If everything passes, the comment still lists the sections checked — silent reviews offer no signal that the gate ran.
+
+Hard gate: any memory-safety, sanitizer, fuzz, Valgrind, static-analysis, or security-check finding is a **fail** until the root cause is fixed and the relevant check is rerun cleanly. This includes memory leaks, buffer overflows/out-of-bounds access, use-after-free, double-free, uninitialized reads, undefined behavior, integer overflow, data races, secret leaks, oracle leaks, failed zeroization, failed allowlist checks, failed RNG checks, and failed session-encryption checks. Do not mark these as pass because they are "pre-existing," "external," "known," "flaky," or "unrelated" to the diff. Do not skip, quarantine, suppress, downgrade, retry-away, or waive them as part of this review.
 
 ## 1. Secret handling
 
@@ -101,6 +103,7 @@ Cross-reference: `security.md` Memory safety.
 - [ ] No `reinterpret_cast` from external bytes to a structured type without prior length and alignment validation. Prefer explicit deserialization.
 - [ ] Indices derived from external input use `.at()`. `[]` only when the index is provably in range from local code.
 - [ ] No `std::memcpy` to or from a `secret_buffer` raw pointer that bypasses the type's API.
+- [ ] ASan/LSan, Valgrind, fuzz, or static-analysis memory findings are treated as review failures. Leaks, buffer overflows/out-of-bounds access, use-after-free, double-free, and uninitialized reads must be fixed at the root cause and reverified; suppressions or "known leak" quarantine do not satisfy this checklist.
 
 ## 9. TPM-specific
 
@@ -127,6 +130,8 @@ Cross-reference: `security.md` Build hardening, `tpm-build-config`.
 
 - [ ] No release-build flag was relaxed (`-D_FORTIFY_SOURCE`, `-fstack-protector-strong`, `-fPIE`, `-fstack-clash-protection`, RELRO, NX). A relaxation requires explicit justification on the PR.
 - [ ] No sanitizer was disabled in CI. The matrix (ASan, UBSan, TSan) still runs on the test suite.
+- [ ] The sanitizer matrix is clean. Any ASan/LSan, UBSan, or TSan finding is a review failure, including findings in integration paths and findings believed to come from third-party code. Resolve the root cause through code, configuration, lifecycle isolation, or dependency update; do not pass the review with a skip, suppression, quarantine, retry, or "pre-existing" note.
+- [ ] Security-checking tests are clean. Secret-leak sweeps, zeroization tests, oracle-uniformity checks, allowlist checks, RNG checks, session-encryption checks, and TPM authorization checks must pass; failed checks block the review until fixed and rerun.
 - [ ] If a new compiler is added to the matrix, the warning set still rejects the same warnings.
 
 ## 12. Threat model adherence
@@ -163,6 +168,8 @@ A review with one or more **fails** blocks merge. A reviewer who marks an item *
 * **Dependency bumped without a security review.** Fail. The PR must include the dependency-review block per `tpm-build-config` Dependency management (license, maintenance status, CVE history). Block merge until provided.
 * **CVE-fixing dependency bump is missing from the CHANGELOG.** Fail. The CHANGELOG `### Security` entry must reference the CVE. Cross-reference `tpm-release` Step 3 and `tpm-write-docs` CHANGELOG format.
 * **Security failure path leaks an oracle in error messages or logs.** Fail. The public-API outcome is a single `security_failure` with no caller-visible detail (`error-handling.md` Security-sensitive failures); the log record uses the coarse `source` value documented in `tpm-write-logging` `references/event-schema.md` Forbidden combinations.
+* **ASan/LSan, UBSan, TSan, Valgrind, fuzzing, static analysis, or any security-check test reports a finding.** Fail. Memory leaks, buffer overflows/out-of-bounds access, use-after-free, double-free, uninitialized reads, undefined behavior, integer overflow, data races, secret leaks, oracle leaks, failed zeroization, failed allowlist checks, failed RNG checks, failed session-encryption checks, and failed TPM authorization checks cannot be skipped, suppressed, quarantined, downgraded, retried away, or waived. Fix the root cause and rerun the relevant check before the review can pass.
+* **A finding is described as pre-existing, third-party, external, flaky, or unrelated to the diff.** Still fail. The review cannot pass while required security or sanitizer checks are failing; isolate the dependency path, update the dependency, change the test configuration to avoid unreviewable external code while preserving equivalent coverage, or fix the project code that triggers the finding.
 * **Generic `/security-review` and this skill disagree on a finding.** Both findings stand. The generic command catches OWASP-style issues; this skill catches project-specific rules. Resolve each independently — neither overrides the other.
 * **Review found one or more fails.** The PR comment lists every fail with `file:line` and a short justification, plus the N/A count and reasons. **A review with one or more fails blocks merge** until each is resolved or downgraded with a documented reason.
 

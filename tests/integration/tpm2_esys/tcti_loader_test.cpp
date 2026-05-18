@@ -29,4 +29,18 @@ TEST(tcti_loader_integration, loads_configured_simulator_tcti)
     EXPECT_NE(result.value().get(), nullptr);
 }
 
+TEST(tcti_loader_integration, invalid_device_config_returns_error_without_leaking_loader_context)
+{
+    // Verifies failed loader initialization releases caller-owned TCTI storage.
+
+    const tpmkit::tcti_string_config config{"device:/dev/nonexistent"};
+
+    auto result = tpmkit::detail::esys::load_tcti(config, nullptr);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_TRUE(result.error().category == tpmkit::error_category::resource_error ||
+                result.error().category == tpmkit::error_category::backend_error ||
+                result.error().category == tpmkit::error_category::input_error);
+}
+
 } // namespace

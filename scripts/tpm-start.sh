@@ -5,6 +5,10 @@
 #
 # State, simulator files, and logs live under TPMKIT_STATE_DIR (default: $HOME/.tpm-state).
 # Mount a host directory to that path (e.g. /home/app/.tpm-state) to inspect logs on the host.
+#
+# Set TPMKIT_START_ABRMD=0 to start only tpm_server. This is used by the TSan
+# preset so integration tests can exercise the simulator through the direct
+# mssim TCTI without involving GLib/GDBus from tpm2-abrmd.
 
 set -e
 
@@ -27,6 +31,7 @@ fi
 TPMKIT_STATE_DIR="${TPMKIT_STATE_DIR:-$HOME/.tpm-state}"
 HOME_DIR="$TPMKIT_STATE_DIR"
 TPM_SERVER_DATA_DIR=${HOME_DIR}/ibmtpm
+TPMKIT_START_ABRMD="${TPMKIT_START_ABRMD:-1}"
 DBUS_DIR=/run/dbus
 
 # Match real daemons by cmdline (same idea as tpm-stop.sh). pgrep -x matches /proc/comm and can
@@ -66,55 +71,65 @@ else
     echo "tpm_server is running."
 fi
 
-# Start the D-Bus daemon
-sudo mkdir -p ${DBUS_DIR}
+if [[ "$TPMKIT_START_ABRMD" != 0 ]]; then
+    # Start the D-Bus daemon
+    sudo mkdir -p ${DBUS_DIR}
 
-# Clean up stale dbus socket if it exists
-if ! pgrep -x "dbus-daemon" > /dev/null; then
-    if [ -e ${DBUS_DIR}/system_bus_socket ]; then
-        echo "Cleaning up existing dbus socket..."
-        sudo rm -f ${DBUS_DIR}/system_bus_socket
-    fi
+    # Clean up stale dbus socket if it exists
+    if ! pgrep -x "dbus-daemon" > /dev/null; then
+        if [ -e ${DBUS_DIR}/system_bus_socket ]; then
+            echo "Cleaning up existing dbus socket..."
+            sudo rm -f ${DBUS_DIR}/system_bus_socket
+        fi
 
-    if [ -e ${DBUS_DIR}/pid ]; then
-        echo "Cleaning up existing dbus pid..."
-        sudo rm -f ${DBUS_DIR}/pid
-    fi
+        if [ -e ${DBUS_DIR}/pid ]; then
+            echo "Cleaning up existing dbus pid..."
+            sudo rm -f ${DBUS_DIR}/pid
+        fi
 
-    # Start dbus-daemon if not already running (setsid: detach from docker exec tty session)
-    echo "Starting dbus-daemon..."
-    sudo /usr/bin/setsid dbus-daemon --system --fork >${DBUS_LOG_DIR}/dbus-daemon.log 2>&1
+        # Start dbus-daemon if not already running (setsid: detach from docker exec tty session)
+        echo "Starting dbus-daemon..."
+        sudo /usr/bin/setsid dbus-daemon --system --fork >${DBUS_LOG_DIR}/dbus-daemon.log 2>&1
 
-    # Check if the dbus-daemon command failed
-    if [ $? -ne 0 ]; then
-        echo "Failed to start dbus-daemon. Check logs at ${DBUS_LOG_DIR}/dbus-daemon.log"
-        tail -n 20 ${DBUS_LOG_DIR}/dbus-daemon.log
-        exit 1
-    fi
-else
-    echo "dbus-daemon is already running."
-fi
-
-# Start the TPM2 Access Broker and Resource Management Daemon
-if ! pgrep -f "$PTN_TPM2_ABRMD" > /dev/null; then
-    echo "Starting the TPM2 Access Broker and Resource Management Daemon..."
-    # sudo -u tss G_MESSAGES_DEBUG=all tpm2-abrmd --tcti=mssim > ${TPM_ABRMD_LOG_DIR}/tpm2-abrmd.log 2>&1 &
-    /usr/bin/setsid env G_MESSAGES_DEBUG=all tpm2-abrmd --allow-root --tcti=mssim >${TPM_ABRMD_LOG_DIR}/tpm2-abrmd.log 2>&1 &
-    TPM2_ABRMD_PID=$!
-    sleep 2  # Allow time for initialization
-
-    # Check if the process is still running
-    if ! ps -p $TPM2_ABRMD_PID > /dev/null; then
-        echo "Failed to start tpm2-abrmd. Check logs at ${TPM_ABRMD_LOG_DIR}/tpm2-abrmd.log"
-        tail -n 20 ${TPM_ABRMD_LOG_DIR}/tpm2-abrmd.log
-        exit 1
+        # Check if the dbus-daemon command failed
+        if [ $? -ne 0 ]; then
+            echo "Failed to start dbus-daemon. Check logs at ${DBUS_LOG_DIR}/dbus-daemon.log"
+            tail -n 20 ${DBUS_LOG_DIR}/dbus-daemon.log
+            exit 1
+        fi
+    else
+        echo "dbus-daemon is already running."
     fi
 else
-    echo "tpm2-abrmd is already running."
+    echo "Skipping dbus-daemon because TPMKIT_START_ABRMD=0."
 fi
 
-sudo chown app:messagebus /run/dbus/system_bus_socket
-sudo chmod 660 /run/dbus/system_bus_socket
+if [[ "$TPMKIT_START_ABRMD" != 0 ]]; then
+    # Start the TPM2 Access Broker and Resource Management Daemon
+    if ! pgrep -f "$PTN_TPM2_ABRMD" > /dev/null; then
+        echo "Starting the TPM2 Access Broker and Resource Management Daemon..."
+        # sudo -u tss G_MESSAGES_DEBUG=all tpm2-abrmd --tcti=mssim > ${TPM_ABRMD_LOG_DIR}/tpm2-abrmd.log 2>&1 &
+        /usr/bin/setsid env G_MESSAGES_DEBUG=all tpm2-abrmd --allow-root --tcti=mssim >${TPM_ABRMD_LOG_DIR}/tpm2-abrmd.log 2>&1 &
+        TPM2_ABRMD_PID=$!
+        sleep 2  # Allow time for initialization
+
+        # Check if the process is still running
+        if ! ps -p $TPM2_ABRMD_PID > /dev/null; then
+            echo "Failed to start tpm2-abrmd. Check logs at ${TPM_ABRMD_LOG_DIR}/tpm2-abrmd.log"
+            tail -n 20 ${TPM_ABRMD_LOG_DIR}/tpm2-abrmd.log
+            exit 1
+        fi
+    else
+        echo "tpm2-abrmd is already running."
+    fi
+else
+    echo "Skipping tpm2-abrmd because TPMKIT_START_ABRMD=0."
+fi
+
+if [[ "$TPMKIT_START_ABRMD" != 0 ]]; then
+    sudo chown app:messagebus /run/dbus/system_bus_socket
+    sudo chmod 660 /run/dbus/system_bus_socket
+fi
 
 # echo "Setting up environment variables..."
 # export TSS2_FAPICONF=$(pwd)/dist/fapi/fapi-config.json
@@ -123,7 +138,7 @@ if ! pgrep -f "$PTN_TPM_SERVER" > /dev/null; then
     echo "ERROR: tpm_server is not running after start. See ${TPM_SERVER_LOG_DIR}/tpm_server.log" >&2
     exit 1
 fi
-if ! pgrep -f "$PTN_TPM2_ABRMD" > /dev/null; then
+if [[ "$TPMKIT_START_ABRMD" != 0 ]] && ! pgrep -f "$PTN_TPM2_ABRMD" > /dev/null; then
     echo "ERROR: tpm2-abrmd is not running after start. See ${TPM_ABRMD_LOG_DIR}/tpm2-abrmd.log" >&2
     exit 1
 fi
