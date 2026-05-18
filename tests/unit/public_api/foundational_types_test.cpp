@@ -51,6 +51,19 @@ TEST(foundational_types, tpmkit_error_preserves_message)
     EXPECT_STREQ(error.what(), "x");
 }
 
+TEST(foundational_types, tpmkit_error_rejects_null_c_string_message)
+{
+    // Verifies tpmkit_error validates nullable C-string input.
+
+    try {
+        const tpmkit::tpmkit_error error{nullptr};
+        static_cast<void>(error);
+        FAIL() << "Expected tpmkit_error for null message";
+    } catch (const tpmkit::tpmkit_error& error) {
+        EXPECT_STREQ(error.what(), "tpmkit_error message must not be null");
+    }
+}
+
 TEST(foundational_types, noop_logger_satisfies_logger_port)
 {
     // Verifies noop_logger can be called through the logger port.

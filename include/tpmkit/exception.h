@@ -52,7 +52,17 @@ public:
      * @thread_safety Thread-safe for construction of independent objects.
      * @exception_safety Strong; failure to construct has no side effects.
      */
-    explicit tpmkit_error(const char* message) : std::runtime_error(message) {}
+    explicit tpmkit_error(const char* message) : std::runtime_error(validate_message(message)) {}
+
+private:
+    static const char* validate_message(const char* message)
+    {
+        if (message == nullptr) {
+            throw tpmkit_error{std::string{"tpmkit_error message must not be null"}};
+        }
+
+        return message;
+    }
 };
 
 } // namespace tpmkit
