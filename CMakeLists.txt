@@ -140,6 +140,7 @@ pkg_check_modules(TSS2_ESYS REQUIRED IMPORTED_TARGET "tss2-esys = ${TPMKIT_TSS2_
 pkg_check_modules(TSS2_TCTILDR REQUIRED IMPORTED_TARGET
     "tss2-tctildr = ${TPMKIT_TSS2_REQUIRED_VERSION}"
 )
+find_package(spdlog CONFIG QUIET)
 
 set(tpmkit_placeholder_source "${CMAKE_CURRENT_BINARY_DIR}/generated/tpmkit_empty.cpp")
 file(WRITE "${tpmkit_placeholder_source}" "")
@@ -228,6 +229,39 @@ set_target_properties(tpmkit_testing PROPERTIES
 )
 if(NOT BUILD_SHARED_LIBS)
     target_compile_definitions(tpmkit_testing PUBLIC TPMKIT_STATIC_DEFINE)
+endif()
+
+if(TARGET spdlog::spdlog)
+    set(tpmkit_spdlog_placeholder_source "${CMAKE_CURRENT_BINARY_DIR}/generated/tpmkit_spdlog_empty.cpp")
+    file(WRITE "${tpmkit_spdlog_placeholder_source}" "")
+    add_library(tpmkit_spdlog "${tpmkit_spdlog_placeholder_source}")
+    add_library(tpmkit::tpmkit_spdlog ALIAS tpmkit_spdlog)
+    target_compile_features(tpmkit_spdlog PUBLIC cxx_std_17)
+    target_sources(tpmkit_spdlog
+        PUBLIC
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/tpmkit/spdlog_api.h>
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/tpmkit/spdlog_logger.h>
+        PRIVATE
+            src/adapters/spdlog/spdlog_logger.cpp
+    )
+    target_include_directories(tpmkit_spdlog
+        PUBLIC
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+            $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+    )
+    target_link_libraries(tpmkit_spdlog
+        PUBLIC
+            tpmkit::tpmkit
+        PRIVATE
+            spdlog::spdlog
+    )
+    set_target_properties(tpmkit_spdlog PROPERTIES
+        CXX_VISIBILITY_PRESET hidden
+        VISIBILITY_INLINES_HIDDEN ON
+    )
+    if(NOT BUILD_SHARED_LIBS)
+        target_compile_definitions(tpmkit_spdlog PUBLIC TPMKIT_STATIC_DEFINE)
+    endif()
 endif()
 
 if(TPMKIT_BUILD_DOCS)
@@ -367,6 +401,7 @@ if(tpmkit_BUILD_TESTS)
         tests/unit/public_api/logger_header_smoke.cpp
         tests/unit/public_api/noop_logger_header_smoke.cpp
         tests/unit/public_api/result_header_smoke.cpp
+        tests/unit/public_api/spdlog_logger_header_self_contained.cpp
         tests/unit/public_api/tpm_context_config_test.cpp
         tests/unit/public_api/tpm_context_header_self_contained.cpp
         tests/unit/public_api/tpm_context_header_smoke.cpp
@@ -377,6 +412,19 @@ if(tpmkit_BUILD_TESTS)
             tpmkit::tpmkit
     )
     tpmkit_discover_gtests(tpmkit_unit_public_api_tests Unit PublicApi)
+
+    if(TARGET spdlog::spdlog)
+        add_executable(tpmkit_unit_spdlog_tests
+            tests/unit/spdlog/spdlog_logger_test.cpp
+        )
+        target_link_libraries(tpmkit_unit_spdlog_tests
+            PRIVATE
+                GTest::gtest_main
+                tpmkit::tpmkit_spdlog
+                spdlog::spdlog
+        )
+        tpmkit_discover_gtests(tpmkit_unit_spdlog_tests Unit Adapter_spdlog)
+    endif()
 
     add_executable(tpmkit_unit_testing_tests
         tests/unit/public_api/fake_tpm_context_header_self_contained.cpp

@@ -47,6 +47,8 @@ RUN apt-get update && apt-get install -y \
     procps \
     iproute2 \
     gdb \
+    libfmt-dev \
+    libspdlog-dev \
     valgrind
 
 # Download and install IBM's Software TPM 2.0
