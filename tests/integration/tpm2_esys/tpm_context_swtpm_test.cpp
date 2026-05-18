@@ -1,8 +1,18 @@
 #include <tpmkit/tpm_context.h>
 
+#ifdef TPMKIT_HAS_SPDLOG
+#include <tpmkit/spdlog_logger.h>
+
+#include <spdlog/sinks/ostream_sink.h>
+#include <spdlog/spdlog.h>
+
+#include <sstream>
+#endif
+
 #include <gtest/gtest.h>
 
 #include <cstdlib>
+#include <memory>
 #include <string>
 #include <utility>
 
@@ -55,6 +65,32 @@ TEST(tpm_context_swtpm, clear_startup_is_idempotent_against_simulator)
 
     ASSERT_TRUE(second.has_value()) << second.error().message;
 }
+
+#ifdef TPMKIT_HAS_SPDLOG
+TEST(tpm_context_swtpm, create_with_spdlog_adapter_produces_lifecycle_records)
+{
+    // Verifies spdlog_logger wired through tpm_context_config receives lifecycle events.
+
+    std::ostringstream captured;
+    auto sink = std::make_shared<::spdlog::sinks::ostream_sink_mt>(captured);
+    sink->set_level(::spdlog::level::trace);
+    sink->set_pattern("%v");
+    auto inner = std::make_shared<::spdlog::logger>("tpmkit", sink);
+    inner->set_level(::spdlog::level::trace);
+    auto log = std::make_shared<tpmkit::spdlog_logger>(std::move(inner));
+
+    tpmkit::tpm_context_config config;
+    config.tcti = tpmkit::tcti_string_config{swtpm_tcti()};
+    config.startup = tpmkit::tpm_context_config::startup_mode::clear;
+    config.log = log;
+
+    auto result = tpmkit::tpm_context::create(std::move(config));
+    log->flush();
+
+    ASSERT_TRUE(result.has_value()) << result.error().message;
+    EXPECT_FALSE(captured.str().empty());
+}
+#endif
 
 TEST(tpm_context_swtpm, invalid_device_tcti_returns_domain_error)
 {

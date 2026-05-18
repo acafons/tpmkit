@@ -485,9 +485,18 @@ if(tpmkit_BUILD_TESTS)
         PRIVATE
             GTest::gtest_main
             tpmkit::tpmkit
+            tpmkit::tpmkit_testing
             PkgConfig::TSS2_ESYS
             PkgConfig::TSS2_TCTILDR
     )
+    if(TARGET spdlog::spdlog)
+        target_compile_definitions(tpmkit_integration_tpm2_esys_tests
+            PRIVATE TPMKIT_HAS_SPDLOG
+        )
+        target_link_libraries(tpmkit_integration_tpm2_esys_tests
+            PRIVATE tpmkit::tpmkit_spdlog spdlog::spdlog
+        )
+    endif()
     gtest_discover_tests(tpmkit_integration_tpm2_esys_tests
         PROPERTIES
             TIMEOUT 30
