@@ -27,7 +27,11 @@ struct failure_rc {
     TSS2_RC rc;
 };
 
-using queued_result = std::variant<response_bytes, failure_rc>;
+struct transmit_failure_rc {
+    TSS2_RC rc;
+};
+
+using queued_result = std::variant<response_bytes, failure_rc, transmit_failure_rc>;
 
 struct fake_tcti_storage {
     TSS2_TCTI_CONTEXT_COMMON_V1 common;
@@ -130,6 +134,12 @@ public:
         queue_.push_back(failure_rc{static_cast<TSS2_RC>(tss_rc)});
     }
 
+    void push_transmit_failure(const std::uint32_t tss_rc)
+    {
+        const std::lock_guard<std::mutex> lock{mu_};
+        queue_.push_back(transmit_failure_rc{static_cast<TSS2_RC>(tss_rc)});
+    }
+
     void push_response(std::vector<std::uint8_t> bytes)
     {
         const std::lock_guard<std::mutex> lock{mu_};
@@ -215,6 +225,10 @@ private:
             return rc;
         }
 
+        if (std::get_if<transmit_failure_rc>(&next) != nullptr) {
+            return TSS2_TCTI_RC_BAD_SEQUENCE;
+        }
+
         const TSS2_RC rc = copy_response(std::get<response_bytes>(next), size, response);
         if (rc == TSS2_RC_SUCCESS && response != nullptr) {
             queue_.pop_front();
@@ -265,6 +279,12 @@ private:
             return TSS2_TCTI_RC_IO_ERROR;
         }
 
+        if (const auto* const failure = std::get_if<transmit_failure_rc>(&queue_.front())) {
+            const TSS2_RC rc = failure->rc;
+            queue_.pop_front();
+            return rc;
+        }
+
         return TSS2_RC_SUCCESS;
     }
 
@@ -302,6 +322,11 @@ std::size_t fake_tcti::pending_responses() const noexcept
 void fake_tcti::push_failure(const std::uint32_t tss_rc)
 {
     impl_->push_failure(tss_rc);
+}
+
+void fake_tcti::push_transmit_failure(const std::uint32_t tss_rc)
+{
+    impl_->push_transmit_failure(tss_rc);
 }
 
 void fake_tcti::push_response(std::vector<std::uint8_t> bytes)

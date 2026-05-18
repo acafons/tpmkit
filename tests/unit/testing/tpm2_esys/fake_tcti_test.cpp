@@ -162,6 +162,17 @@ TEST(fake_tcti, pushed_failure_is_returned_by_receive_after_transmit)
     EXPECT_EQ(receive(fake, response_size, response.data()), TPM2_RC_INITIALIZE);
 }
 
+TEST(fake_tcti, pushed_transmit_failure_is_returned_by_transmit)
+{
+    // Verifies queued transmit failures surface on the matching transmit call.
+
+    tpmkit::testing::fake_tcti fake;
+    fake.push_transmit_failure(TSS2_TCTI_RC_IO_ERROR);
+
+    EXPECT_EQ(transmit(fake), TSS2_TCTI_RC_IO_ERROR);
+    EXPECT_EQ(fake.pending_responses(), 0U);
+}
+
 TEST(fake_tcti, move_transfers_a_usable_handle_to_the_new_owner)
 {
     // Verifies moving fake_tcti transfers a usable TCTI handle.

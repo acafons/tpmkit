@@ -126,13 +126,22 @@ public:
     [[nodiscard]] std::size_t pending_responses() const noexcept;
 
     /**
-     * @brief Queue one TSS return code for the next transmit/receive cycle.
+     * @brief Queue one TSS return code for the next receive callback.
      *
      * @param[in] tss_rc TSS2 return code surfaced by the next scripted failure.
      * @thread_safety Thread-safe.
      * @exception_safety Basic; allocation failure leaves the fake valid.
      */
     void push_failure(std::uint32_t tss_rc);
+
+    /**
+     * @brief Queue one TSS return code for the next transmit callback.
+     *
+     * @param[in] tss_rc TSS2 return code surfaced by the next scripted transmit.
+     * @thread_safety Thread-safe.
+     * @exception_safety Basic; allocation failure leaves the fake valid.
+     */
+    void push_transmit_failure(std::uint32_t tss_rc);
 
     /**
      * @brief Queue one response byte sequence for the next transmit/receive

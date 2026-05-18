@@ -228,6 +228,20 @@ TEST(tpm_context_lifecycle, startup_failure_finalizes_tcti_before_returning_erro
     EXPECT_EQ(fake.finalizes_observed(), 1U);
 }
 
+TEST(tpm_context_lifecycle, startup_transmit_failure_finalizes_tcti_before_returning_error)
+{
+    // Verifies startup transmit failures release the owned TCTI before returning.
+
+    tpmkit::testing::fake_tcti fake;
+    fake.push_transmit_failure(TSS2_TCTI_RC_IO_ERROR);
+
+    const auto result = tpmkit::tpm_context::create(owned_config(fake, startup_mode::clear));
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().category, tpmkit::error_category::resource_error);
+    EXPECT_EQ(fake.finalizes_observed(), 1U);
+}
+
 TEST(tpm_context_lifecycle, happy_path_emits_documented_lifecycle_sequence)
 {
     // Verifies the successful lifecycle emits the documented event sequence.
