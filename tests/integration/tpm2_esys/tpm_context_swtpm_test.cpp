@@ -6,23 +6,7 @@
 #include <string>
 #include <utility>
 
-#if defined(__has_feature)
-#if __has_feature(address_sanitizer)
-#define TPMKIT_TEST_ASAN 1
-#endif
-#endif
-
-#if defined(__SANITIZE_ADDRESS__)
-#define TPMKIT_TEST_ASAN 1
-#endif
-
 namespace {
-
-bool swtpm_integration_enabled() noexcept
-{
-    const char* const enabled = std::getenv("TPMKIT_RUN_SWTPM_INTEGRATION");
-    return enabled != nullptr && std::string{enabled} == "1";
-}
 
 std::string swtpm_tcti()
 {
@@ -47,10 +31,7 @@ tpmkit::tpm_context_config string_config(std::string tcti,
 
 TEST(tpm_context_swtpm, constructs_and_tears_down_against_simulator)
 {
-    if (!swtpm_integration_enabled()) {
-        GTEST_SKIP() << "Set TPMKIT_RUN_SWTPM_INTEGRATION=1 after starting "
-                        "scripts/tpm-start.sh.";
-    }
+    // Verifies a real TPM context constructs and tears down against swtpm.
 
     auto result = tpmkit::tpm_context::create(
         string_config(swtpm_tcti(), tpmkit::tpm_context_config::startup_mode::clear));
@@ -61,10 +42,7 @@ TEST(tpm_context_swtpm, constructs_and_tears_down_against_simulator)
 
 TEST(tpm_context_swtpm, clear_startup_is_idempotent_against_simulator)
 {
-    if (!swtpm_integration_enabled()) {
-        GTEST_SKIP() << "Set TPMKIT_RUN_SWTPM_INTEGRATION=1 after starting "
-                        "scripts/tpm-start.sh.";
-    }
+    // Verifies repeated clear startup succeeds against the simulator.
 
     {
         auto first = tpmkit::tpm_context::create(
@@ -80,10 +58,7 @@ TEST(tpm_context_swtpm, clear_startup_is_idempotent_against_simulator)
 
 TEST(tpm_context_swtpm, invalid_device_tcti_returns_domain_error)
 {
-#if defined(TPMKIT_TEST_ASAN)
-    GTEST_SKIP() << "tpm2-tss leaks a loader allocation on failed device TCTI "
-                    "init under ASan.";
-#endif
+    // Verifies an invalid device TCTI returns a domain error category.
 
     auto result = tpmkit::tpm_context::create(
         string_config("device:/dev/nonexistent", tpmkit::tpm_context_config::startup_mode::skip));

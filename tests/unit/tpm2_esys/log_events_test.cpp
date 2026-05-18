@@ -15,6 +15,8 @@ struct schema_constant {
 
 TEST(log_events, event_names_match_documented_schema)
 {
+    // Verifies ESYS event names match the documented logging schema.
+
     constexpr schema_constant event_names[]{
         {events::tcti_configured, "tpm.context.tcti_configured"},
         {events::tcti_configuring, "tpm.context.tcti_configuring"},
@@ -32,6 +34,8 @@ TEST(log_events, event_names_match_documented_schema)
 
 TEST(log_events, field_keys_match_documented_schema)
 {
+    // Verifies ESYS field keys match the documented logging schema.
+
     constexpr schema_constant field_keys[]{
         {events::fields::tcti_kind, "tcti_kind"},
         {events::fields::tcti_name, "tcti_name"},

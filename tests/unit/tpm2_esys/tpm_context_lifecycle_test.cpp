@@ -102,6 +102,8 @@ bool contains_field_value(const std::vector<tpmkit::testing::log_record>& record
 
 TEST(tpm_context_lifecycle, create_with_owned_tcti_clear_starts_and_finalizes)
 {
+    // Verifies clear startup uses the owned TCTI and finalizes on destruction.
+
     tpmkit::testing::fake_tcti fake;
     fake.push_response(startup_response(TSS2_RC_SUCCESS));
 
@@ -119,6 +121,8 @@ TEST(tpm_context_lifecycle, create_with_owned_tcti_clear_starts_and_finalizes)
 
 TEST(tpm_context_lifecycle, create_with_skip_does_not_transmit_startup)
 {
+    // Verifies skip startup avoids transmitting a TPM startup command.
+
     auto log = std::make_shared<tpmkit::testing::recording_logger>();
     tpmkit::testing::fake_tcti fake;
 
@@ -145,6 +149,8 @@ TEST(tpm_context_lifecycle, create_with_skip_does_not_transmit_startup)
 
 TEST(tpm_context_lifecycle, startup_initialize_response_is_success)
 {
+    // Verifies TPM2_RC_INITIALIZE is treated as successful startup.
+
     auto log = std::make_shared<tpmkit::testing::recording_logger>();
     tpmkit::testing::fake_tcti fake;
     fake.push_response(startup_response(TPM2_RC_INITIALIZE));
@@ -170,6 +176,8 @@ TEST(tpm_context_lifecycle, startup_initialize_response_is_success)
 
 TEST(tpm_context_lifecycle, raw_startup_initialize_rc_maps_to_already_initialized_result)
 {
+    // Verifies raw startup helpers classify TPM2_RC_INITIALIZE consistently.
+
     EXPECT_TRUE(tpmkit::detail::esys::is_startup_already_initialized(TPM2_RC_INITIALIZE));
     EXPECT_EQ(tpmkit::detail::esys::startup_result_field(TPM2_RC_INITIALIZE),
               std::string_view{"already_initialized"});
@@ -177,6 +185,8 @@ TEST(tpm_context_lifecycle, raw_startup_initialize_rc_maps_to_already_initialize
 
 TEST(tpm_context_lifecycle, null_owned_handle_returns_input_error)
 {
+    // Verifies a null owned TCTI handle is rejected during context creation.
+
     tpmkit::tpm_context_config config;
     config.tcti =
         tpmkit::tcti_owned_handle{std::unique_ptr<TSS2_TCTI_CONTEXT, void (*)(TSS2_TCTI_CONTEXT*)>(
@@ -190,6 +200,8 @@ TEST(tpm_context_lifecycle, null_owned_handle_returns_input_error)
 
 TEST(tpm_context_lifecycle, null_owned_handle_deleter_returns_input_error_without_finalize)
 {
+    // Verifies a missing owned-handle deleter is rejected without finalizing.
+
     tpmkit::testing::fake_tcti fake;
     tpmkit::tpm_context_config config;
     config.tcti = tpmkit::tcti_owned_handle{
@@ -204,6 +216,8 @@ TEST(tpm_context_lifecycle, null_owned_handle_deleter_returns_input_error_withou
 
 TEST(tpm_context_lifecycle, startup_failure_finalizes_tcti_before_returning_error)
 {
+    // Verifies startup failures release the owned TCTI before returning.
+
     tpmkit::testing::fake_tcti fake;
     fake.push_failure(TSS2_TCTI_RC_IO_ERROR);
 
@@ -216,6 +230,8 @@ TEST(tpm_context_lifecycle, startup_failure_finalizes_tcti_before_returning_erro
 
 TEST(tpm_context_lifecycle, happy_path_emits_documented_lifecycle_sequence)
 {
+    // Verifies the successful lifecycle emits the documented event sequence.
+
     auto log = std::make_shared<tpmkit::testing::recording_logger>();
     tpmkit::testing::fake_tcti fake;
     fake.push_response(startup_response(TSS2_RC_SUCCESS));
@@ -238,6 +254,8 @@ TEST(tpm_context_lifecycle, happy_path_emits_documented_lifecycle_sequence)
 
 TEST(tpm_context_lifecycle, string_tcti_failure_logs_only_sanitized_module_name)
 {
+    // Verifies failing string TCTI logs do not leak config details.
+
     auto log = std::make_shared<tpmkit::testing::recording_logger>();
     tpmkit::tpm_context_config config;
     config.tcti = tpmkit::tcti_string_config{"not_a_real_tcti:secret_socket=/tmp/secret"};
@@ -255,6 +273,8 @@ TEST(tpm_context_lifecycle, string_tcti_failure_logs_only_sanitized_module_name)
 
 TEST(tpm_context_lifecycle, path_like_tcti_name_is_not_logged)
 {
+    // Verifies path-like TCTI names are redacted from logs.
+
     auto log = std::make_shared<tpmkit::testing::recording_logger>();
     tpmkit::tpm_context_config config;
     config.tcti = tpmkit::tcti_string_config{"/tmp/secret:socket=/tmp/secret"};
@@ -271,6 +291,8 @@ TEST(tpm_context_lifecycle, path_like_tcti_name_is_not_logged)
 
 TEST(tpm_context_lifecycle, independent_contexts_are_thread_compatible)
 {
+    // Verifies independent TPM contexts can be created concurrently.
+
     std::array<bool, 2U> succeeded{{false, false}};
     std::array<std::size_t, 2U> transmits{{0U, 0U}};
 

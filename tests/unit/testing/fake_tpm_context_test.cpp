@@ -13,6 +13,8 @@ using startup_mode = tpmkit::tpm_context_config::startup_mode;
 
 TEST(fake_tpm_context, default_config_with_empty_tcti_string_returns_input_error)
 {
+    // Verifies the fake rejects the default empty TCTI string.
+
     const tpmkit::outcome<tpmkit::testing::fake_tpm_context> created =
         tpmkit::testing::fake_tpm_context::create({});
 
@@ -22,6 +24,8 @@ TEST(fake_tpm_context, default_config_with_empty_tcti_string_returns_input_error
 
 TEST(fake_tpm_context, malformed_string_configs_return_input_error)
 {
+    // Verifies malformed string TCTI configs are rejected uniformly.
+
     const char* const values[]{" \t\n ", "swtpm", " mssim:host=localhost", ":socket=/tmp/tpm"};
 
     for (const char* const value : values) {
@@ -38,6 +42,8 @@ TEST(fake_tpm_context, malformed_string_configs_return_input_error)
 
 TEST(fake_tpm_context, valid_string_config_returns_success)
 {
+    // Verifies a valid string TCTI config creates a fake context.
+
     tpmkit::tpm_context_config config;
     config.tcti = tpmkit::tcti_string_config{"mssim:host=localhost,port=2321"};
     config.startup = startup_mode::skip;
@@ -51,6 +57,8 @@ TEST(fake_tpm_context, valid_string_config_returns_success)
 
 TEST(fake_tpm_context, successful_context_exposes_last_config_for_introspection)
 {
+    // Verifies successful fake contexts expose their consumed config.
+
     tpmkit::tpm_context_config config;
     config.tcti = tpmkit::tcti_string_config{"mssim:host=localhost,port=2321"};
     config.startup = startup_mode::skip;
@@ -73,6 +81,8 @@ template <class Context> void assert_context_shape(Context& context)
 
 TEST(fake_tpm_context, mirrors_real_context_esys_handle_shape)
 {
+    // Verifies the fake exposes the same ESYS handle method shape.
+
     tpmkit::tpm_context_config config;
     config.tcti = tpmkit::tcti_string_config{"mssim:host=localhost,port=2321"};
     config.startup = startup_mode::skip;
@@ -88,6 +98,8 @@ TEST(fake_tpm_context, mirrors_real_context_esys_handle_shape)
 
 TEST(fake_tpm_context, is_move_only)
 {
+    // Verifies fake_tpm_context preserves move-only ownership semantics.
+
     static_assert(std::is_move_constructible<tpmkit::testing::fake_tpm_context>::value,
                   "fake_tpm_context must be move constructible");
     static_assert(std::is_move_assignable<tpmkit::testing::fake_tpm_context>::value,
@@ -105,6 +117,8 @@ TEST(fake_tpm_context, is_move_only)
 
 TEST(fake_tpm_context, move_construction_preserves_moved_to_introspection)
 {
+    // Verifies move construction transfers the introspection config.
+
     tpmkit::tpm_context_config config;
     config.tcti = tpmkit::tcti_string_config{"mssim:host=localhost,port=2321"};
     config.startup = startup_mode::state;
@@ -125,6 +139,8 @@ TEST(fake_tpm_context, move_construction_preserves_moved_to_introspection)
 
 TEST(fake_tpm_context, null_owned_handle_returns_input_error)
 {
+    // Verifies a null owned TCTI handle is rejected.
+
     tpmkit::tpm_context_config config;
     config.tcti = tpmkit::tcti_owned_handle{
         std::unique_ptr<TSS2_TCTI_CONTEXT, void (*)(TSS2_TCTI_CONTEXT*)>(nullptr, nullptr)};
@@ -138,6 +154,8 @@ TEST(fake_tpm_context, null_owned_handle_returns_input_error)
 
 TEST(fake_tpm_context, null_owned_handle_deleter_returns_input_error)
 {
+    // Verifies an owned TCTI handle without a deleter is rejected.
+
     tpmkit::testing::fake_tcti fake;
     tpmkit::tpm_context_config config;
     config.tcti = tpmkit::tcti_owned_handle{

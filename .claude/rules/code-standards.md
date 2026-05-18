@@ -93,3 +93,4 @@ This file is the project's opinionated take. For language-level questions not co
 - Avoid redundant comments that restate what the code already says.
 - Do write comments for non-obvious invariants, ownership and lifetime contracts, threading assumptions, `noexcept` rationale, and any place where behavior would surprise a reader.
 - Prefer expressing intent through names and types over explaining it in prose.
+- Tests are the exception to the minimal-comment default: every GoogleTest `TEST`, `TEST_F`, and `TEST_P` body starts with one short `//` comment naming the behavior under test, then keeps Arrange / Act / Assert blocks visually distinct.

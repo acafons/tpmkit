@@ -110,6 +110,7 @@ Three structural rules from other policy files are enforced by automated checks 
 - **Domain isolation** (`architecture.md`): no third-party headers (`openssl/`, `tss2/`, OS-specific) under `src/domain/` or `include/`. A grep-based CI gate fails the build on any match.
 - **Header self-containment** (`library-api-design.md`): every public header under `include/` compiles standalone. The build generates one stub `.cpp` per header that includes only that header; the stub library must build clean with the project warning set.
 - **Symbol export discipline** (`library-api-design.md`): symbols exported from the umbrella library are diffed against a checked-in baseline (`abi/exported-symbols.txt`). A change to the baseline is a deliberate PR with an ABI/SemVer note (cross-reference: `library-api-design.md` "Versioning and deprecation"). There is no auto-update mode.
+- **Test policy discipline** (`tpm-write-tests`): `test_policy_guard` scans test sources for the minimum structural rules that are easy to regress: top-of-test behavior comments, parameterized contract tests, no deferred skip placeholders, and no compile-only header smoke tests under `tests/integration/`.
 
 Mechanics for each in `references/cmake-recipes.md`.
 
@@ -168,4 +169,5 @@ A pull request that disables, skips, or relaxes a required gate must include a j
 * **`-Werror` build fails.** Fix the underlying type, lifetime, or dead-code issue. Do not add `-Wno-error=*` and do not cast to silence `-Wconversion`/`-Wsign-conversion` (`.claude/rules/code-standards.md`).
 * **vcpkg manifest install fails.** Verify the baseline commit is reachable and the dependency exists at that baseline. Do not bump the baseline as a side effect — a baseline change is its own PR with a security review (`.claude/rules/security.md` Dependencies and CVE tracking).
 * **Coverage and sanitizer requested together.** Reject the configuration. Run them as separate CI jobs as required by "Code coverage" above.
+* **`test_policy_guard` fails after adding or moving tests.** Treat it as a test-layout bug. Fix the test file, tier, or contract shape instead of removing the guard from CTest.
 * **Required policy value missing from this skill.** Stop and surface the gap to the maintainer rather than inventing a default. Adding a flag, gate, or supported version requires updating this SKILL.md first.

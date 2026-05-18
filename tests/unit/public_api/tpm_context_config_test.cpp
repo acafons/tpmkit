@@ -30,6 +30,8 @@ static_assert(
 
 TEST(tpm_context_config, defaults_to_empty_string_tcti_and_clear_startup)
 {
+    // Verifies the default TPM context config uses the documented defaults.
+
     const tpmkit::tpm_context_config config;
 
     ASSERT_TRUE(std::holds_alternative<tpmkit::tcti_string_config>(config.tcti));
@@ -40,6 +42,8 @@ TEST(tpm_context_config, defaults_to_empty_string_tcti_and_clear_startup)
 
 TEST(tpm_context_config, visits_string_tcti_alternative)
 {
+    // Verifies string TCTI configs are visitable through the config variant.
+
     tpmkit::tpm_context_config config;
     config.tcti = tpmkit::tcti_string_config{"mssim:host=localhost,port=2321"};
 
@@ -50,11 +54,12 @@ TEST(tpm_context_config, visits_string_tcti_alternative)
 
 TEST(tpm_context_config, visits_owned_tcti_alternative)
 {
+    // Verifies owned TCTI configs are visitable through the config variant.
+
     tpmkit::tpm_context_config config;
-    config.tcti = tpmkit::tcti_owned_handle{
-        std::unique_ptr<TSS2_TCTI_CONTEXT, void (*)(TSS2_TCTI_CONTEXT*)>(
-            nullptr,
-            noop_tcti_deleter)};
+    config.tcti =
+        tpmkit::tcti_owned_handle{std::unique_ptr<TSS2_TCTI_CONTEXT, void (*)(TSS2_TCTI_CONTEXT*)>(
+            nullptr, noop_tcti_deleter)};
 
     const char* const kind = std::visit(tcti_kind_visitor{}, config.tcti);
 
@@ -63,6 +68,8 @@ TEST(tpm_context_config, visits_owned_tcti_alternative)
 
 TEST(tpm_context, is_move_only)
 {
+    // Verifies tpm_context preserves move-only ownership semantics.
+
     EXPECT_TRUE(std::is_move_constructible<tpmkit::tpm_context>::value);
     EXPECT_TRUE(std::is_move_assignable<tpmkit::tpm_context>::value);
     EXPECT_FALSE(std::is_copy_constructible<tpmkit::tpm_context>::value);

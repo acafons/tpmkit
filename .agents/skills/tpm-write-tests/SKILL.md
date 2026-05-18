@@ -27,6 +27,7 @@ Apply this skill in order when writing or modifying a test:
 5. **Cover every flow.** Happy path, alternatives, and every error category from `error-handling.md`. Use `EXPECT_THROW`/`ASSERT_THROW` for contract-violation paths, not `EXPECT_DEATH`.
 6. **Run under the sanitizer matrix** (ASan, UBSan, TSan) before opening the PR. A sanitizer failure is a release blocker per `security.md` Build hardening — fix the underlying bug, do not suppress.
 7. **For new adapters or new ports**, run the contract suite against every adapter (including the mock) before merging. Adapters that pass the contract suite are interchangeable; adapters that don't are bugs waiting to happen.
+8. **Keep the policy guard green.** Every test change must pass the `test_policy_guard` CTest entry. The guard fails missing top-of-test behavior comments, non-parameterized contract tests, `GTEST_SKIP()` in unit/contract/integration tests, deferred skip placeholders, and compile-only header smoke tests placed under `tests/integration/`.
 
 ## Frameworks and tools
 
@@ -76,6 +77,7 @@ Common to every tier (unit, integration, contract, property, fuzz):
 - Tests are deterministic. No reliance on wall clock, network, or unseeded RNGs. Fix flakes; never retry.
 - No dependencies between tests — every test must be runnable in isolation. No shared mutable state; each test owns its setup and teardown. Per-test `SetUp`/`TearDown` (or `TEST_F` fixtures) are fine; `SetUpTestSuite`/`TearDownTestSuite` are forbidden except for **read-only, immutable** setup (e.g., loading a known-good public key once). Anything mutable must be per-test.
 - Structure each test as **Arrange / Act / Assert** (or **Given / When / Then**), with the three blocks visually distinct.
+- Place a single short behavior comment as the first nonblank line inside every `TEST`, `TEST_F`, and `TEST_P` body. The comment describes the behavior under test, not the AAA section name. Example: `// Verifies invalid TCTI config is rejected before adapter calls.`
 - One behavior per test. Avoid very large tests — split when a single test grows past the pattern. Multiple `EXPECT_*` lines are fine if they verify the same behavior.
 - Tests assert behavior through the public API or the port being tested. Do not reach into private members or singletons.
 - Test names describe behavior, not implementation: `signs_with_persistent_key`, not `calls_esys_sign_then_flush`.
@@ -383,6 +385,8 @@ Run against the unit, integration, and contract test binaries plus each stress h
 * **GMock failure output dumps raw bytes of a value object.** Add a `PrintTo(const T&, std::ostream*)` overload. For secret-bearing types, the overload writes `<redacted, N bytes>` — never raw bytes. Cross-reference `security.md` and `tpm-security-review` Secret handling.
 * **Want to mock a compile-time-polymorphic port (option 2) or a build-time-selected adapter (option 3).** GMock cannot mock these mechanically. Either hand-roll a stub satisfying the same shape (option 2) or link a test-only stub in a separate build (option 3). If neither fits, the port belongs on option 1 — cross-reference `architecture.md` and `tpm-add-port-or-adapter` A.1.
 * **Coverage gap shows up in the report.** Either add a test that reaches it or mark it with a documented exclusion comment naming the reason. Silent gaps are not acceptable; they grow until the next audit catches them.
+* **`test_policy_guard` fails.** Fix the test shape rather than relaxing the guard. Missing top comments need a one-sentence behavior comment inside the test body; contract tests must be `TEST_P` plus `INSTANTIATE_TEST_SUITE_P`; deferred `GTEST_SKIP()` placeholders must become real tests or be removed; compile-only header smoke sources belong in `tests/unit/public_api/` or a dedicated compile-smoke target, not `tests/integration/`.
+* **A swtpm integration test wants to skip when the simulator is not running.** Do not skip. The CTest integration target owns the simulator lifecycle through the `tpm_stack` fixture (`tpm_stack_start` / `tpm_stack_stop`). If startup fails, the integration run fails because the required backend is unavailable.
 * **Fuzz harness crashes on an input the corpus does not contain.** Pin the crashing input under `tests/fuzz/corpus/<harness>/` as a regression case before fixing the bug. Never delete a crash — the corpus is the regression history.
 * **KAT failure on a previously-passing algorithm.** Release blocker. Do not regenerate the vectors; do not "fix the vectors to match the output." The published vectors are authoritative — the output is the bug. Bisect to find the regression and add the failing vector under `tests/kat/<algorithm>/regressions/`.
 * **New algorithm added to the `security.md` allowlist without a KAT suite.** Reject the PR. Vectors must land in the same PR as the allowlist entry, with `VECTORS.md` naming the upstream source.

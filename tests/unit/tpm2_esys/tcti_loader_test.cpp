@@ -43,6 +43,8 @@ public:
 
 TEST(tcti_loader, rejects_empty_config_without_tss_code_in_message)
 {
+    // Verifies empty TCTI configs fail before exposing TSS details.
+
     const tpmkit::tcti_string_config config{""};
 
     const auto result = tpmkit::detail::esys::load_tcti(config, nullptr);
@@ -54,6 +56,8 @@ TEST(tcti_loader, rejects_empty_config_without_tss_code_in_message)
 
 TEST(tcti_loader, rejects_whitespace_only_config)
 {
+    // Verifies whitespace-only TCTI configs are rejected as input errors.
+
     const tpmkit::tcti_string_config config{" \t\n "};
 
     const auto result = tpmkit::detail::esys::load_tcti(config, nullptr);
@@ -64,6 +68,8 @@ TEST(tcti_loader, rejects_whitespace_only_config)
 
 TEST(tcti_loader, rejects_missing_colon_shape_before_adapter_boundary_log)
 {
+    // Verifies malformed TCTI shape is rejected before adapter logging.
+
     recording_logger log;
     const tpmkit::tcti_string_config config{"swtpm"};
 
@@ -76,6 +82,8 @@ TEST(tcti_loader, rejects_missing_colon_shape_before_adapter_boundary_log)
 
 TEST(tcti_loader, rejects_missing_name_before_colon)
 {
+    // Verifies TCTI configs with no module name are rejected.
+
     const tpmkit::tcti_string_config config{":socket=/tmp/tpm.sock"};
 
     const auto result = tpmkit::detail::esys::load_tcti(config, nullptr);
@@ -86,6 +94,8 @@ TEST(tcti_loader, rejects_missing_name_before_colon)
 
 TEST(tcti_loader, does_not_log_client_side_validation_failures)
 {
+    // Verifies client-side validation failures do not emit adapter logs.
+
     recording_logger log;
     const tpmkit::tcti_string_config config{" :socket=/tmp/tpm.sock"};
 
@@ -98,6 +108,8 @@ TEST(tcti_loader, does_not_log_client_side_validation_failures)
 
 TEST(tcti_loader, unknown_tcti_name_returns_input_error_without_tss_code)
 {
+    // Verifies unknown TCTI names return sanitized input errors.
+
     recording_logger log;
     const tpmkit::tcti_string_config config{"not_a_real_tcti:config"};
 

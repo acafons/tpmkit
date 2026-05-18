@@ -53,6 +53,8 @@ TSS2_RC transmit(tpmkit::testing::fake_tcti& fake)
 
 TEST(fake_tcti, push_response_increments_pending_responses)
 {
+    // Verifies queued responses are counted as pending.
+
     tpmkit::testing::fake_tcti fake;
 
     fake.push_response({0x01U, 0x02U});
@@ -62,6 +64,8 @@ TEST(fake_tcti, push_response_increments_pending_responses)
 
 TEST(fake_tcti, response_and_failure_are_received_in_fifo_order)
 {
+    // Verifies scripted responses and failures are consumed in FIFO order.
+
     tpmkit::testing::fake_tcti fake;
     fake.push_response({0x01U, 0x02U});
     fake.push_failure(TPM2_RC_INITIALIZE);
@@ -82,6 +86,8 @@ TEST(fake_tcti, response_and_failure_are_received_in_fifo_order)
 
 TEST(fake_tcti, transmit_underflow_returns_deterministic_io_error)
 {
+    // Verifies transmit without a queued response fails deterministically.
+
     tpmkit::testing::fake_tcti fake;
 
     EXPECT_EQ(transmit(fake), TSS2_TCTI_RC_IO_ERROR);
@@ -89,6 +95,8 @@ TEST(fake_tcti, transmit_underflow_returns_deterministic_io_error)
 
 TEST(fake_tcti, receive_underflow_returns_deterministic_io_error)
 {
+    // Verifies receive without a queued response fails deterministically.
+
     tpmkit::testing::fake_tcti fake;
     std::array<std::uint8_t, 4> response{};
     std::size_t response_size = response.size();
@@ -98,6 +106,8 @@ TEST(fake_tcti, receive_underflow_returns_deterministic_io_error)
 
 TEST(fake_tcti, receive_size_query_does_not_consume_response)
 {
+    // Verifies receive size queries leave the queued response available.
+
     tpmkit::testing::fake_tcti fake;
     fake.push_response({0x01U, 0x02U, 0x03U});
     ASSERT_EQ(transmit(fake), TSS2_RC_SUCCESS);
@@ -115,6 +125,8 @@ TEST(fake_tcti, receive_size_query_does_not_consume_response)
 
 TEST(fake_tcti, transmits_observed_counts_transmit_calls)
 {
+    // Verifies transmit callbacks are counted.
+
     tpmkit::testing::fake_tcti fake;
     fake.push_response({0x01U});
     fake.push_response({0x02U});
@@ -127,6 +139,8 @@ TEST(fake_tcti, transmits_observed_counts_transmit_calls)
 
 TEST(fake_tcti, finalizes_observed_counts_finalize_callbacks)
 {
+    // Verifies finalize callbacks are counted.
+
     tpmkit::testing::fake_tcti fake;
 
     common(fake.handle())->finalize(fake.handle());
@@ -136,6 +150,8 @@ TEST(fake_tcti, finalizes_observed_counts_finalize_callbacks)
 
 TEST(fake_tcti, pushed_failure_is_returned_by_receive_after_transmit)
 {
+    // Verifies queued failures surface on the matching receive call.
+
     tpmkit::testing::fake_tcti fake;
     fake.push_failure(TPM2_RC_INITIALIZE);
 
@@ -148,6 +164,8 @@ TEST(fake_tcti, pushed_failure_is_returned_by_receive_after_transmit)
 
 TEST(fake_tcti, move_transfers_a_usable_handle_to_the_new_owner)
 {
+    // Verifies moving fake_tcti transfers a usable TCTI handle.
+
     static_assert(std::is_move_constructible<tpmkit::testing::fake_tcti>::value,
                   "fake_tcti must be move constructible");
     static_assert(std::is_move_assignable<tpmkit::testing::fake_tcti>::value,
@@ -169,6 +187,8 @@ TEST(fake_tcti, move_transfers_a_usable_handle_to_the_new_owner)
 
 TEST(fake_tcti, esys_initialize_accepts_handle)
 {
+    // Verifies ESYS accepts the fake TCTI handle shape.
+
     tpmkit::testing::fake_tcti fake;
     ESYS_CONTEXT* esys_context = nullptr;
 
@@ -180,6 +200,8 @@ TEST(fake_tcti, esys_initialize_accepts_handle)
 
 TEST(fake_tcti, finalize_function_pointer_can_run_without_owner_state)
 {
+    // Verifies copied finalize callbacks tolerate missing owner state.
+
     struct copied_context {
         TSS2_TCTI_CONTEXT_COMMON_V1 common;
         void* owner;
@@ -198,6 +220,8 @@ TEST(fake_tcti, finalize_function_pointer_can_run_without_owner_state)
 
 TEST(fake_tcti, poll_cancel_and_locality_dispatch_are_noops)
 {
+    // Verifies optional TCTI callbacks succeed as no-ops.
+
     tpmkit::testing::fake_tcti fake;
     std::size_t poll_handle_count = 1U;
 

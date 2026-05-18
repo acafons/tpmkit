@@ -24,10 +24,8 @@ struct log_record {
 
 class recording_logger final : public tpmkit::logger {
 public:
-    void log(
-        const tpmkit::log_level level,
-        const std::string_view message,
-        const gsl::span<const tpmkit::log_field> fields) noexcept final
+    void log(const tpmkit::log_level level, const std::string_view message,
+             const gsl::span<const tpmkit::log_field> fields) noexcept final
     {
         std::vector<std::pair<std::string, std::string>> copied_fields;
         copied_fields.reserve(fields.size());
@@ -67,9 +65,9 @@ namespace events = tpmkit::detail::esys::events;
     return message.find_first_of("0123456789") != std::string::npos;
 }
 
-[[nodiscard]] const std::pair<std::string, std::string>* find_field(
-    const std::vector<std::pair<std::string, std::string>>& fields,
-    const std::string_view key)
+[[nodiscard]] const std::pair<std::string, std::string>*
+find_field(const std::vector<std::pair<std::string, std::string>>& fields,
+           const std::string_view key)
 {
     for (const auto& field : fields) {
         if (field.first == key) {
@@ -152,12 +150,12 @@ const std::vector<mapping_case>& documented_cases()
 
 TEST(error_translation, success_returns_value_without_logging)
 {
+    // Verifies successful TSS return codes produce no log record.
+
     recording_logger log;
 
-    const auto result = tpmkit::detail::esys::translate_tss_rc(
-        TSS2_RC_SUCCESS,
-        "esys_initialize",
-        &log);
+    const auto result =
+        tpmkit::detail::esys::translate_tss_rc(TSS2_RC_SUCCESS, "esys_initialize", &log);
 
     EXPECT_TRUE(result.has_value());
     EXPECT_TRUE(log.records.empty());
@@ -165,11 +163,11 @@ TEST(error_translation, success_returns_value_without_logging)
 
 TEST(error_translation, maps_every_documented_esapi_and_tcti_rc)
 {
+    // Verifies documented ESAPI and TCTI return codes map to categories.
+
     for (const auto& test_case : documented_cases()) {
-        const auto result = tpmkit::detail::esys::translate_tss_rc(
-            test_case.rc,
-            "esys_initialize",
-            nullptr);
+        const auto result =
+            tpmkit::detail::esys::translate_tss_rc(test_case.rc, "esys_initialize", nullptr);
 
         ASSERT_FALSE(result.has_value()) << test_case.name;
         EXPECT_EQ(result.error().category, test_case.category) << test_case.name;
@@ -179,6 +177,8 @@ TEST(error_translation, maps_every_documented_esapi_and_tcti_rc)
 
 TEST(error_translation, maps_explicit_task_examples)
 {
+    // Verifies representative task return-code examples map correctly.
+
 #if defined(__GNUC__) || defined(__clang__)
 // TSS return-code constants expand through C-style casts in the system headers.
 #pragma GCC diagnostic push
@@ -196,10 +196,8 @@ TEST(error_translation, maps_explicit_task_examples)
 #endif
 
     for (const auto& test_case : cases) {
-        const auto result = tpmkit::detail::esys::translate_tss_rc(
-            test_case.rc,
-            "esys_startup",
-            nullptr);
+        const auto result =
+            tpmkit::detail::esys::translate_tss_rc(test_case.rc, "esys_startup", nullptr);
 
         ASSERT_FALSE(result.has_value()) << test_case.name;
         EXPECT_EQ(result.error().category, test_case.category) << test_case.name;
@@ -209,6 +207,8 @@ TEST(error_translation, maps_explicit_task_examples)
 
 TEST(error_translation, logs_non_success_rc_with_schema_fields)
 {
+    // Verifies failed TSS return codes emit the documented schema fields.
+
 #if defined(__GNUC__) || defined(__clang__)
 // TSS return-code constants expand through C-style casts in the system headers.
 #pragma GCC diagnostic push
@@ -220,10 +220,7 @@ TEST(error_translation, logs_non_success_rc_with_schema_fields)
 #endif
     recording_logger log;
 
-    const auto result = tpmkit::detail::esys::translate_tss_rc(
-        rc,
-        "tcti_init",
-        &log);
+    const auto result = tpmkit::detail::esys::translate_tss_rc(rc, "tcti_init", &log);
 
     ASSERT_FALSE(result.has_value());
     ASSERT_EQ(log.records.size(), 1U);
@@ -246,6 +243,8 @@ TEST(error_translation, logs_non_success_rc_with_schema_fields)
 
 TEST(error_translation, logs_representative_tss_layer_names)
 {
+    // Verifies logged TSS layer names are stable for representative codes.
+
 #if defined(__GNUC__) || defined(__clang__)
 // TSS return-code constants expand through C-style casts in the system headers.
 #pragma GCC diagnostic push
@@ -265,18 +264,14 @@ TEST(error_translation, logs_representative_tss_layer_names)
     for (const auto& test_case : cases) {
         recording_logger log;
 
-        const auto result = tpmkit::detail::esys::translate_tss_rc(
-            test_case.rc,
-            "esys_startup",
-            &log);
+        const auto result =
+            tpmkit::detail::esys::translate_tss_rc(test_case.rc, "esys_startup", &log);
 
         ASSERT_FALSE(result.has_value()) << test_case.name;
         EXPECT_EQ(result.error().category, test_case.category) << test_case.name;
         ASSERT_EQ(log.records.size(), 1U) << test_case.name;
 
-        const auto* layer = find_field(
-            log.records.front().fields,
-            events::fields::tss_layer);
+        const auto* layer = find_field(log.records.front().fields, events::fields::tss_layer);
         ASSERT_NE(layer, nullptr) << test_case.name;
         EXPECT_EQ(layer->second, test_case.layer) << test_case.name;
     }

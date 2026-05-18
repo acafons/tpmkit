@@ -11,6 +11,8 @@ namespace {
 
 TEST(foundational_types, outcome_holds_value)
 {
+    // Verifies outcome exposes its contained success value.
+
     const tpmkit::outcome<int> result{42};
 
     ASSERT_TRUE(result.has_value());
@@ -19,9 +21,10 @@ TEST(foundational_types, outcome_holds_value)
 
 TEST(foundational_types, outcome_holds_error)
 {
-    const tpmkit::outcome<int> result{
-        tl::unexpect,
-        tpmkit::error{tpmkit::error_category::input_error, "bad"}};
+    // Verifies outcome exposes its contained error.
+
+    const tpmkit::outcome<int> result{tl::unexpect,
+                                      tpmkit::error{tpmkit::error_category::input_error, "bad"}};
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().category, tpmkit::error_category::input_error);
@@ -30,6 +33,8 @@ TEST(foundational_types, outcome_holds_error)
 
 TEST(foundational_types, errors_with_same_fields_are_observably_equivalent)
 {
+    // Verifies errors with matching fields compare through their observable fields.
+
     const tpmkit::error first{tpmkit::error_category::backend_error, "failed"};
     const tpmkit::error second{tpmkit::error_category::backend_error, "failed"};
 
@@ -39,6 +44,8 @@ TEST(foundational_types, errors_with_same_fields_are_observably_equivalent)
 
 TEST(foundational_types, tpmkit_error_preserves_message)
 {
+    // Verifies tpmkit_error exposes its construction message.
+
     const tpmkit::tpmkit_error error{"x"};
 
     EXPECT_STREQ(error.what(), "x");
@@ -46,14 +53,14 @@ TEST(foundational_types, tpmkit_error_preserves_message)
 
 TEST(foundational_types, noop_logger_satisfies_logger_port)
 {
+    // Verifies noop_logger can be called through the logger port.
+
     tpmkit::noop_logger noop;
     tpmkit::logger* const log = &noop;
     const std::array<tpmkit::log_field, 1> fields{{{"event", "test.noop"}}};
 
-    EXPECT_NO_THROW(log->log(
-        tpmkit::log_level::info,
-        "noop logger called",
-        gsl::span<const tpmkit::log_field>(fields)));
+    EXPECT_NO_THROW(log->log(tpmkit::log_level::info, "noop logger called",
+                             gsl::span<const tpmkit::log_field>(fields)));
 }
 
 } // namespace

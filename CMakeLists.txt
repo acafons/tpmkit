@@ -362,33 +362,61 @@ if(tpmkit_BUILD_TESTS)
     find_package(GTest CONFIG REQUIRED)
     include(GoogleTest)
 
-    add_executable(tpmkit_foundational_tests
-        tests/contract/logger_port_test.cpp
-        tests/integration/foundational_headers_smoke.cpp
-        tests/integration/fake_tpm_context_header_self_contained.cpp
-        tests/integration/recording_logger_header_self_contained.cpp
-        tests/integration/tpm2_esys/tpm_context_swtpm_test.cpp
-        tests/integration/tpm2_esys/tcti_loader_deferred_test.cpp
-        tests/integration/tpm_context_header_self_contained.cpp
+    function(tpmkit_discover_gtests target)
+        set(test_labels "${ARGN}")
+        string(REPLACE ";" "\\;" escaped_test_labels "${test_labels}")
+        gtest_discover_tests(${target}
+            PROPERTIES
+                TIMEOUT 30
+                LABELS "${escaped_test_labels}"
+        )
+    endfunction()
+
+    add_executable(tpmkit_unit_public_api_tests
         tests/unit/public_api/exception_header_smoke.cpp
+        tests/unit/public_api/foundational_headers_smoke.cpp
         tests/unit/public_api/foundational_types_test.cpp
         tests/unit/public_api/logger_header_smoke.cpp
         tests/unit/public_api/noop_logger_header_smoke.cpp
         tests/unit/public_api/result_header_smoke.cpp
         tests/unit/public_api/tpm_context_config_test.cpp
+        tests/unit/public_api/tpm_context_header_self_contained.cpp
         tests/unit/public_api/tpm_context_header_smoke.cpp
+    )
+    target_link_libraries(tpmkit_unit_public_api_tests
+        PRIVATE
+            GTest::gtest_main
+            tpmkit::tpmkit
+    )
+    tpmkit_discover_gtests(tpmkit_unit_public_api_tests Unit PublicApi)
+
+    add_executable(tpmkit_unit_testing_tests
+        tests/unit/public_api/fake_tpm_context_header_self_contained.cpp
+        tests/unit/public_api/recording_logger_header_self_contained.cpp
         tests/unit/testing/fake_tpm_context_test.cpp
+        tests/unit/testing/recording_logger_test.cpp
         tests/unit/testing/tpm2_esys/fake_tcti_test.cpp
+    )
+    target_link_libraries(tpmkit_unit_testing_tests
+        PRIVATE
+            GTest::gtest_main
+            tpmkit::tpmkit
+            tpmkit::tpmkit_testing
+            TSS2::ESYS
+    )
+    tpmkit_discover_gtests(tpmkit_unit_testing_tests Unit Testing)
+
+    add_executable(tpmkit_unit_tpm2_esys_tests
         tests/unit/tpm2_esys/error_translation_test.cpp
         tests/unit/tpm2_esys/log_events_test.cpp
-        tests/unit/tpm2_esys/tpm_context_lifecycle_test.cpp
         tests/unit/tpm2_esys/tcti_loader_test.cpp
+        tests/unit/tpm2_esys/tpm_context_lifecycle_test.cpp
     )
-    target_include_directories(tpmkit_foundational_tests
+    target_include_directories(tpmkit_unit_tpm2_esys_tests
         PRIVATE
             "${CMAKE_CURRENT_SOURCE_DIR}"
     )
-    target_link_libraries(tpmkit_foundational_tests
+    target_link_libraries(tpmkit_unit_tpm2_esys_tests
         PRIVATE
             GTest::gtest_main
             tpmkit::tpmkit
@@ -396,9 +424,71 @@ if(tpmkit_BUILD_TESTS)
             TSS2::ESYS
             TSS2::TCTILDR
     )
+    tpmkit_discover_gtests(tpmkit_unit_tpm2_esys_tests Unit Adapter_tpm2_esys Security)
 
-    gtest_discover_tests(tpmkit_foundational_tests
-        PROPERTIES TIMEOUT 30
+    add_executable(tpmkit_contract_logger_tests
+        tests/contract/logger_port_test.cpp
+    )
+    target_link_libraries(tpmkit_contract_logger_tests
+        PRIVATE
+            GTest::gtest_main
+            tpmkit::tpmkit
+            tpmkit::tpmkit_testing
+    )
+    tpmkit_discover_gtests(tpmkit_contract_logger_tests Contract)
+
+    add_executable(tpmkit_integration_tpm2_esys_tests
+        tests/integration/tpm2_esys/tcti_loader_test.cpp
+        tests/integration/tpm2_esys/tpm_context_swtpm_test.cpp
+    )
+    target_include_directories(tpmkit_integration_tpm2_esys_tests
+        PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}"
+    )
+    target_link_libraries(tpmkit_integration_tpm2_esys_tests
+        PRIVATE
+            GTest::gtest_main
+            tpmkit::tpmkit
+            TSS2::ESYS
+            TSS2::TCTILDR
+    )
+    gtest_discover_tests(tpmkit_integration_tpm2_esys_tests
+        PROPERTIES
+            TIMEOUT 30
+            LABELS "Integration\\;Integration_tpm2_esys\\;Security"
+            FIXTURES_REQUIRED tpm_stack
+    )
+
+    add_test(
+        NAME tpm_stack_start
+        COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/scripts/tpm-start.sh
+    )
+    set_tests_properties(tpm_stack_start
+        PROPERTIES
+            FIXTURES_SETUP tpm_stack
+            LABELS "Integration;Integration_tpm2_esys"
+    )
+
+    add_test(
+        NAME tpm_stack_stop
+        COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/scripts/tpm-stop.sh
+    )
+    set_tests_properties(tpm_stack_stop
+        PROPERTIES
+            FIXTURES_CLEANUP tpm_stack
+            LABELS "Integration;Integration_tpm2_esys"
+    )
+
+    add_test(
+        NAME test_policy_guard
+        COMMAND
+            ${CMAKE_COMMAND}
+            -DTPMKIT_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/check-test-policy.cmake
+    )
+    set_tests_properties(test_policy_guard
+        PROPERTIES
+            LABELS "Policy;Testing"
     )
 
     add_test(
