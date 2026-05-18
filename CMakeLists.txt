@@ -45,6 +45,7 @@ option(tpmkit_BUILD_TESTS "Build tpmkit tests." "${tpmkit_IS_TOP_LEVEL}")
 option(TPMKIT_COVERAGE "Enable coverage instrumentation for Debug builds." OFF)
 option(TPMKIT_BUILD_DOCS "Build API reference documentation with Doxygen." OFF)
 option(TPMKIT_INSTALL_TESTING "Install the tpmkit_testing target export for downstream test utilities." OFF)
+option(TPMKIT_WITH_SPDLOG "Build the spdlog logger adapter (requires spdlog)." ON)
 
 set(tpmkit_BUILD_EXAMPLES_DEFAULT ON)
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
@@ -140,7 +141,9 @@ pkg_check_modules(TSS2_ESYS REQUIRED IMPORTED_TARGET "tss2-esys = ${TPMKIT_TSS2_
 pkg_check_modules(TSS2_TCTILDR REQUIRED IMPORTED_TARGET
     "tss2-tctildr = ${TPMKIT_TSS2_REQUIRED_VERSION}"
 )
-find_package(spdlog CONFIG QUIET)
+if(TPMKIT_WITH_SPDLOG)
+    find_package(spdlog CONFIG QUIET)
+endif()
 
 set(tpmkit_placeholder_source "${CMAKE_CURRENT_BINARY_DIR}/generated/tpmkit_empty.cpp")
 file(WRITE "${tpmkit_placeholder_source}" "")
