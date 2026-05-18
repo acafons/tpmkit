@@ -6,10 +6,10 @@
     {
       "name": "tpmkit",
       "sidecar_branch": "tpmkit/__branches__/main",
-      "commit": "28897a3957f2aafbed99ddd27ee7bdfc4390620b",
-      "digest": "sha256:4129c9a846b3f08640c56905f9a93eda28c996b29a45010356941c8dbc9bdc1e",
-      "files": 70,
-      "bytes": 896528
+      "commit": "d8142a8bfb5ecf63f10438470eff8567a585ccf9",
+      "digest": "sha256:5dbf4886ae423f5540c128b6505f207abf13335167ec2f9327d9578bbc62f75e",
+      "files": 75,
+      "bytes": 907746
     }
   ]
 }

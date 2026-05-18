@@ -125,6 +125,7 @@ endif()
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
+find_package(PkgConfig REQUIRED)
 
 find_package(Microsoft.GSL CONFIG REQUIRED)
 find_package(tl-expected CONFIG QUIET)
@@ -134,26 +135,11 @@ if(NOT TARGET tl::expected)
     target_include_directories(tl_expected_headers INTERFACE "${TL_EXPECTED_INCLUDE_DIR}")
     add_library(tl::expected ALIAS tl_expected_headers)
 endif()
-find_path(TSS2_TCTILDR_INCLUDE_DIR NAMES tss2/tss2_tctildr.h REQUIRED)
-find_path(TSS2_ESYS_INCLUDE_DIR NAMES tss2/tss2_esys.h REQUIRED)
-find_library(TSS2_TCTILDR_LIBRARY NAMES tss2-tctildr REQUIRED)
-find_library(TSS2_ESYS_LIBRARY NAMES tss2-esys REQUIRED)
-
-if(NOT TARGET TSS2::TCTILDR)
-    add_library(TSS2::TCTILDR UNKNOWN IMPORTED)
-    set_target_properties(TSS2::TCTILDR PROPERTIES
-        IMPORTED_LOCATION "${TSS2_TCTILDR_LIBRARY}"
-        INTERFACE_INCLUDE_DIRECTORIES "${TSS2_TCTILDR_INCLUDE_DIR}"
-    )
-endif()
-
-if(NOT TARGET TSS2::ESYS)
-    add_library(TSS2::ESYS UNKNOWN IMPORTED)
-    set_target_properties(TSS2::ESYS PROPERTIES
-        IMPORTED_LOCATION "${TSS2_ESYS_LIBRARY}"
-        INTERFACE_INCLUDE_DIRECTORIES "${TSS2_ESYS_INCLUDE_DIR}"
-    )
-endif()
+set(TPMKIT_TSS2_REQUIRED_VERSION "4.1.3" CACHE STRING "Required TPM2 TSS package version.")
+pkg_check_modules(TSS2_ESYS REQUIRED IMPORTED_TARGET "tss2-esys = ${TPMKIT_TSS2_REQUIRED_VERSION}")
+pkg_check_modules(TSS2_TCTILDR REQUIRED IMPORTED_TARGET
+    "tss2-tctildr = ${TPMKIT_TSS2_REQUIRED_VERSION}"
+)
 
 set(tpmkit_placeholder_source "${CMAKE_CURRENT_BINARY_DIR}/generated/tpmkit_empty.cpp")
 file(WRITE "${tpmkit_placeholder_source}" "")
@@ -193,8 +179,8 @@ target_link_libraries(tpmkit
         Microsoft.GSL::GSL
         tl::expected
     PRIVATE
-        TSS2::ESYS
-        TSS2::TCTILDR
+        PkgConfig::TSS2_ESYS
+        PkgConfig::TSS2_TCTILDR
 )
 set_target_properties(tpmkit PROPERTIES
     CXX_VISIBILITY_PRESET hidden
@@ -228,6 +214,8 @@ target_include_directories(tpmkit_testing
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+    PRIVATE
+        ${TSS2_TCTILDR_INCLUDE_DIRS}
 )
 target_link_libraries(tpmkit_testing
     PUBLIC
@@ -402,7 +390,7 @@ if(tpmkit_BUILD_TESTS)
             GTest::gtest_main
             tpmkit::tpmkit
             tpmkit::tpmkit_testing
-            TSS2::ESYS
+            PkgConfig::TSS2_ESYS
     )
     tpmkit_discover_gtests(tpmkit_unit_testing_tests Unit Testing)
 
@@ -421,8 +409,8 @@ if(tpmkit_BUILD_TESTS)
             GTest::gtest_main
             tpmkit::tpmkit
             tpmkit::tpmkit_testing
-            TSS2::ESYS
-            TSS2::TCTILDR
+            PkgConfig::TSS2_ESYS
+            PkgConfig::TSS2_TCTILDR
     )
     tpmkit_discover_gtests(tpmkit_unit_tpm2_esys_tests Unit Adapter_tpm2_esys Security)
 
@@ -449,8 +437,8 @@ if(tpmkit_BUILD_TESTS)
         PRIVATE
             GTest::gtest_main
             tpmkit::tpmkit
-            TSS2::ESYS
-            TSS2::TCTILDR
+            PkgConfig::TSS2_ESYS
+            PkgConfig::TSS2_TCTILDR
     )
     gtest_discover_tests(tpmkit_integration_tpm2_esys_tests
         PROPERTIES
@@ -487,6 +475,19 @@ if(tpmkit_BUILD_TESTS)
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/check-test-policy.cmake
     )
     set_tests_properties(test_policy_guard
+        PROPERTIES
+            LABELS "Policy;Testing"
+    )
+
+    add_test(
+        NAME cmake_tss_discovery_guard
+        COMMAND
+            ${CMAKE_COMMAND}
+            -DTPMKIT_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
+            -DTPMKIT_BINARY_ROOT=${CMAKE_CURRENT_BINARY_DIR}/cmake_tss_discovery_guard
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake_tss_discovery_guard/run.cmake
+    )
+    set_tests_properties(cmake_tss_discovery_guard
         PROPERTIES
             LABELS "Policy;Testing"
     )
