@@ -37,7 +37,7 @@ Example invocation with a swtpm TCTI:
 
 ## Building
 
-Dependencies are pinned in [vcpkg.json](vcpkg.json): `tl-expected` 1.3.1, `ms-gsl` 4.2.1, `tpm2-tss` 4.1.3, and `gtest` 1.17.0 port 2. Local project commands that use CMake, the TPM stack, or the toolchain must run through the dev container.
+Dependencies are pinned in [vcpkg.json](vcpkg.json): `tl-expected` 1.3.1, `ms-gsl` 4.2.1, `tpm2-tss` 4.1.3, `spdlog` for the optional logger adapter, and `gtest` 1.17.0 port 2. Local project commands that use CMake, the TPM stack, or the toolchain must run through the dev container.
 
 ```sh
 ./scripts/run-tpmkit-docker.sh
@@ -56,7 +56,7 @@ Install the library and CMake package files with:
 ./scripts/exec-tpmkit-docker.sh 'cmake --install build/debug --prefix /tmp/tpmkit-install'
 ```
 
-Production installs export `tpmkit::tpmkit`. Test substitute headers and the `tpmkit::tpmkit_testing` target are installed only when `TPMKIT_INSTALL_TESTING=ON`; see [ADR-008](.compozy/tasks/esys-context/adrs/adr-008.md).
+Production installs export `tpmkit::tpmkit`. Test substitute headers and the `tpmkit::tpmkit_testing` target are installed only when `TPMKIT_INSTALL_TESTING=ON`; see [ADR-008](.compozy/tasks/esys-context/adrs/adr-008.md). The spdlog adapter is controlled by `TPMKIT_WITH_SPDLOG` and is enabled by default; when disabled, `tpmkit/spdlog_api.h`, `tpmkit/spdlog_logger.h`, and `tpmkit::tpmkit_spdlog` are not installed. Downstream consumers that need it should request `find_package(tpmkit CONFIG REQUIRED COMPONENTS spdlog)` and link `tpmkit::tpmkit_spdlog`.
 
 ## Test Substitutes (`tpmkit::testing::`)
 

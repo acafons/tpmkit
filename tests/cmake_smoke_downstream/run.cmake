@@ -17,11 +17,15 @@ endif()
 if(NOT DEFINED TPMKIT_BUILD_SHARED_LIBS)
     set(TPMKIT_BUILD_SHARED_LIBS OFF)
 endif()
+if(NOT DEFINED TPMKIT_WITH_SPDLOG)
+    set(TPMKIT_WITH_SPDLOG ON)
+endif()
 
 set(tpmkit_build_dir "${TPMKIT_BINARY_ROOT}/tpmkit-build")
 set(downstream_build_dir "${TPMKIT_BINARY_ROOT}/downstream-build")
 set(testing_only_build_dir "${TPMKIT_BINARY_ROOT}/downstream-testing-only-build")
 set(testing_failure_build_dir "${TPMKIT_BINARY_ROOT}/downstream-testing-required-build")
+set(spdlog_failure_build_dir "${TPMKIT_BINARY_ROOT}/downstream-spdlog-required-build")
 set(tpmkit_config_dir "${TPMKIT_INSTALL_PREFIX}/lib/cmake/tpmkit")
 
 file(REMOVE_RECURSE
@@ -38,6 +42,7 @@ execute_process(
         -DBUILD_SHARED_LIBS=${TPMKIT_BUILD_SHARED_LIBS}
         -Dtpmkit_BUILD_TESTS=OFF
         -DTPMKIT_INSTALL_TESTING=${TPMKIT_INSTALL_TESTING}
+        -DTPMKIT_WITH_SPDLOG=${TPMKIT_WITH_SPDLOG}
     RESULT_VARIABLE result
 )
 if(NOT result EQUAL 0)
@@ -71,6 +76,31 @@ file(READ "${TPMKIT_INSTALL_PREFIX}/lib/cmake/tpmkit/tpmkitTargets.cmake" tpmkit
 if(tpmkit_targets MATCHES "/usr/lib/libtss2-")
     message(FATAL_ERROR "Installed targets export container-local TSS library paths")
 endif()
+if(tpmkit_targets MATCHES "tpmkit_spdlog")
+    message(FATAL_ERROR "Main installed targets export the optional spdlog adapter")
+endif()
+
+if(TPMKIT_WITH_SPDLOG)
+    if(NOT EXISTS "${TPMKIT_INSTALL_PREFIX}/include/tpmkit/spdlog_api.h")
+        message(FATAL_ERROR "spdlog API header was not installed")
+    endif()
+    if(NOT EXISTS "${TPMKIT_INSTALL_PREFIX}/include/tpmkit/spdlog_logger.h")
+        message(FATAL_ERROR "spdlog logger header was not installed")
+    endif()
+    if(NOT EXISTS "${TPMKIT_INSTALL_PREFIX}/lib/cmake/tpmkit/tpmkitSpdlogTargets.cmake")
+        message(FATAL_ERROR "spdlog CMake targets were not installed")
+    endif()
+else()
+    if(EXISTS "${TPMKIT_INSTALL_PREFIX}/include/tpmkit/spdlog_api.h")
+        message(FATAL_ERROR "spdlog API header was installed unexpectedly")
+    endif()
+    if(EXISTS "${TPMKIT_INSTALL_PREFIX}/include/tpmkit/spdlog_logger.h")
+        message(FATAL_ERROR "spdlog logger header was installed unexpectedly")
+    endif()
+    if(EXISTS "${TPMKIT_INSTALL_PREFIX}/lib/cmake/tpmkit/tpmkitSpdlogTargets.cmake")
+        message(FATAL_ERROR "spdlog CMake targets were installed unexpectedly")
+    endif()
+endif()
 
 if(TPMKIT_INSTALL_TESTING)
     if(NOT EXISTS "${TPMKIT_INSTALL_PREFIX}/include/tpmkit/testing/fake_tpm_context.h")
@@ -89,6 +119,7 @@ execute_process(
         -B "${downstream_build_dir}"
         -DTPMKIT_SMOKE_PACKAGE_PATH=${tpmkit_config_dir}
         -DTPMKIT_SMOKE_REQUIRE_TESTING=${TPMKIT_INSTALL_TESTING}
+        -DTPMKIT_SMOKE_REQUIRE_SPDLOG=${TPMKIT_WITH_SPDLOG}
     RESULT_VARIABLE result
 )
 if(NOT result EQUAL 0)
@@ -140,6 +171,28 @@ if(TPMKIT_INSTALL_TESTING)
     )
     if(NOT result EQUAL 0)
         message(FATAL_ERROR "Running testing-only downstream smoke project failed")
+    endif()
+endif()
+
+if(NOT TPMKIT_WITH_SPDLOG)
+    execute_process(
+        COMMAND
+            "${CMAKE_COMMAND}"
+            -S "${TPMKIT_SOURCE_DIR}/tests/cmake_smoke_downstream"
+            -B "${spdlog_failure_build_dir}"
+            -DTPMKIT_SMOKE_PACKAGE_PATH=${tpmkit_config_dir}
+            -DTPMKIT_SMOKE_REQUIRE_SPDLOG=ON
+        RESULT_VARIABLE result
+        OUTPUT_VARIABLE output
+        ERROR_VARIABLE error
+    )
+    if(result EQUAL 0)
+        message(FATAL_ERROR "Downstream spdlog-target configure succeeded unexpectedly")
+    endif()
+
+    string(CONCAT combined_output "${output}" "${error}")
+    if(NOT combined_output MATCHES "spdlog")
+        message(FATAL_ERROR "Missing-spdlog-target failure did not name spdlog")
     endif()
 endif()
 

@@ -142,7 +142,10 @@ pkg_check_modules(TSS2_TCTILDR REQUIRED IMPORTED_TARGET
     "tss2-tctildr = ${TPMKIT_TSS2_REQUIRED_VERSION}"
 )
 if(TPMKIT_WITH_SPDLOG)
-    find_package(spdlog CONFIG QUIET)
+    find_package(spdlog CONFIG REQUIRED)
+    if(NOT TARGET spdlog::spdlog)
+        message(FATAL_ERROR "TPMKIT_WITH_SPDLOG=ON requires the spdlog::spdlog CMake target.")
+    endif()
 endif()
 
 set(tpmkit_placeholder_source "${CMAKE_CURRENT_BINARY_DIR}/generated/tpmkit_empty.cpp")
@@ -234,7 +237,7 @@ if(NOT BUILD_SHARED_LIBS)
     target_compile_definitions(tpmkit_testing PUBLIC TPMKIT_STATIC_DEFINE)
 endif()
 
-if(TARGET spdlog::spdlog)
+if(TPMKIT_WITH_SPDLOG)
     set(tpmkit_spdlog_placeholder_source "${CMAKE_CURRENT_BINARY_DIR}/generated/tpmkit_spdlog_empty.cpp")
     file(WRITE "${tpmkit_spdlog_placeholder_source}" "")
     add_library(tpmkit_spdlog "${tpmkit_spdlog_placeholder_source}")
@@ -334,6 +337,15 @@ install(TARGETS tpmkit
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
+if(TARGET tpmkit_spdlog)
+    install(TARGETS tpmkit_spdlog
+        EXPORT tpmkitSpdlogTargets
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    )
+endif()
+
 if(TPMKIT_INSTALL_TESTING)
     install(TARGETS tpmkit_testing
         EXPORT tpmkitTargets
@@ -348,7 +360,17 @@ install(
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
     FILES_MATCHING PATTERN "*.h"
     PATTERN "testing" EXCLUDE
+    PATTERN "spdlog_api.h" EXCLUDE
+    PATTERN "spdlog_logger.h" EXCLUDE
 )
+
+if(TARGET tpmkit_spdlog)
+    install(FILES
+        include/tpmkit/spdlog_api.h
+        include/tpmkit/spdlog_logger.h
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/tpmkit
+    )
+endif()
 
 if(TPMKIT_INSTALL_TESTING)
     install(DIRECTORY include/tpmkit/testing
@@ -362,6 +384,14 @@ install(EXPORT tpmkitTargets
     NAMESPACE tpmkit::
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/tpmkit
 )
+
+if(TARGET tpmkit_spdlog)
+    install(EXPORT tpmkitSpdlogTargets
+        FILE tpmkitSpdlogTargets.cmake
+        NAMESPACE tpmkit::
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/tpmkit
+    )
+endif()
 
 configure_package_config_file(
     cmake/tpmkitConfig.cmake.in
@@ -397,17 +427,25 @@ if(tpmkit_BUILD_TESTS)
         )
     endfunction()
 
-    add_executable(tpmkit_unit_public_api_tests
+    set(tpmkit_unit_public_api_sources
         tests/unit/public_api/exception_header_smoke.cpp
         tests/unit/public_api/foundational_headers_smoke.cpp
         tests/unit/public_api/foundational_types_test.cpp
         tests/unit/public_api/logger_header_smoke.cpp
         tests/unit/public_api/noop_logger_header_smoke.cpp
         tests/unit/public_api/result_header_smoke.cpp
-        tests/unit/public_api/spdlog_logger_header_self_contained.cpp
         tests/unit/public_api/tpm_context_config_test.cpp
         tests/unit/public_api/tpm_context_header_self_contained.cpp
         tests/unit/public_api/tpm_context_header_smoke.cpp
+    )
+    if(TARGET tpmkit_spdlog)
+        list(APPEND tpmkit_unit_public_api_sources
+            tests/unit/public_api/spdlog_logger_header_self_contained.cpp
+        )
+    endif()
+
+    add_executable(tpmkit_unit_public_api_tests
+        ${tpmkit_unit_public_api_sources}
     )
     target_link_libraries(tpmkit_unit_public_api_tests
         PRIVATE
@@ -416,7 +454,7 @@ if(tpmkit_BUILD_TESTS)
     )
     tpmkit_discover_gtests(tpmkit_unit_public_api_tests Unit PublicApi)
 
-    if(TARGET spdlog::spdlog)
+    if(TARGET tpmkit_spdlog)
         add_executable(tpmkit_unit_spdlog_tests
             tests/unit/spdlog/spdlog_logger_test.cpp
         )
@@ -492,7 +530,7 @@ if(tpmkit_BUILD_TESTS)
             PkgConfig::TSS2_ESYS
             PkgConfig::TSS2_TCTILDR
     )
-    if(TARGET spdlog::spdlog)
+    if(TARGET tpmkit_spdlog)
         target_compile_definitions(tpmkit_integration_tpm2_esys_tests
             PRIVATE TPMKIT_HAS_SPDLOG
         )
@@ -583,6 +621,18 @@ if(tpmkit_BUILD_TESTS)
             -DTPMKIT_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/cmake_smoke_downstream/install-shared-off
             -DTPMKIT_INSTALL_TESTING=OFF
             -DTPMKIT_BUILD_SHARED_LIBS=ON
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake_smoke_downstream/run.cmake
+    )
+
+    add_test(
+        NAME cmake_smoke_downstream_install_without_spdlog
+        COMMAND
+            ${CMAKE_COMMAND}
+            -DTPMKIT_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
+            -DTPMKIT_BINARY_ROOT=${CMAKE_CURRENT_BINARY_DIR}/cmake_smoke_downstream/spdlog-off
+            -DTPMKIT_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/cmake_smoke_downstream/install-spdlog-off
+            -DTPMKIT_INSTALL_TESTING=OFF
+            -DTPMKIT_WITH_SPDLOG=OFF
             -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake_smoke_downstream/run.cmake
     )
 endif()
