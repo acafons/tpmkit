@@ -1,14 +1,21 @@
 #include <tpmkit/spdlog_logger.h>
 
+#include <tpmkit/exception.h>
+
+#include <spdlog/details/null_mutex.h>
+#include <spdlog/sinks/base_sink.h>
 #include <spdlog/sinks/ostream_sink.h>
 #include <spdlog/spdlog.h>
 
 #include <gtest/gtest.h>
 
 #include <array>
+#include <atomic>
 #include <memory>
 #include <sstream>
 #include <string>
+#include <thread>
+#include <vector>
 
 namespace {
 
@@ -23,6 +30,50 @@ std::pair<tpmkit::spdlog_logger, std::shared_ptr<std::ostringstream>> make_test_
     auto inner = std::make_shared<::spdlog::logger>("tpmkit", sink);
     inner->set_level(min_level);
     return {tpmkit::spdlog_logger{inner}, stream};
+}
+
+class detecting_single_thread_sink final : public ::spdlog::sinks::base_sink<::spdlog::details::null_mutex> {
+public:
+    [[nodiscard]] std::size_t records_observed() const noexcept
+    {
+        return records_observed_.load();
+    }
+
+    [[nodiscard]] bool saw_overlap() const noexcept
+    {
+        return saw_overlap_.load();
+    }
+
+protected:
+    void sink_it_(const ::spdlog::details::log_msg&) final
+    {
+        if (active_writers_.fetch_add(1) != 0) {
+            saw_overlap_.store(true);
+        }
+
+        for (int iteration = 0; iteration < 1000; ++iteration) {
+            std::this_thread::yield();
+        }
+
+        records_observed_.fetch_add(1);
+        active_writers_.fetch_sub(1);
+    }
+
+    void flush_() final {}
+
+private:
+    std::atomic<int> active_writers_{0};
+    std::atomic<std::size_t> records_observed_{0U};
+    std::atomic<bool> saw_overlap_{false};
+};
+
+TEST(spdlog_logger, rejects_null_sink)
+{
+    // Verifies null wrapped spdlog loggers are rejected at construction.
+
+    EXPECT_THROW(
+        tpmkit::spdlog_logger{std::shared_ptr<::spdlog::logger>{}},
+        tpmkit::tpmkit_error);
 }
 
 TEST(spdlog_logger, forwards_message_to_sink)
@@ -121,6 +172,39 @@ TEST(spdlog_logger, log_with_nullptr_fields_does_not_crash)
                             gsl::span<const tpmkit::log_field>{}));
     log.flush();
     EXPECT_NE(stream->str().find("tpm.context.finalized"), std::string::npos);
+}
+
+TEST(spdlog_logger, serializes_calls_to_single_threaded_sink)
+{
+    // Verifies adapter-mediated calls are serialized for single-threaded sinks.
+
+    auto sink = std::make_shared<detecting_single_thread_sink>();
+    sink->set_level(::spdlog::level::trace);
+    auto inner = std::make_shared<::spdlog::logger>("single_threaded_sink", sink);
+    inner->set_level(::spdlog::level::trace);
+    tpmkit::spdlog_logger log{inner};
+
+    constexpr int thread_count = 8;
+    constexpr int records_per_thread = 50;
+    std::vector<std::thread> threads;
+    threads.reserve(thread_count);
+
+    for (int thread = 0; thread < thread_count; ++thread) {
+        threads.emplace_back([&log] {
+            for (int record = 0; record < records_per_thread; ++record) {
+                log.log(tpmkit::log_level::info, "tpm.context.finalized",
+                        gsl::span<const tpmkit::log_field>{});
+            }
+        });
+    }
+
+    for (std::thread& thread : threads) {
+        thread.join();
+    }
+
+    EXPECT_EQ(sink->records_observed(),
+              static_cast<std::size_t>(thread_count * records_per_thread));
+    EXPECT_FALSE(sink->saw_overlap());
 }
 
 } // namespace

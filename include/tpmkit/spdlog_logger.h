@@ -20,6 +20,7 @@
 #include <tpmkit/spdlog_api.h>
 
 #include <memory>
+#include <mutex>
 
 namespace spdlog {
 class logger;
@@ -38,8 +39,10 @@ namespace tpmkit {
  * The adapter does not emit timestamps, hostnames, PIDs, or correlation IDs;
  * those are added by spdlog's pattern formatter at the sink level.
  *
- * @thread_safety Thread-safe. Concurrent `log()` and `flush()` calls are safe
- * because `::spdlog::logger` serializes internally.
+ * @thread_safety Thread-safe. Concurrent `log()` and `flush()` calls made
+ * through this adapter are serialized before reaching the wrapped spdlog
+ * logger. Direct concurrent use of the same spdlog logger outside this adapter
+ * remains the caller's responsibility.
  * @exception_safety All operations are noexcept; sink failures are swallowed.
  * @see logger
  * @since v0.1
@@ -50,8 +53,8 @@ public:
      * @brief Construct a logger wrapping an existing spdlog logger.
      *
      * @param[in] sink Shared spdlog logger. Must not be null.
-     * @exception_safety Strong; throws only if `std::shared_ptr` move throws
-     * (it does not).
+     * @throws tpmkit_error if `sink` is null.
+     * @exception_safety Strong; failed construction has no side effects.
      */
     explicit spdlog_logger(std::shared_ptr<::spdlog::logger> sink);
 
@@ -65,10 +68,43 @@ public:
      */
     ~spdlog_logger() override;
 
-    spdlog_logger(spdlog_logger&&) noexcept;
-    spdlog_logger& operator=(spdlog_logger&&) noexcept;
-    spdlog_logger(const spdlog_logger&) = delete;
-    spdlog_logger& operator=(const spdlog_logger&) = delete;
+    /**
+     * @brief Move-construct a spdlog adapter.
+     *
+     * @param[in] other Source adapter. Valid but unspecified after the move.
+     * @thread_safety Single-threaded for the moved instances.
+     * @exception_safety noexcept.
+     */
+    spdlog_logger(spdlog_logger&& other) noexcept;
+
+    /**
+     * @brief Move-assign a spdlog adapter.
+     *
+     * @param[in] other Source adapter. Valid but unspecified after the move.
+     * @return Reference to this adapter.
+     * @thread_safety Single-threaded for the moved instances.
+     * @exception_safety noexcept.
+     */
+    spdlog_logger& operator=(spdlog_logger&& other) noexcept;
+
+    /**
+     * @brief Copy construction is disabled because the adapter owns synchronization state.
+     *
+     * @param[in] other Source adapter; copying is intentionally unavailable.
+     * @thread_safety Not applicable.
+     * @exception_safety Unavailable.
+     */
+    spdlog_logger(const spdlog_logger& other) = delete;
+
+    /**
+     * @brief Copy assignment is disabled because the adapter owns synchronization state.
+     *
+     * @param[in] other Source adapter; copying is intentionally unavailable.
+     * @return Reference to this adapter if the operation existed.
+     * @thread_safety Not applicable.
+     * @exception_safety Unavailable.
+     */
+    spdlog_logger& operator=(const spdlog_logger& other) = delete;
 
     /**
      * @brief Forward one structured record to the wrapped spdlog logger.
@@ -98,6 +134,7 @@ public:
     void flush() noexcept;
 
 private:
+    mutable std::mutex mu_;
     std::shared_ptr<::spdlog::logger> sink_;
 };
 
