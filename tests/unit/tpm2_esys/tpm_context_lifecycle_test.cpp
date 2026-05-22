@@ -147,6 +147,22 @@ TEST(tpm_context_lifecycle, create_with_skip_does_not_transmit_startup)
     EXPECT_TRUE(found_completion);
 }
 
+TEST(tpm_context_lifecycle, invalid_startup_mode_returns_input_error_without_transmit)
+{
+    // Verifies invalid startup modes are rejected before issuing TPM commands.
+
+    auto log = std::make_shared<tpmkit::testing::recording_logger>();
+    tpmkit::testing::fake_tcti fake;
+
+    const auto result = tpmkit::tpm_context::create(
+        owned_config(fake, static_cast<startup_mode>(99), log));
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().category, tpmkit::error_category::input_error);
+    EXPECT_EQ(fake.transmits_observed(), 0U);
+    EXPECT_TRUE(log->snapshot().empty());
+}
+
 TEST(tpm_context_lifecycle, startup_initialize_response_is_success)
 {
     // Verifies TPM2_RC_INITIALIZE is treated as successful startup.

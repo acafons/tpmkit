@@ -47,8 +47,24 @@ namespace {
            has_name_args_shape(trimmed);
 }
 
+[[nodiscard]] bool is_valid_startup_mode(const tpm_context_config::startup_mode mode) noexcept
+{
+    switch (mode) {
+    case tpm_context_config::startup_mode::clear:
+    case tpm_context_config::startup_mode::state:
+    case tpm_context_config::startup_mode::skip:
+        return true;
+    }
+
+    return false;
+}
+
 [[nodiscard]] outcome<tpm_context_config> validate(tpm_context_config config)
 {
+    if (!is_valid_startup_mode(config.startup)) {
+        return tl::unexpected(error{error_category::input_error, "TPM startup mode is invalid"});
+    }
+
     if (const auto* const string_tcti = std::get_if<tcti_string_config>(&config.tcti)) {
         if (!is_valid_string_config(*string_tcti)) {
             return tl::unexpected(

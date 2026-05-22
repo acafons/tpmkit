@@ -55,6 +55,21 @@ TEST(fake_tpm_context, valid_string_config_returns_success)
     EXPECT_TRUE(created.has_value());
 }
 
+TEST(fake_tpm_context, invalid_startup_mode_returns_input_error)
+{
+    // Verifies the fake rejects startup modes the real context rejects.
+
+    tpmkit::tpm_context_config config;
+    config.tcti = tpmkit::tcti_string_config{"mssim:host=localhost,port=2321"};
+    config.startup = static_cast<startup_mode>(99);
+
+    const tpmkit::outcome<tpmkit::testing::fake_tpm_context> created =
+        tpmkit::testing::fake_tpm_context::create(std::move(config));
+
+    ASSERT_FALSE(created.has_value());
+    EXPECT_EQ(created.error().category, tpmkit::error_category::input_error);
+}
+
 TEST(fake_tpm_context, successful_context_exposes_last_config_for_introspection)
 {
     // Verifies successful fake contexts expose their consumed config.

@@ -124,6 +124,27 @@ void log_tcti_event(logger* const log, const std::string_view event, const std::
     return "unknown";
 }
 
+[[nodiscard]] bool is_valid_startup_mode(const tpm_context_config::startup_mode mode) noexcept
+{
+    switch (mode) {
+    case tpm_context_config::startup_mode::clear:
+    case tpm_context_config::startup_mode::state:
+    case tpm_context_config::startup_mode::skip:
+        return true;
+    }
+
+    return false;
+}
+
+[[nodiscard]] outcome<void> validate_config(const tpm_context_config& config)
+{
+    if (!is_valid_startup_mode(config.startup)) {
+        return tl::unexpected(error{error_category::input_error, "TPM startup mode is invalid"});
+    }
+
+    return {};
+}
+
 [[nodiscard]] TPM2_SU startup_type(const tpm_context_config::startup_mode mode) noexcept
 {
     switch (mode) {
@@ -284,6 +305,11 @@ tpm_context::tpm_context(std::unique_ptr<impl> implementation) noexcept
 
 outcome<tpm_context> tpm_context::create(tpm_context_config config)
 {
+    const auto validated = validate_config(config);
+    if (!validated.has_value()) {
+        return tl::unexpected(validated.error());
+    }
+
     auto log = effective_logger(std::move(config.log));
 
     auto tcti = resolve_tcti(config, log.get());
