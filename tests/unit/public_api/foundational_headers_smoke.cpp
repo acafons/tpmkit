@@ -1,6 +1,6 @@
 #include <tpmkit/exception.h>
-#include <tpmkit/logger.h>
-#include <tpmkit/noop_logger.h>
+#include <tpmkit/logging/logger.h>
+#include <tpmkit/logging/noop_logger.h>
 #include <tpmkit/result.h>
 
 int tpmkit_foundational_headers_smoke()

@@ -1,4 +1,4 @@
-#include <tpmkit/noop_logger.h>
+#include <tpmkit/logging/noop_logger.h>
 
 int tpmkit_noop_logger_header_smoke()
 {

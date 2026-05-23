@@ -163,8 +163,8 @@ target_sources(tpmkit
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/tpmkit/api.h>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/tpmkit/exception.h>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/tpmkit/logger.h>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/tpmkit/noop_logger.h>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/tpmkit/logging/logger.h>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/tpmkit/logging/noop_logger.h>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/tpmkit/result.h>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/tpmkit/tpm_context.h>
     PRIVATE
@@ -245,8 +245,8 @@ if(TPMKIT_WITH_SPDLOG)
     target_compile_features(tpmkit_spdlog PUBLIC cxx_std_17)
     target_sources(tpmkit_spdlog
         PUBLIC
-            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/tpmkit/spdlog_api.h>
-            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/tpmkit/spdlog_logger.h>
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/tpmkit/logging/spdlog_api.h>
+            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/tpmkit/logging/spdlog_logger.h>
         PRIVATE
             src/adapters/spdlog/spdlog_logger.cpp
     )
@@ -366,9 +366,9 @@ install(
 
 if(TARGET tpmkit_spdlog)
     install(FILES
-        include/tpmkit/spdlog_api.h
-        include/tpmkit/spdlog_logger.h
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/tpmkit
+        include/tpmkit/logging/spdlog_api.h
+        include/tpmkit/logging/spdlog_logger.h
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/tpmkit/logging
     )
 endif()
 

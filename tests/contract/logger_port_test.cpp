@@ -1,4 +1,4 @@
-#include <tpmkit/noop_logger.h>
+#include <tpmkit/logging/noop_logger.h>
 #include <tpmkit/testing/recording_logger.h>
 
 #include <gtest/gtest.h>

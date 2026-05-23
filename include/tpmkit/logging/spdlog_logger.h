@@ -1,7 +1,7 @@
 #pragma once
 
 /**
- * @file tpmkit/spdlog_logger.h
+ * @file tpmkit/logging/spdlog_logger.h
  * @brief spdlog adapter for the tpmkit logger port.
  *
  * Consumers that use spdlog as their logging framework wire this adapter at the
@@ -16,8 +16,8 @@
  * header is intentionally free of spdlog includes.
  */
 
-#include <tpmkit/logger.h>
-#include <tpmkit/spdlog_api.h>
+#include <tpmkit/logging/logger.h>
+#include <tpmkit/logging/spdlog_api.h>
 
 #include <memory>
 #include <mutex>

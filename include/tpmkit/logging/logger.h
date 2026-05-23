@@ -1,7 +1,7 @@
 #pragma once
 
 /**
- * @file tpmkit/logger.h
+ * @file tpmkit/logging/logger.h
  * @brief Structured logging port used by tpmkit components.
  *
  * Consumers provide adapters for their logging framework. tpmkit emits

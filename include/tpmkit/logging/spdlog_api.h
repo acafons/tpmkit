@@ -1,7 +1,7 @@
 #pragma once
 
 /**
- * @file tpmkit/spdlog_api.h
+ * @file tpmkit/logging/spdlog_api.h
  * @brief Public symbol visibility macro for the tpmkit_spdlog library.
  */
 

@@ -1,4 +1,4 @@
-#include <tpmkit/logger.h>
+#include <tpmkit/logging/logger.h>
 
 namespace {
 

@@ -7,7 +7,7 @@
  * Declares the recording logger shipped by the `tpmkit_testing` target.
  */
 
-#include <tpmkit/logger.h>
+#include <tpmkit/logging/logger.h>
 #include <tpmkit/testing/testing_api.h>
 
 #include <mutex>

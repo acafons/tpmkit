@@ -1,4 +1,4 @@
-#include <tpmkit/spdlog_logger.h>
+#include <tpmkit/logging/spdlog_logger.h>
 
 #include <tpmkit/exception.h>
 

@@ -9,7 +9,7 @@
  */
 
 #include <tpmkit/api.h>
-#include <tpmkit/logger.h>
+#include <tpmkit/logging/logger.h>
 #include <tpmkit/result.h>
 
 #include <memory>

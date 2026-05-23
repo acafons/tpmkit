@@ -3,7 +3,7 @@
 #include "error_translation.h"
 #include "log_events.h"
 
-#include <tpmkit/noop_logger.h>
+#include <tpmkit/logging/noop_logger.h>
 
 #include <tss2/tss2_common.h>
 #include <tss2/tss2_esys.h>

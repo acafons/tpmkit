@@ -2,7 +2,7 @@
 
 #include "src/adapters/tpm2_esys/log_events.h"
 
-#include <tpmkit/logger.h>
+#include <tpmkit/logging/logger.h>
 
 #include <tss2/tss2_common.h>
 #include <tss2/tss2_tpm2_types.h>

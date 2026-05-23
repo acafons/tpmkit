@@ -2,7 +2,7 @@
 
 #include "error_translation.h"
 
-#include <tpmkit/logger.h>
+#include <tpmkit/logging/logger.h>
 
 #include <tss2/tss2_common.h>
 #include <tss2/tss2_tcti.h>

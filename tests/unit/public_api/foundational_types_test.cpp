@@ -1,5 +1,5 @@
 #include <tpmkit/exception.h>
-#include <tpmkit/noop_logger.h>
+#include <tpmkit/logging/noop_logger.h>
 #include <tpmkit/result.h>
 
 #include <gtest/gtest.h>

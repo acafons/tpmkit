@@ -2,7 +2,7 @@
 
 #include "src/adapters/tpm2_esys/log_events.h"
 
-#include <tpmkit/logger.h>
+#include <tpmkit/logging/logger.h>
 
 #include <gtest/gtest.h>
 

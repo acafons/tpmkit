@@ -2,7 +2,7 @@
 
 #include "log_events.h"
 
-#include <tpmkit/logger.h>
+#include <tpmkit/logging/logger.h>
 
 #include <tss2/tss2_common.h>
 

@@ -1,13 +1,13 @@
 #pragma once
 
 /**
- * @file tpmkit/noop_logger.h
+ * @file tpmkit/logging/noop_logger.h
  * @brief No-op logger adapter for callers that disable logging.
  *
  * Declares the default sink used when no concrete logger is supplied.
  */
 
-#include <tpmkit/logger.h>
+#include <tpmkit/logging/logger.h>
 
 #include <string_view>
 
