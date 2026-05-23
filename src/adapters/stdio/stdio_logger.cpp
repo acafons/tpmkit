@@ -11,12 +11,25 @@
 #include <ostream>
 #include <string>
 #include <string_view>
+#if defined(_WIN32)
+#include <io.h>
+#else
 #include <unistd.h>
+#endif
 
 namespace {
 
 constexpr std::size_t initial_record_capacity = 256U;
 constexpr std::string_view reset_sequence = "\x1b[0m";
+
+bool utc_time_from_epoch_seconds(const std::time_t seconds, std::tm& utc) noexcept
+{
+#if defined(_WIN32)
+    return ::gmtime_s(&utc, &seconds) == 0;
+#else
+    return ::gmtime_r(&seconds, &utc) != nullptr;
+#endif
+}
 
 const char* ansi_sequence(const tpmkit::log_level level) noexcept
 {
@@ -44,7 +57,7 @@ void append_timestamp(std::string& record)
     const std::time_t seconds = clock::to_time_t(seconds_point);
 
     std::tm utc{};
-    if (::gmtime_r(&seconds, &utc) == nullptr) {
+    if (!utc_time_from_epoch_seconds(seconds, utc)) {
         record += "1970-01-01T00:00:00.000Z";
         return;
     }
@@ -80,10 +93,18 @@ bool is_below_min_level(const tpmkit::log_level level,
 bool is_tty_stream(const std::ostream* const stream) noexcept
 {
     if (stream == &std::cout) {
+#if defined(_WIN32)
+        return ::_isatty(::_fileno(stdout)) != 0;
+#else
         return ::isatty(::fileno(stdout)) == 1;
+#endif
     }
     if (stream == &std::cerr) {
+#if defined(_WIN32)
+        return ::_isatty(::_fileno(stderr)) != 0;
+#else
         return ::isatty(::fileno(stderr)) == 1;
+#endif
     }
     return false;
 }

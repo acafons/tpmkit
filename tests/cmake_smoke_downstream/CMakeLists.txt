@@ -9,6 +9,9 @@ endif()
 if(TPMKIT_SMOKE_REQUIRE_SPDLOG)
     list(APPEND _tpmkit_components spdlog)
 endif()
+if(TPMKIT_SMOKE_REQUIRE_STDIO)
+    list(APPEND _tpmkit_components stdio)
+endif()
 
 if(_tpmkit_components)
     set(_tpmkit_find_components COMPONENTS ${_tpmkit_components})
@@ -56,6 +59,18 @@ if(TPMKIT_SMOKE_REQUIRE_SPDLOG)
     )
 endif()
 
+if(TPMKIT_SMOKE_REQUIRE_STDIO)
+    if(NOT TARGET tpmkit::tpmkit_stdio)
+        message(FATAL_ERROR "tpmkit::tpmkit_stdio is required but was not exported")
+    endif()
+
+    add_executable(tpmkit_downstream_stdio stdio_smoke.cpp)
+    target_link_libraries(tpmkit_downstream_stdio
+        PRIVATE
+            tpmkit::tpmkit_stdio
+    )
+endif()
+
 enable_testing()
 
 if(TARGET tpmkit_downstream_production)
@@ -68,4 +83,8 @@ endif()
 
 if(TARGET tpmkit_downstream_spdlog)
     add_test(NAME spdlog_smoke COMMAND tpmkit_downstream_spdlog)
+endif()
+
+if(TARGET tpmkit_downstream_stdio)
+    add_test(NAME stdio_smoke COMMAND tpmkit_downstream_stdio)
 endif()

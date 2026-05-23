@@ -25,12 +25,17 @@ set(tpmkit_builds_spdlog OFF)
 if(tpmkit_log_adapter STREQUAL "spdlog")
     set(tpmkit_builds_spdlog ON)
 endif()
+set(tpmkit_builds_stdio OFF)
+if(tpmkit_log_adapter STREQUAL "stdio")
+    set(tpmkit_builds_stdio ON)
+endif()
 
 set(tpmkit_build_dir "${TPMKIT_BINARY_ROOT}/tpmkit-build")
 set(downstream_build_dir "${TPMKIT_BINARY_ROOT}/downstream-build")
 set(testing_only_build_dir "${TPMKIT_BINARY_ROOT}/downstream-testing-only-build")
 set(testing_failure_build_dir "${TPMKIT_BINARY_ROOT}/downstream-testing-required-build")
 set(spdlog_failure_build_dir "${TPMKIT_BINARY_ROOT}/downstream-spdlog-required-build")
+set(stdio_failure_build_dir "${TPMKIT_BINARY_ROOT}/downstream-stdio-required-build")
 set(tpmkit_config_dir "${TPMKIT_INSTALL_PREFIX}/lib/cmake/tpmkit")
 
 file(REMOVE_RECURSE
@@ -127,6 +132,28 @@ else()
     endif()
 endif()
 
+if(tpmkit_builds_stdio)
+    if(NOT EXISTS "${TPMKIT_INSTALL_PREFIX}/include/tpmkit/logging/stdio_api.h")
+        message(FATAL_ERROR "stdio API header was not installed")
+    endif()
+    if(NOT EXISTS "${TPMKIT_INSTALL_PREFIX}/include/tpmkit/logging/stdio_logger.h")
+        message(FATAL_ERROR "stdio logger header was not installed")
+    endif()
+    if(NOT EXISTS "${TPMKIT_INSTALL_PREFIX}/lib/cmake/tpmkit/tpmkitStdioTargets.cmake")
+        message(FATAL_ERROR "stdio CMake targets were not installed")
+    endif()
+else()
+    if(EXISTS "${TPMKIT_INSTALL_PREFIX}/include/tpmkit/logging/stdio_api.h")
+        message(FATAL_ERROR "stdio API header was installed unexpectedly")
+    endif()
+    if(EXISTS "${TPMKIT_INSTALL_PREFIX}/include/tpmkit/logging/stdio_logger.h")
+        message(FATAL_ERROR "stdio logger header was installed unexpectedly")
+    endif()
+    if(EXISTS "${TPMKIT_INSTALL_PREFIX}/lib/cmake/tpmkit/tpmkitStdioTargets.cmake")
+        message(FATAL_ERROR "stdio CMake targets were installed unexpectedly")
+    endif()
+endif()
+
 if(TPMKIT_INSTALL_TESTING)
     if(NOT EXISTS "${TPMKIT_INSTALL_PREFIX}/include/tpmkit/testing/fake_tpm_context.h")
         message(FATAL_ERROR "Testing headers were not installed")
@@ -145,6 +172,7 @@ execute_process(
         -DTPMKIT_SMOKE_PACKAGE_PATH=${tpmkit_config_dir}
         -DTPMKIT_SMOKE_REQUIRE_TESTING=${TPMKIT_INSTALL_TESTING}
         -DTPMKIT_SMOKE_REQUIRE_SPDLOG=${tpmkit_builds_spdlog}
+        -DTPMKIT_SMOKE_REQUIRE_STDIO=${tpmkit_builds_stdio}
     RESULT_VARIABLE result
 )
 if(NOT result EQUAL 0)
@@ -218,6 +246,28 @@ if(NOT tpmkit_builds_spdlog)
     string(CONCAT combined_output "${output}" "${error}")
     if(NOT combined_output MATCHES "spdlog")
         message(FATAL_ERROR "Missing-spdlog-target failure did not name spdlog")
+    endif()
+endif()
+
+if(NOT tpmkit_builds_stdio)
+    execute_process(
+        COMMAND
+            "${CMAKE_COMMAND}"
+            -S "${TPMKIT_SOURCE_DIR}/tests/cmake_smoke_downstream"
+            -B "${stdio_failure_build_dir}"
+            -DTPMKIT_SMOKE_PACKAGE_PATH=${tpmkit_config_dir}
+            -DTPMKIT_SMOKE_REQUIRE_STDIO=ON
+        RESULT_VARIABLE result
+        OUTPUT_VARIABLE output
+        ERROR_VARIABLE error
+    )
+    if(result EQUAL 0)
+        message(FATAL_ERROR "Downstream stdio-target configure succeeded unexpectedly")
+    endif()
+
+    string(CONCAT combined_output "${output}" "${error}")
+    if(NOT combined_output MATCHES "stdio")
+        message(FATAL_ERROR "Missing-stdio-target failure did not name stdio")
     endif()
 endif()
 

@@ -39,6 +39,24 @@ static_assert(
 
 constexpr std::string_view ansi_reset = "\x1b[0m";
 
+void set_env_var(const char* const name, const char* const value)
+{
+#if defined(_WIN32)
+    static_cast<void>(::_putenv_s(name, value));
+#else
+    static_cast<void>(::setenv(name, value, 1));
+#endif
+}
+
+void unset_env_var(const char* const name)
+{
+#if defined(_WIN32)
+    static_cast<void>(::_putenv_s(name, ""));
+#else
+    static_cast<void>(::unsetenv(name));
+#endif
+}
+
 class env_var_guard {
 public:
     explicit env_var_guard(const char* name) : name_{name}
@@ -53,9 +71,9 @@ public:
     ~env_var_guard()
     {
         if (had_value_) {
-            static_cast<void>(::setenv(name_, value_.c_str(), 1));
+            set_env_var(name_, value_.c_str());
         } else {
-            static_cast<void>(::unsetenv(name_));
+            unset_env_var(name_);
         }
     }
 
@@ -64,12 +82,12 @@ public:
 
     void set(const char* const value)
     {
-        static_cast<void>(::setenv(name_, value, 1));
+        set_env_var(name_, value);
     }
 
     void unset()
     {
-        static_cast<void>(::unsetenv(name_));
+        unset_env_var(name_);
     }
 
 private:

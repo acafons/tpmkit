@@ -49,17 +49,6 @@ void log_through_port(tpmkit::logger& log)
     log.log(tpmkit::log_level::info, "through port", gsl::span<const tpmkit::log_field>{});
 }
 
-std::vector<std::string> split_lines(const std::string& text)
-{
-    std::istringstream input{text};
-    std::vector<std::string> lines;
-    std::string line;
-    while (std::getline(input, line)) {
-        lines.push_back(std::move(line));
-    }
-    return lines;
-}
-
 logger_under_test make_noop_case()
 {
     return logger_under_test{
@@ -93,6 +82,19 @@ logger_under_test make_recording_case()
         true,
     };
 }
+
+#if defined(TPMKIT_HAS_SPDLOG_ADAPTER) || defined(TPMKIT_HAS_STDIO_ADAPTER)
+std::vector<std::string> split_lines(const std::string& text)
+{
+    std::istringstream input{text};
+    std::vector<std::string> lines;
+    std::string line;
+    while (std::getline(input, line)) {
+        lines.push_back(std::move(line));
+    }
+    return lines;
+}
+#endif
 
 #ifdef TPMKIT_HAS_SPDLOG_ADAPTER
 logger_under_test make_spdlog_case()
