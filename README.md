@@ -37,7 +37,7 @@ Example invocation with a swtpm TCTI:
 
 ## Building
 
-Dependencies are pinned in [vcpkg.json](vcpkg.json): `tl-expected` 1.3.1, `ms-gsl` 4.2.1, `tpm2-tss` 4.1.3, `spdlog` for the optional logger adapter, and `gtest` 1.17.0 port 2. Local project commands that use CMake, the TPM stack, or the toolchain must run through the dev container.
+Dependencies are pinned in [vcpkg.json](vcpkg.json): `tl-expected` 1.3.1, `ms-gsl` 4.2.1, `tpm2-tss` 4.1.3, `spdlog` for the optional spdlog logger adapter, and `gtest` 1.17.0 port 2. Local project commands that use CMake, the TPM stack, or the toolchain must run through the dev container.
 
 ```sh
 ./scripts/run-tpmkit-docker.sh
@@ -56,7 +56,51 @@ Install the library and CMake package files with:
 ./scripts/exec-tpmkit-docker.sh 'cmake --install build/debug --prefix /tmp/tpmkit-install'
 ```
 
-Production installs export `tpmkit::tpmkit`. Test substitute headers and the `tpmkit::tpmkit_testing` target are installed only when `TPMKIT_INSTALL_TESTING=ON`; see [ADR-008](.compozy/tasks/esys-context/adrs/adr-008.md). The spdlog adapter is controlled by `TPMKIT_WITH_SPDLOG` and is enabled by default; when disabled, `tpmkit/spdlog_api.h`, `tpmkit/spdlog_logger.h`, and `tpmkit::tpmkit_spdlog` are not installed. Downstream consumers that need it should request `find_package(tpmkit CONFIG REQUIRED COMPONENTS spdlog)` and link `tpmkit::tpmkit_spdlog`.
+Production installs export `tpmkit::tpmkit`. Test substitute headers and the `tpmkit::tpmkit_testing` target are installed only when `TPMKIT_INSTALL_TESTING=ON`; see [ADR-008](.compozy/tasks/esys-context/adrs/adr-008.md). Optional logger adapter targets are installed only when selected with `TPMKIT_LOG_ADAPTER`; downstream consumers request them with `find_package(tpmkit CONFIG REQUIRED COMPONENTS spdlog)` or `find_package(tpmkit CONFIG REQUIRED COMPONENTS stdio)` and link `tpmkit::tpmkit_spdlog` or `tpmkit::tpmkit_stdio`.
+
+## Logging
+
+tpmkit logs through the `tpmkit::logger` port. Consumers wire a concrete adapter at their composition root through `tpm_context_config::log`; leaving it unset uses `noop_logger` at runtime.
+
+Logger adapter selection is controlled by the CMake cache `STRING` `TPMKIT_LOG_ADAPTER`; see [ADR-001](.compozy/tasks/stdio-logger-adapter/adrs/adr-001.md).
+
+| Value | Result |
+| --- | --- |
+| `none` | Default. No external logger adapter target is built or installed; no external logging dependency is pulled in. Runtime logging still works through `noop_logger` and emits nothing unless a caller supplies its own adapter. See [ADR-002](.compozy/tasks/stdio-logger-adapter/adrs/adr-002.md). |
+| `spdlog` | Builds and installs `tpmkit::tpmkit_spdlog`, which adapts records to spdlog. Consumers link this target and include `<tpmkit/logging/spdlog_logger.h>`. |
+| `stdio` | Builds and installs `tpmkit::tpmkit_stdio`, a zero-dependency adapter for stdout/stderr. Consumers link this target and include `<tpmkit/logging/stdio_logger.h>`. |
+
+Values are case-insensitive at configure time (`STDIO`, `Spdlog`, and `none` normalize to lowercase). Any other value stops configuration with `message(FATAL_ERROR)` and lists the valid values.
+
+Logging headers are grouped under `<tpmkit/logging/...>`; see [ADR-004](.compozy/tasks/stdio-logger-adapter/adrs/adr-004.md).
+
+- `<tpmkit/logging/logger.h>`
+- `<tpmkit/logging/noop_logger.h>`
+- `<tpmkit/logging/spdlog_api.h>`
+- `<tpmkit/logging/spdlog_logger.h>`
+- `<tpmkit/logging/stdio_api.h>`
+- `<tpmkit/logging/stdio_logger.h>`
+
+The test recording adapter keeps its test-helper path: `<tpmkit/testing/recording_logger.h>`.
+
+The `stdio_logger` adapter writes one structured record per line. `error` and `warn` records go to stderr; `info`, `debug`, and `trace` records go to stdout. Each line contains a UTC timestamp with millisecond precision, a bracketed level token such as `[INFO ]`, the message, and structured fields rendered as `key=value`. The adapter flushes after every record.
+
+Color is controlled by `tpmkit::color_mode`: `auto_`, `always`, or `never`. In `auto_` mode, color is emitted only for TTY streams; a non-empty `NO_COLOR` disables color, and a non-empty `FORCE_COLOR` enables color only when `NO_COLOR` is unset. The `always` and `never` modes are explicit overrides and ignore both environment variables. Tests and embedding tools can pass borrowed output streams through `stdio_logger_options::out` and `stdio_logger_options::err`.
+
+At the composition root:
+
+```cpp
+#include <tpmkit/logging/stdio_logger.h>
+
+#include <memory>
+
+auto log = std::make_shared<tpmkit::stdio_logger>();
+config.log = log;
+```
+
+### Migration
+
+Builds that previously enabled the spdlog adapter with the former boolean now use the enum value `-DTPMKIT_LOG_ADAPTER=spdlog`. Include logging headers from `<tpmkit/logging/...>`, and select `-DTPMKIT_LOG_ADAPTER=stdio` when a zero-dependency stdout/stderr adapter is preferred.
 
 ## Test Substitutes (`tpmkit::testing::`)
 

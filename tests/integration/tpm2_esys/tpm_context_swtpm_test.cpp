@@ -1,18 +1,22 @@
 #include <tpmkit/tpm_context.h>
 
 #ifdef TPMKIT_HAS_SPDLOG
-#include <tpmkit/spdlog_logger.h>
+#include <tpmkit/logging/spdlog_logger.h>
+#endif
+#ifdef TPMKIT_HAS_STDIO
+#include <tpmkit/logging/stdio_logger.h>
+#endif
 
+#ifdef TPMKIT_HAS_SPDLOG
 #include <spdlog/sinks/ostream_sink.h>
 #include <spdlog/spdlog.h>
-
-#include <sstream>
 #endif
 
 #include <gtest/gtest.h>
 
 #include <cstdlib>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <utility>
 
@@ -89,6 +93,31 @@ TEST(tpm_context_swtpm, create_with_spdlog_adapter_produces_lifecycle_records)
 
     ASSERT_TRUE(result.has_value()) << result.error().message;
     EXPECT_FALSE(captured.str().empty());
+}
+#endif
+
+#ifdef TPMKIT_HAS_STDIO
+TEST(tpm_context_swtpm, create_with_stdio_adapter_produces_lifecycle_records)
+{
+    // Verifies stdio_logger wired through tpm_context_config receives lifecycle events.
+
+    std::ostringstream out;
+    std::ostringstream err;
+    tpmkit::stdio_logger_options options;
+    options.color = tpmkit::color_mode::never;
+    options.out = &out;
+    options.err = &err;
+    auto log = std::make_shared<tpmkit::stdio_logger>(options);
+
+    tpmkit::tpm_context_config config;
+    config.tcti = tpmkit::tcti_string_config{swtpm_tcti()};
+    config.startup = tpmkit::tpm_context_config::startup_mode::clear;
+    config.log = log;
+
+    auto result = tpmkit::tpm_context::create(std::move(config));
+
+    ASSERT_TRUE(result.has_value()) << result.error().message;
+    EXPECT_FALSE(out.str().empty() && err.str().empty());
 }
 #endif
 

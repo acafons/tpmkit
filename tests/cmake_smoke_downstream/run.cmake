@@ -17,8 +17,13 @@ endif()
 if(NOT DEFINED TPMKIT_BUILD_SHARED_LIBS)
     set(TPMKIT_BUILD_SHARED_LIBS OFF)
 endif()
-if(NOT DEFINED TPMKIT_WITH_SPDLOG)
-    set(TPMKIT_WITH_SPDLOG ON)
+if(NOT DEFINED TPMKIT_LOG_ADAPTER)
+    set(TPMKIT_LOG_ADAPTER none)
+endif()
+string(TOLOWER "${TPMKIT_LOG_ADAPTER}" tpmkit_log_adapter)
+set(tpmkit_builds_spdlog OFF)
+if(tpmkit_log_adapter STREQUAL "spdlog")
+    set(tpmkit_builds_spdlog ON)
 endif()
 
 set(tpmkit_build_dir "${TPMKIT_BINARY_ROOT}/tpmkit-build")
@@ -42,7 +47,7 @@ execute_process(
         -DBUILD_SHARED_LIBS=${TPMKIT_BUILD_SHARED_LIBS}
         -Dtpmkit_BUILD_TESTS=OFF
         -DTPMKIT_INSTALL_TESTING=${TPMKIT_INSTALL_TESTING}
-        -DTPMKIT_WITH_SPDLOG=${TPMKIT_WITH_SPDLOG}
+        -DTPMKIT_LOG_ADAPTER=${tpmkit_log_adapter}
     RESULT_VARIABLE result
 )
 if(NOT result EQUAL 0)
@@ -80,21 +85,41 @@ if(tpmkit_targets MATCHES "tpmkit_spdlog")
     message(FATAL_ERROR "Main installed targets export the optional spdlog adapter")
 endif()
 
-if(TPMKIT_WITH_SPDLOG)
-    if(NOT EXISTS "${TPMKIT_INSTALL_PREFIX}/include/tpmkit/spdlog_api.h")
+if(NOT EXISTS "${TPMKIT_INSTALL_PREFIX}/include/tpmkit/logging/logger.h")
+    message(FATAL_ERROR "logger header was not installed under logging/")
+endif()
+if(NOT EXISTS "${TPMKIT_INSTALL_PREFIX}/include/tpmkit/logging/noop_logger.h")
+    message(FATAL_ERROR "noop logger header was not installed under logging/")
+endif()
+set(tpmkit_legacy_include_dir "${TPMKIT_INSTALL_PREFIX}/include/tpmkit")
+if(EXISTS "${tpmkit_legacy_include_dir}/logger.h")
+    message(FATAL_ERROR "logger header was installed at the old top-level path")
+endif()
+if(EXISTS "${tpmkit_legacy_include_dir}/noop_logger.h")
+    message(FATAL_ERROR "noop logger header was installed at the old top-level path")
+endif()
+if(EXISTS "${tpmkit_legacy_include_dir}/spdlog_api.h")
+    message(FATAL_ERROR "spdlog API header was installed at the old top-level path")
+endif()
+if(EXISTS "${tpmkit_legacy_include_dir}/spdlog_logger.h")
+    message(FATAL_ERROR "spdlog logger header was installed at the old top-level path")
+endif()
+
+if(tpmkit_builds_spdlog)
+    if(NOT EXISTS "${TPMKIT_INSTALL_PREFIX}/include/tpmkit/logging/spdlog_api.h")
         message(FATAL_ERROR "spdlog API header was not installed")
     endif()
-    if(NOT EXISTS "${TPMKIT_INSTALL_PREFIX}/include/tpmkit/spdlog_logger.h")
+    if(NOT EXISTS "${TPMKIT_INSTALL_PREFIX}/include/tpmkit/logging/spdlog_logger.h")
         message(FATAL_ERROR "spdlog logger header was not installed")
     endif()
     if(NOT EXISTS "${TPMKIT_INSTALL_PREFIX}/lib/cmake/tpmkit/tpmkitSpdlogTargets.cmake")
         message(FATAL_ERROR "spdlog CMake targets were not installed")
     endif()
 else()
-    if(EXISTS "${TPMKIT_INSTALL_PREFIX}/include/tpmkit/spdlog_api.h")
+    if(EXISTS "${TPMKIT_INSTALL_PREFIX}/include/tpmkit/logging/spdlog_api.h")
         message(FATAL_ERROR "spdlog API header was installed unexpectedly")
     endif()
-    if(EXISTS "${TPMKIT_INSTALL_PREFIX}/include/tpmkit/spdlog_logger.h")
+    if(EXISTS "${TPMKIT_INSTALL_PREFIX}/include/tpmkit/logging/spdlog_logger.h")
         message(FATAL_ERROR "spdlog logger header was installed unexpectedly")
     endif()
     if(EXISTS "${TPMKIT_INSTALL_PREFIX}/lib/cmake/tpmkit/tpmkitSpdlogTargets.cmake")
@@ -119,7 +144,7 @@ execute_process(
         -B "${downstream_build_dir}"
         -DTPMKIT_SMOKE_PACKAGE_PATH=${tpmkit_config_dir}
         -DTPMKIT_SMOKE_REQUIRE_TESTING=${TPMKIT_INSTALL_TESTING}
-        -DTPMKIT_SMOKE_REQUIRE_SPDLOG=${TPMKIT_WITH_SPDLOG}
+        -DTPMKIT_SMOKE_REQUIRE_SPDLOG=${tpmkit_builds_spdlog}
     RESULT_VARIABLE result
 )
 if(NOT result EQUAL 0)
@@ -174,7 +199,7 @@ if(TPMKIT_INSTALL_TESTING)
     endif()
 endif()
 
-if(NOT TPMKIT_WITH_SPDLOG)
+if(NOT tpmkit_builds_spdlog)
     execute_process(
         COMMAND
             "${CMAKE_COMMAND}"

@@ -1,45 +1,19 @@
 #include <tpmkit/logging/logger.h>
+#ifdef TPMKIT_EXAMPLE_HAS_STDIO
+#include <tpmkit/logging/stdio_logger.h>
+#endif
 #include <tpmkit/tpm_context.h>
 
 #include <cstdlib>
 #include <iostream>
 #include <memory>
+#include <string>
 #include <string_view>
 #include <utility>
 
 namespace {
 
-class stderr_logger final : public tpmkit::logger {
-public:
-    void log(const tpmkit::log_level level, const std::string_view message,
-             const gsl::span<const tpmkit::log_field> fields) noexcept final
-    {
-        std::cerr << level_name(level) << " " << message;
-        for (const auto& field : fields) {
-            std::cerr << " " << field.key << "=" << field.value;
-        }
-        std::cerr << "\n";
-    }
-
-private:
-    static std::string_view level_name(const tpmkit::log_level level) noexcept
-    {
-        switch (level) {
-        case tpmkit::log_level::trace:
-            return "trace";
-        case tpmkit::log_level::debug:
-            return "debug";
-        case tpmkit::log_level::info:
-            return "info";
-        case tpmkit::log_level::warn:
-            return "warn";
-        case tpmkit::log_level::error:
-            return "error";
-        }
-
-        return "unknown";
-    }
-};
+constexpr std::string_view default_tcti_config = "tabrmd:bus_type=system";
 
 std::string_view category_name(const tpmkit::error_category category) noexcept
 {
@@ -61,15 +35,22 @@ std::string_view category_name(const tpmkit::error_category category) noexcept
 
 int main(const int argc, char** argv)
 {
-    if (argc != 2) {
-        std::cerr << "usage: " << argv[0] << " <tcti-config>\n";
+    if (argc > 2) {
+        std::cerr << "usage: " << argv[0] << " [tcti-config]\n";
         return EXIT_FAILURE;
     }
 
+    std::string tcti_config{default_tcti_config};
+    if (argc == 2) {
+        tcti_config = argv[1];
+    }
+
     tpmkit::tpm_context_config config;
-    config.tcti = tpmkit::tcti_string_config{argv[1]};
+    config.tcti = tpmkit::tcti_string_config{std::move(tcti_config)};
     config.startup = tpmkit::tpm_context_config::startup_mode::clear;
-    config.log = std::make_shared<stderr_logger>();
+#ifdef TPMKIT_EXAMPLE_HAS_STDIO
+    config.log = std::make_shared<tpmkit::stdio_logger>();
+#endif
 
     auto context = tpmkit::tpm_context::create(std::move(config));
     if (!context.has_value()) {
