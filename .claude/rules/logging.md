@@ -102,8 +102,8 @@ If a structured field's *key* is sensitive (e.g., a session-correlation token), 
 ## Adapters and defaults
 
 - **No-op adapter** is the library default when no logger is wired. `noop_logger::log` is empty and `noexcept`. The library compiles and runs identically with logging disabled.
-- **Reference adapter for spdlog** lives under `src/adapters/spdlog/`. It demonstrates structured-field translation, level mapping, and the never-retain-pointers contract.
-- **`std::cerr` adapter** under `src/adapters/cerr/` is the trivial reference for tests and one-binary tools.
+- **Reference adapter for spdlog** lives under `src/adapters/logging/spdlog/`. It demonstrates structured-field translation, level mapping, and the never-retain-pointers contract.
+- **stdio adapter** under `src/adapters/logging/stdio/` is the zero-dependency reference for tests and one-binary tools.
 - **Recording adapter** under `src/adapters/mock/` captures records into an in-memory vector for test assertions.
 
 ## Testing

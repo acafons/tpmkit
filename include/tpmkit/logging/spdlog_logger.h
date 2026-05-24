@@ -12,8 +12,9 @@
  * pull spdlog headers into the public include surface. Callers that construct
  * a `spdlog_logger` must include `<spdlog/spdlog.h>` themselves.
  *
- * @note spdlog headers must only appear under `src/adapters/spdlog/`. This
- * header is intentionally free of spdlog includes.
+ * @note Production spdlog includes are limited to
+ * `src/adapters/logging/spdlog/`. This header is intentionally free of spdlog
+ * includes.
  */
 
 #include <tpmkit/logging/logger.h>

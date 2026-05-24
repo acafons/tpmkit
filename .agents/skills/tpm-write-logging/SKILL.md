@@ -19,7 +19,8 @@ The reference logger adapter uses **spdlog**. It is mature, structured-logging-c
 
 Constraints that follow from `logging.md` and `security.md`:
 
-- spdlog headers live only under `src/adapters/spdlog/`. Grep should find zero matches for `spdlog/` outside that folder.
+- Production spdlog includes live only under `src/adapters/logging/spdlog/`. Grep should find zero `#include <spdlog/` matches under `include/` and under `src/` outside that folder; adapter tests and downstream smoke fixtures may include spdlog directly.
+- Production logging adapters live under `src/adapters/logging/<backend>/`, with matching unit tests under `tests/unit/logging/<backend>/`.
 - The spdlog version is pinned in the vcpkg manifest with a documented minimum (cross-reference `tpm-build-config` Dependency management). Bump deliberately when an upstream advisory or a needed bug fix lands.
 - The adapter implements `tpmkit::logger` exactly as defined in `logging.md`: thread-safe, `noexcept`, never retains pointers across calls, swallows write failures.
 

@@ -162,7 +162,7 @@ A pull request that disables, skips, or relaxes a required gate must include a j
 
 ## Error Handling
 
-* **Domain-isolation grep gate fails.** A third-party header reached `src/domain/` or `include/`. Move the include into an adapter under `src/adapters/<name>/`, expose the capability via a port (`.claude/rules/architecture.md`), and re-run the gate. Do not relax the grep pattern.
+* **Domain-isolation grep gate fails.** A third-party header reached `src/domain/` or `include/`. Move the include into the appropriate adapter folder (`src/adapters/<name>/`, or a grouped family such as `src/adapters/logging/<backend>/`), expose the capability via a port (`.claude/rules/architecture.md`), and re-run the gate. Do not relax the grep pattern.
 * **Header self-containment build fails.** A public header depends on a transitive include. Add the missing `#include` to the header itself (or forward declare and move the include to the `.cpp`). Do not work around it by reordering includes in the stub.
 * **Symbol-export diff fails.** The umbrella library's exported symbols drifted from `abi/exported-symbols.txt`. Decide deliberately: if the change is intentional, update the baseline in the same PR and add an ABI/SemVer note (`.claude/rules/library-api-design.md`); if unintentional, hide the symbol with the export macro and visibility rules in `references/cmake-recipes.md`.
 * **Sanitizer job fails (ASan/UBSan/TSan).** Treat as a release blocker. Reproduce locally via the matching CMake preset before suppressing. A `__attribute__((no_sanitize))` or `// NOLINT` requires a justification comment at the suppression site (`.claude/rules/code-standards.md` Warnings).

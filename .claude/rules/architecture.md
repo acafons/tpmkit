@@ -24,6 +24,7 @@ src/domain/               domain logic and port definitions
 src/adapters/openssl/     OpenSSL adapter
 src/adapters/tpm2_fapi/   FAPI adapter
 src/adapters/tpm2_esys/   ESYS adapter
+src/adapters/logging/<backend>/  logging adapter backends
 src/adapters/mock/        in-memory adapter for tests
 src/composition/          factories that pick and wire adapters
 tests/unit/public_api/    installed API behavior and public-header smoke tests
@@ -31,6 +32,7 @@ tests/unit/domain/        unit tests against the domain with mock adapters
 tests/unit/testing/       public test-helper tests
 tests/unit/testing/<adapter>/  adapter-shaped public test-helper tests
 tests/unit/<adapter>/          isolated adapter unit tests with no live backend
+tests/unit/logging/<backend>/  isolated logging adapter unit tests
 tests/integration/<adapter>/   real adapter tests against the backend
 ```
 
@@ -64,7 +66,7 @@ For the full walkthrough — file paths, CMake wiring, the per-adapter list, and
 ## Rules for third-party dependencies
 
 - Every new third-party dependency must enter through an adapter. Never include third-party headers from domain code.
-- Each adapter lives in its own folder under `src/adapters/<name>/` and links its third-party dependency privately. Consumers of the library do not transitively depend on adapter libraries.
+- Each adapter lives in its own folder under `src/adapters/<name>/` and links its third-party dependency privately. Adapter families with multiple implementations of one port may group by port first, as logging does under `src/adapters/logging/<backend>/`. Consumers of the library do not transitively depend on adapter libraries.
 - If a third-party type must appear in a domain signature (rare), wrap it in a domain type first.
 - Adapters translate third-party errors into domain errors at the boundary. Never let `TSS2_RC`, `unsigned long` OpenSSL error codes, or library-specific exceptions cross into the domain.
 
@@ -73,6 +75,6 @@ For the full walkthrough — file paths, CMake wiring, the per-adapter list, and
 - Public API tests live under `tests/unit/public_api/` and cover installed headers, value types, configuration objects, and public API contracts.
 - Domain tests use mock adapters and run with no third-party dependencies linked.
 - Public testing-helper tests live under `tests/unit/testing/`; helper tests tied to an adapter or third-party ABI live under `tests/unit/testing/<adapter>/`.
-- Adapter-internal unit tests live under `tests/unit/<adapter>/` and may compile against backend SDK headers or constants, but they do not open real backend resources.
+- Adapter-internal unit tests live under `tests/unit/<adapter>/`; grouped adapter families mirror their source layout, as logging does under `tests/unit/logging/<backend>/`. They may compile against backend SDK headers or constants, but they do not open real backend resources.
 - Each adapter has its own integration tests that exercise the real third-party library.
 - The mock adapter for a given port lives next to the real adapters under `src/adapters/mock/` so the contract is tested uniformly.

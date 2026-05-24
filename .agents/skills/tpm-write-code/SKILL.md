@@ -11,7 +11,7 @@ This skill guides production code under `src/` and `include/<library>/`. The alw
 
 Decide before you start typing. Ask in order:
 
-1. **Does the code depend on a third-party library** (OpenSSL, TPM2 TSS, OS calls)? → adapter, under `src/adapters/<name>/`.
+1. **Does the code depend on a third-party library** (OpenSSL, TPM2 TSS, OS calls)? → adapter, under `src/adapters/<name>/`. When adding a backend for an existing adapter family, use `src/adapters/<family>/<backend>/` instead; logging backends live under `src/adapters/logging/<backend>/`.
 2. **Is it a concept or rule that exists independently of any backend** (a digest, a signature, a policy decision)? → domain, under `src/domain/` or `include/<library>/`.
 3. **Does it choose between adapters and wire them together?** → composition root, under `src/composition/`.
 
@@ -185,7 +185,7 @@ These recur in C++ crypto and TPM code:
 
 ## Error Handling
 
-* **A domain file needs to include `openssl/` or `tss2/`.** Stop. The dependency must point inward (`architecture.md`). Either extract a port the domain depends on and put the include in an adapter under `src/adapters/<name>/`, or replace the third-party type in the signature with a domain type. Do not relax the grep gate documented in `tpm-build-config` Invariant checks.
+* **A domain file needs to include `openssl/` or `tss2/`.** Stop. The dependency must point inward (`architecture.md`). Either extract a port the domain depends on and put the include in the appropriate adapter folder (`src/adapters/<name>/`, or a grouped family such as `src/adapters/logging/<backend>/`), or replace the third-party type in the signature with a domain type. Do not relax the grep gate documented in `tpm-build-config` Invariant checks.
 * **A class crosses 300 lines without an obvious split.** Refactoring trigger. Look for a value object hiding inside the data, a domain service hiding inside the methods, or a port hiding inside a `switch` over a type tag. Adding "helper" private methods to absorb the growth makes the file longer without addressing the single-responsibility violation.
 * **A new method fits some adapters but not others.** Interface segregation problem — split the port. Do not add a "throw not_supported" stub; routing it through `tpm-add-port-or-adapter` Workflow A for the split is the right path.
 * **Contract suite passes against the mock but fails against a real adapter.** The mock under-specifies the contract. Tighten the mock so the contract matches observed real-adapter behavior (error categories, lifecycle constraints, threading), then re-run against every adapter, including the mock.

@@ -17,7 +17,7 @@ domain/adapter code
 tpmkit::logger  (port — abstract base class)
      │ vtable dispatch
      ▼
-spdlog_logger  (the adapter, src/adapters/spdlog/)
+spdlog_logger  (the adapter, src/adapters/logging/spdlog/)
      │ renders field span → "msg key=value key=value..."
      │ maps tpmkit::log_level → spdlog::level
      │ calls sink_->log(...)

@@ -46,6 +46,7 @@ tests/unit/domain/             domain tests, mock adapters only
 tests/unit/testing/            backend-neutral public test-helper tests
 tests/unit/testing/<adapter>/  adapter-shaped public test-helper tests; no live backend
 tests/unit/<adapter>/          isolated adapter-internal unit tests; no live backend
+tests/unit/logging/<backend>/  isolated logging adapter unit tests; no live backend
 tests/integration/<adapter>/   real adapter tests (swtpm/hardware/backend as needed)
 tests/contract/                shared suite run against every adapter for each port
 tests/property/                property-based tests for domain primitives
@@ -61,7 +62,7 @@ bench/                         Google Benchmark suites (see performance.md)
 - **Public API unit tests** — installed headers, value types, configuration objects, and public API contracts. Header smoke tests live here when they compile public headers directly.
 - **Domain unit tests** — every domain function and use case, exercised through ports against mock adapters. No third-party library linked. Full suite runs in under a second.
 - **Testing-helper unit tests** — public `tpmkit::testing::*` helpers. Backend-neutral helpers live under `tests/unit/testing/`; helpers shaped around an adapter or third-party ABI live under `tests/unit/testing/<adapter>/` (for example `tests/unit/testing/tpm2_esys/`).
-- **Adapter-internal unit tests** — pure translation, validation, schema, and ABI-shim logic for a specific adapter. Place these under `tests/unit/<adapter>/` (for example `tests/unit/tpm2_esys/`). They may compile against the backend SDK when needed for constants or function signatures, but they do not open real backend resources; anything that needs swtpm, hardware, or a real library call belongs in the integration tier.
+- **Adapter-internal unit tests** — pure translation, validation, schema, and ABI-shim logic for a specific adapter. Place these under `tests/unit/<adapter>/` (for example `tests/unit/tpm2_esys/`); grouped adapter families mirror the source layout, as logging does under `tests/unit/logging/<backend>/`. They may compile against the backend SDK when needed for constants or function signatures, but they do not open real backend resources; anything that needs swtpm, hardware, or a real library call belongs in the integration tier.
 - **Adapter integration tests** — verify each adapter satisfies its port using the real backend. Skipped only when the backend is unavailable on the platform.
 - **Contract tests** — one shared suite per port, run against every adapter (mock, real, software fallback) to catch divergence between mock and real behavior. Implement with GoogleTest parameterized tests (`TEST_P` + `INSTANTIATE_TEST_SUITE_P`), one instantiation per adapter — never copy-paste the suite per backend. The **secret-leak sweep** lives here.
 - **Property-based tests** — applied to round-trips (encode/decode, sign/verify, encrypt/decrypt). Generators must reach edge cases (empty, max-size, boundary values).

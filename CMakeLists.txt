@@ -254,7 +254,7 @@ if(TPMKIT_LOG_ADAPTER STREQUAL "spdlog")
             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/tpmkit/logging/spdlog_api.h>
             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/tpmkit/logging/spdlog_logger.h>
         PRIVATE
-            src/adapters/spdlog/spdlog_logger.cpp
+            src/adapters/logging/spdlog/spdlog_logger.cpp
     )
     target_include_directories(tpmkit_spdlog
         PUBLIC
@@ -289,7 +289,7 @@ if(TPMKIT_LOG_ADAPTER STREQUAL "stdio")
             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/tpmkit/logging/stdio_api.h>
             $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/tpmkit/logging/stdio_logger.h>
         PRIVATE
-            src/adapters/stdio/stdio_logger.cpp
+            src/adapters/logging/stdio/stdio_logger.cpp
     )
     target_include_directories(tpmkit_stdio
         PUBLIC
@@ -542,7 +542,7 @@ if(tpmkit_BUILD_TESTS)
 
     if(TARGET tpmkit_spdlog)
         add_executable(tpmkit_unit_spdlog_tests
-            tests/unit/spdlog/spdlog_logger_test.cpp
+            tests/unit/logging/spdlog/spdlog_logger_test.cpp
         )
         target_link_libraries(tpmkit_unit_spdlog_tests
             PRIVATE
@@ -555,7 +555,7 @@ if(tpmkit_BUILD_TESTS)
 
     if(TARGET tpmkit_stdio)
         add_executable(tpmkit_unit_stdio_tests
-            tests/unit/stdio/stdio_logger_test.cpp
+            tests/unit/logging/stdio/stdio_logger_test.cpp
         )
         target_link_libraries(tpmkit_unit_stdio_tests
             PRIVATE
