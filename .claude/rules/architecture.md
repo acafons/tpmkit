@@ -36,6 +36,12 @@ tests/unit/logging/<backend>/  isolated logging adapter unit tests
 tests/integration/<adapter>/   real adapter tests against the backend
 ```
 
+Build manifests mirror this layout. The top-level `CMakeLists.txt` stays an
+orchestrator for project setup, cross-cutting CMake modules, and
+`add_subdirectory` calls. Target definitions, source lists, include paths, and
+adapter dependencies live in the closest meaningful module `CMakeLists.txt`
+rather than accumulating in the repository root.
+
 ## How to implement a port
 
 C++17 gives three viable options. Pick per port, not per project.

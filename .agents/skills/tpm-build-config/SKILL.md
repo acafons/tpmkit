@@ -5,7 +5,7 @@ description: Build, tooling, and CI standards for the tpmkit C++17 library — C
 
 # Build and Tooling — tpmkit
 
-This SKILL.md is the *policy* surface — required versions, flags, sanitizer matrix, vcpkg rules. For the *mechanics* of expressing that policy in CMake (target layout per the hexagonal architecture, export macro and visibility, install/export wiring for `find_package`, sanitizer interface targets, `CMakePresets.json`, vcpkg manifest), see `references/cmake-recipes.md`.
+This SKILL.md is the *policy* surface — required versions, flags, sanitizer matrix, vcpkg rules. For the *mechanics* of expressing that policy in CMake (target layout per the hexagonal architecture, export macro and visibility, install/export wiring for `find_package`, target-scoped build option helpers, `CMakePresets.json`, vcpkg manifest), see `references/cmake-recipes.md`.
 
 ## Procedure
 
@@ -13,7 +13,7 @@ Apply this skill in order on every build, tooling, or CI change:
 
 1. **Classify the change.** Identify whether it touches the build system, build-time options, toolchain set, compiler flags, sanitizers, coverage, static analysis, formatting, dependencies, reproducibility, or CI matrix. Each maps to a section below.
 2. **Apply the matching policy section verbatim.** Do not invent flags, versions, or gates that are not listed here. If a needed value is missing, stop and surface the gap rather than guessing.
-3. **Read `references/cmake-recipes.md`** when the change requires CMake mechanics (new target, export wiring, sanitizer interface target, invariant-check plumbing, vcpkg manifest entry).
+3. **Read `references/cmake-recipes.md`** when the change requires CMake mechanics (new target, export wiring, sanitizer/coverage plumbing, invariant-check plumbing, vcpkg manifest entry).
 4. **Re-run the invariant checks** before declaring the change done: domain isolation, header self-containment, symbol-export diff (see "Invariant checks" below). Treat any failure as a release blocker.
 5. **Update the README and CMake cache documentation** if the change alters a supported version, a default, or a build-time option.
 
@@ -21,7 +21,8 @@ Apply this skill in order on every build, tooling, or CI change:
 
 - CMake **3.20** or later. Project requires `cxx_std_17` with `CXX_EXTENSIONS OFF` (no compiler-specific extensions).
 - Out-of-source builds only. The repository's `.gitignore` excludes `build/`, `cmake-build-*/`.
-- Targets follow the architecture layout (`.claude/rules/architecture.md`): one library target for the domain, one per adapter, plus a top-level interface target consumers link against.
+- Targets follow the architecture layout (`.claude/rules/architecture.md`): target definitions live in the module that owns the implementation, and the exported `tpmkit::tpmkit` target remains the consumer-facing link target.
+- Keep the repository-root `CMakeLists.txt` orchestration-only. Cross-cutting cache options, dependency discovery, build options, docs, and install/export logic live in `cmake/Tpmkit*.cmake`; target definitions and source lists live under `src/`, `tests/`, or `examples/`.
 - Provide a CMake package config so consumers can `find_package(<library> CONFIG)`. See `.claude/rules/library-api-design.md`.
 
 ## Build-time options
@@ -77,7 +78,7 @@ CTest presets bake these defaults in; override at the command line only when cha
 
 - Opt-in at configure time via `TPMKIT_COVERAGE` (default `OFF`). Debug builds only — never enabled in release.
 - Coverage and sanitizer builds are mutually exclusive. CI runs coverage as its own job, not stacked with a sanitizer job.
-- Coverage instrumentation is wired through a dedicated interface target alongside warnings, hardening, and sanitizers. Mechanics in `references/cmake-recipes.md`.
+- Coverage instrumentation is wired through the same target-scoped build option helper as warnings, hardening, and sanitizers. Mechanics in `references/cmake-recipes.md`.
 - Report generation (gcovr, `llvm-cov`, lcov) is a CI-pipeline concern downstream of the build; this skill does not prescribe a tool.
 
 ## Static analysis

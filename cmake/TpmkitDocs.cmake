@@ -1,0 +1,57 @@
+include_guard(GLOBAL)
+
+if(TPMKIT_BUILD_DOCS)
+    find_package(Doxygen REQUIRED)
+
+    set(tpmkit_doxyfile "${CMAKE_CURRENT_BINARY_DIR}/docs/Doxyfile")
+    configure_file(
+        docs/Doxyfile.in
+        "${tpmkit_doxyfile}"
+        @ONLY
+    )
+
+    set(DOXYGEN_PROJECT_NAME "${PROJECT_NAME}")
+    set(DOXYGEN_PROJECT_NUMBER "${PROJECT_VERSION}")
+    set(DOXYGEN_PROJECT_BRIEF "${PROJECT_DESCRIPTION}")
+    set(DOXYGEN_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/docs")
+    set(DOXYGEN_RECURSIVE YES)
+    set(DOXYGEN_FILE_PATTERNS "*.h")
+    set(DOXYGEN_STRIP_FROM_PATH "${CMAKE_CURRENT_SOURCE_DIR}/include")
+    set(DOXYGEN_GENERATE_HTML YES)
+    set(DOXYGEN_HTML_OUTPUT html)
+    set(DOXYGEN_GENERATE_LATEX NO)
+    set(DOXYGEN_GENERATE_XML NO)
+    set(DOXYGEN_HAVE_DOT NO)
+    set(DOXYGEN_CLASS_GRAPH NO)
+    set(DOXYGEN_CALL_GRAPH NO)
+    set(DOXYGEN_CALLER_GRAPH NO)
+    set(DOXYGEN_COLLABORATION_GRAPH NO)
+    set(DOXYGEN_INCLUDE_GRAPH NO)
+    set(DOXYGEN_INCLUDED_BY_GRAPH NO)
+    set(DOXYGEN_EXTRACT_ALL NO)
+    set(DOXYGEN_EXTRACT_PRIVATE NO)
+    set(DOXYGEN_EXTRACT_STATIC NO)
+    set(DOXYGEN_HIDE_UNDOC_MEMBERS NO)
+    set(DOXYGEN_HIDE_UNDOC_CLASSES NO)
+    set(DOXYGEN_WARNINGS YES)
+    set(DOXYGEN_WARN_IF_UNDOCUMENTED YES)
+    set(DOXYGEN_WARN_IF_DOC_ERROR YES)
+    set(DOXYGEN_WARN_AS_ERROR YES)
+    set(DOXYGEN_WARN_FORMAT "$file:$line: $text")
+    set(DOXYGEN_MARKDOWN_SUPPORT YES)
+    set(DOXYGEN_AUTOLINK_SUPPORT YES)
+    set(DOXYGEN_BUILTIN_STL_SUPPORT YES)
+    set(DOXYGEN_ENABLE_PREPROCESSING YES)
+    set(DOXYGEN_MACRO_EXPANSION NO)
+    set(DOXYGEN_SKIP_FUNCTION_MACROS YES)
+    set(DOXYGEN_ALIASES
+        "thread_safety=\\par Thread Safety"
+        "exception_safety=\\par Exception Safety"
+    )
+
+    doxygen_add_docs(docs
+        "${CMAKE_CURRENT_SOURCE_DIR}/include/tpmkit"
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        COMMENT "Generate tpmkit API reference"
+    )
+endif()

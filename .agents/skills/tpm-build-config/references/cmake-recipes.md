@@ -6,13 +6,15 @@ Modern CMake style applies throughout: target-based, no directory-scoped `includ
 
 ## One CMakeLists.txt per meaningful module
 
-Build manifests mirror the architecture. Each module that consumers of the build graph care about — the domain, each adapter, composition, the tests root, examples — owns its own `CMakeLists.txt`. The top-level file declares the project and stitches modules together with `add_subdirectory`; it does not define adapter targets.
+Build manifests mirror the architecture. Each module that consumers of the build graph care about — the domain, each adapter, composition, the tests root, examples — owns its own `CMakeLists.txt`. The top-level file declares the project, loads cross-cutting CMake modules, and stitches modules together with `add_subdirectory`; it does not define adapter targets, test executables, or source lists.
 
-The boundary is "per meaningful module," not "per folder." A `src/adapters/openssl/utils/` directory whose `.cpp` files belong to the OpenSSL adapter target does not get its own `CMakeLists.txt` — the parent adds those sources via relative paths or `target_sources`. A `CMakeLists.txt` whose only job is `add_subdirectory(child)` is noise; flatten it.
+The boundary is "per meaningful module," not "per folder." A `src/adapters/openssl/utils/` directory whose `.cpp` files belong to the OpenSSL adapter target does not get its own `CMakeLists.txt` — the parent adds those sources via relative paths or `target_sources`. A thin aggregator such as `src/CMakeLists.txt` is acceptable when it keeps the repository root orchestration-only, but it should only dispatch to meaningful module manifests. A chain of one-line pass-through manifests below that point is noise; flatten it.
 
-**Top-level `CMakeLists.txt` owns:** `project()`, language standard, options and cache variables, the `add_subdirectory` calls, the umbrella interface target, install/export and `Config.cmake.in` wiring, presets-related setup.
+**Top-level `CMakeLists.txt` owns:** `project()`, `CMAKE_MODULE_PATH`, includes of `cmake/Tpmkit*.cmake`, top-level `add_subdirectory` calls, `enable_testing()`, and the conditional examples/tests/docs/install orchestration.
 
-**Subdirectory `CMakeLists.txt` owns:** the `add_library(...)` (or `add_executable(...)`) call, the source list, `target_include_directories`, `target_link_libraries`, target-scoped compile definitions and options.
+**`cmake/Tpmkit*.cmake` owns:** cache option validation, dependency discovery, reusable target option helpers, docs wiring, and install/export/package config wiring. These files should not list adapter sources or define test executables.
+
+**Subdirectory `CMakeLists.txt` owns:** the `add_library(...)` (or `add_executable(...)`) call, the source list, `target_include_directories`, `target_link_libraries`, target-scoped compile definitions, and calls to `tpmkit_configure_library_target()` / `tpmkit_configure_executable_target()`.
 
 Why this matters here specifically:
 
@@ -24,46 +26,59 @@ The recipes below assume this layout — each example is labelled with the file 
 
 ## Target layout for hexagonal architecture
 
-The folder layout in `architecture.md` maps to one CMake target per layer/adapter, plus an umbrella interface target consumers link against.
+The folder layout in `architecture.md` maps to one CMake target per layer/adapter, plus the exported target consumers link against. Keep the target declaration in the module that owns the implementation and keep the root as a table of contents.
 
 ```cmake
 # top-level CMakeLists.txt
-add_subdirectory(src/domain)
-add_subdirectory(src/adapters/openssl)
-add_subdirectory(src/adapters/tpm2_fapi)
-add_subdirectory(src/adapters/tpm2_esys)
-add_subdirectory(src/adapters/mock)
-add_subdirectory(src/composition)
+include(TpmkitOptions)
+include(TpmkitBuildOptions)
+include(TpmkitDependencies)
 
-# umbrella interface target — what consumers actually link
-add_library(tpmkit INTERFACE)
-add_library(tpmkit::tpmkit ALIAS tpmkit)
-target_link_libraries(tpmkit
-    INTERFACE
-        tpmkit_domain
-        tpmkit_composition
-)
-target_compile_features(tpmkit INTERFACE cxx_std_17)
+add_subdirectory(src)
+
+if(tpmkit_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
 ```
 
-Per-adapter `CMakeLists.txt`:
+```cmake
+# src/CMakeLists.txt
+add_subdirectory(adapters/tpm2_esys)
+add_subdirectory(adapters/mock)
+
+if(TPMKIT_LOG_ADAPTER STREQUAL "spdlog")
+    add_subdirectory(adapters/logging/spdlog)
+endif()
+```
+
+Per-adapter `CMakeLists.txt` owns the target:
 
 ```cmake
-# src/adapters/openssl/CMakeLists.txt
-add_library(tpmkit_openssl_adapter STATIC
-    crypto_primitives_openssl.cpp
-    # …
+# src/adapters/tpm2_esys/CMakeLists.txt
+add_library(tpmkit)
+add_library(tpmkit::tpmkit ALIAS tpmkit)
+
+target_sources(tpmkit
+    PRIVATE
+        error_translation.cpp
+        tcti_loader.cpp
+        tpm_context.cpp
 )
-target_link_libraries(tpmkit_openssl_adapter
-    PUBLIC  tpmkit_domain          # for port headers
-    PRIVATE OpenSSL::Crypto         # adapter-private dependency
+target_link_libraries(tpmkit
+    PUBLIC
+        Microsoft.GSL::GSL
+        tl::expected
+    PRIVATE
+        PkgConfig::TSS2_ESYS
+        PkgConfig::TSS2_TCTILDR
 )
-target_include_directories(tpmkit_openssl_adapter
-    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
-)
+tpmkit_configure_library_target(tpmkit)
 ```
 
 The key invariant: third-party libraries are **`PRIVATE`** dependencies of the adapter that uses them. Consumers of `tpmkit::tpmkit` never see `OpenSSL::Crypto` or `tss2::*` in their link line. If a consumer's compile fails because it can't find an `openssl/` header, the leak is in your `target_link_libraries` — promote the dependency back to `PRIVATE`.
+
+As the project grows into separate domain/composition targets, preserve the same ownership rule: declare each target in its nearest meaningful module, then link the exported `tpmkit::tpmkit` target to the internal implementation targets without moving their source lists back to the root.
 
 ## Shared vs. static, and `BUILD_SHARED_LIBS`
 
@@ -83,7 +98,7 @@ set_target_properties(
 )
 ```
 
-Equivalently, attach `POSITION_INDEPENDENT_CODE` once via the project's flags interface target so it propagates with the existing `target_link_libraries(... PRIVATE tpmkit::warnings)` calls. Pick one place to set it; do not scatter the property.
+Equivalently, set `CMAKE_POSITION_INDEPENDENT_CODE ON` once in `cmake/TpmkitOptions.cmake` or attach `POSITION_INDEPENDENT_CODE` through the project option helper. Pick one place to set it; do not scatter the property.
 
 If the umbrella becomes a shared library, set `VERSION` and `SOVERSION` on it so consumers get a stable runtime symlink layout:
 
@@ -300,93 +315,67 @@ Never set `CMAKE_CXX_STANDARD` at top level — that overrides the parent's choi
 
 ## Centralizing compiler and hardening flags
 
-Put project-wide flags on a single `INTERFACE` target and link it `PRIVATE`ly to every library/test target. This avoids both `add_compile_options` (directory-scoped, affects subdirectories silently) and per-target duplication.
+Keep project-wide flags in `cmake/TpmkitBuildOptions.cmake` and apply them through target-scoped helper functions. This avoids both `add_compile_options` (directory-scoped, affects subdirectories silently) and per-target flag duplication.
 
 ```cmake
-# cmake/tpmkit_flags.cmake
-add_library(tpmkit_warnings INTERFACE)
-add_library(tpmkit::warnings ALIAS tpmkit_warnings)
-
-if(MSVC)
-    target_compile_options(tpmkit_warnings INTERFACE /W4 /permissive-)
-else()
-    target_compile_options(tpmkit_warnings INTERFACE
-        -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wnon-virtual-dtor
-        -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual
-        -Wnull-dereference -Wdouble-promotion -Wformat=2
+# cmake/TpmkitBuildOptions.cmake
+function(tpmkit_configure_library_target target)
+    target_compile_features("${target}" PUBLIC cxx_std_17)
+    set_target_properties("${target}" PROPERTIES
+        CXX_EXTENSIONS OFF
+        CXX_VISIBILITY_PRESET hidden
+        VISIBILITY_INLINES_HIDDEN ON
     )
-endif()
-
-add_library(tpmkit_hardening INTERFACE)
-target_compile_options(tpmkit_hardening INTERFACE
-    $<$<CONFIG:Release>:-D_FORTIFY_SOURCE=2>
-    $<$<CONFIG:Release>:-fstack-protector-strong>
-    $<$<CONFIG:Release>:-fstack-clash-protection>
-    $<$<CONFIG:Release>:-fPIE>
-)
-target_link_options(tpmkit_hardening INTERFACE
-    $<$<AND:$<CONFIG:Release>,$<PLATFORM_ID:Linux>>:-Wl,-z,relro,-z,now,-z,noexecstack>
-)
+    tpmkit_apply_project_options("${target}")
+endfunction()
 ```
 
-Then, in each library target:
+Then, in each library or executable target manifest:
 
 ```cmake
-target_link_libraries(tpmkit_domain PRIVATE tpmkit::warnings tpmkit_hardening)
+tpmkit_configure_library_target(tpmkit)
+tpmkit_configure_executable_target(tpmkit_unit_public_api_tests)
 ```
 
-`PRIVATE` is correct here — these flags govern *building* the library, not consumers. CI enables `-Werror` by setting `CMAKE_COMPILE_WARNING_AS_ERROR=ON` for the whole build, not by baking it into the warnings target.
+The helper functions apply warning, hardening, sanitizer, and coverage options directly to the target being built. Do not use directory-scoped `include_directories`, `add_definitions`, `add_compile_options`, or `add_link_options` for project policy. If a future refactor uses interface targets instead, keep the same rule: link them explicitly to each target and never make the root `CMakeLists.txt` the owner of module source lists.
 
 ## Sanitizer presets
 
 Sanitizers are mutually exclusive (ASan and TSan can't be combined). One preset per sanitizer, never a "kitchen sink" target.
 
 ```cmake
-add_library(tpmkit_asan INTERFACE)
-target_compile_options(tpmkit_asan INTERFACE -fsanitize=address -fno-omit-frame-pointer -g)
-target_link_options   (tpmkit_asan INTERFACE -fsanitize=address)
-
-add_library(tpmkit_ubsan INTERFACE)
-target_compile_options(tpmkit_ubsan INTERFACE -fsanitize=undefined -fno-omit-frame-pointer -g)
-target_link_options   (tpmkit_ubsan INTERFACE -fsanitize=undefined)
-
-add_library(tpmkit_tsan INTERFACE)
-target_compile_options(tpmkit_tsan INTERFACE -fsanitize=thread -fno-omit-frame-pointer -g)
-target_link_options   (tpmkit_tsan INTERFACE -fsanitize=thread)
+if(tpmkit_USE_ASAN)
+    target_compile_options("${target}" PRIVATE -fsanitize=address -fno-omit-frame-pointer)
+    if(tpmkit_can_use_link_options)
+        target_link_options("${target}" PRIVATE -fsanitize=address)
+    endif()
+endif()
 ```
 
-These attach via a CMake option (`TPMKIT_SANITIZER=asan|ubsan|tsan`) handled in one place, not by per-target `if`s.
+These attach through `tpmkit_apply_project_options()` and the preset-backed cache options (`tpmkit_USE_ASAN`, `tpmkit_USE_UBSAN`, `tpmkit_USE_TSAN`). Keep the mutual-exclusion validation in `cmake/TpmkitOptions.cmake`, not in individual target manifests.
 
 ## Code coverage
 
-Coverage is opt-in at configure time, off by default, and Debug-only. Same shape as the sanitizer toggles — one interface target, gated by an option, linked `PRIVATE` to instrumented targets.
+Coverage is opt-in at configure time, off by default, and Debug-only. It is applied by `tpmkit_apply_project_options()` to each configured target, alongside sanitizer flags.
 
 ```cmake
 option(TPMKIT_COVERAGE "Build with code coverage instrumentation" OFF)
 
-add_library(tpmkit_coverage INTERFACE)
 if(TPMKIT_COVERAGE)
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-        target_compile_options(tpmkit_coverage INTERFACE --coverage -O0 -g)
-        target_link_options   (tpmkit_coverage INTERFACE --coverage)
-    elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-        target_compile_options(tpmkit_coverage INTERFACE
-            -fprofile-instr-generate -fcoverage-mapping -O0 -g)
-        target_link_options   (tpmkit_coverage INTERFACE
-            -fprofile-instr-generate)
-    else()
-        message(FATAL_ERROR "TPMKIT_COVERAGE not supported on ${CMAKE_CXX_COMPILER_ID}")
+    target_compile_options("${target}" PRIVATE --coverage -O0 -g)
+    if(tpmkit_can_use_link_options)
+        target_link_options("${target}" PRIVATE --coverage)
     endif()
 endif()
 ```
 
 GCC uses gcov-style `.gcno`/`.gcda` files; Clang uses source-based `.profraw`. Different flag sets, different output formats — pick once per build, do not mix.
 
-Attach `PRIVATE` to **both** the library targets and the test executables:
+Apply the project option helper to **both** the library targets and the test executables:
 
 ```cmake
-target_link_libraries(tpmkit_domain        PRIVATE tpmkit_coverage)
-target_link_libraries(tpmkit_domain_tests  PRIVATE tpmkit_coverage)
+tpmkit_configure_library_target(tpmkit)
+tpmkit_configure_executable_target(tpmkit_unit_tpm2_esys_tests)
 ```
 
 Test attachment matters because data files are written when the *test binary* runs — without instrumenting the test executable, the runtime support is missing and no data lands on disk.
@@ -418,8 +407,8 @@ target_link_libraries(tpmkit_domain_tests
         tpmkit_domain
         tpmkit_mock_adapter
         GTest::gtest_main
-        tpmkit::warnings
 )
+tpmkit_configure_executable_target(tpmkit_domain_tests)
 gtest_discover_tests(tpmkit_domain_tests
     PROPERTIES TIMEOUT 30
 )
@@ -473,8 +462,9 @@ endforeach()
 
 add_library(tpmkit_header_self_containment OBJECT ${STUB_SOURCES})
 target_link_libraries(tpmkit_header_self_containment
-    PRIVATE tpmkit::tpmkit tpmkit::warnings
+    PRIVATE tpmkit::tpmkit
 )
+tpmkit_apply_project_options(tpmkit_header_self_containment)
 ```
 
 Link only `tpmkit::tpmkit` (and the warning interface) — *not* OpenSSL or TSS. The point of the test is that the public header brings in everything it needs on its own. If a stub fails because `tss2/...` is missing, the public header is leaking an adapter detail and the fix is to forward-declare or move the include into the `.cpp`, not to add the dep to the stub library.
@@ -521,9 +511,9 @@ The script has no `--update` flag. Baseline changes are always a deliberate huma
     },
     { "name": "debug",   "inherits": "base", "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug"          } },
     { "name": "release", "inherits": "base", "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo" } },
-    { "name": "asan",    "inherits": "debug","cacheVariables": { "TPMKIT_SANITIZER": "asan"           } },
-    { "name": "ubsan",   "inherits": "debug","cacheVariables": { "TPMKIT_SANITIZER": "ubsan"          } },
-    { "name": "tsan",    "inherits": "debug","cacheVariables": { "TPMKIT_SANITIZER": "tsan"           } }
+    { "name": "asan",    "inherits": "debug","cacheVariables": { "tpmkit_USE_ASAN": "ON"              } },
+    { "name": "ubsan",   "inherits": "debug","cacheVariables": { "tpmkit_USE_UBSAN": "ON"             } },
+    { "name": "tsan",    "inherits": "debug","cacheVariables": { "tpmkit_USE_TSAN": "ON"              } }
   ]
 }
 ```
@@ -576,10 +566,10 @@ If a property is the same across all configurations and platforms, use a plain s
 - **Public include dirs without `BUILD_INTERFACE`/`INSTALL_INTERFACE`.** The install tree path differs from the build tree. Without the generator expressions, the installed package config points at a build directory that no longer exists on the consumer's machine.
 - **Forgetting `install(EXPORT …)`.** `install(TARGETS … EXPORT name)` registers the target for export; `install(EXPORT name …)` writes the actual `.cmake` file. Both are required.
 - **Missing `NAMESPACE tpmkit::`.** Without it, consumers must write `tpmkit_domain` directly. With it, they write `tpmkit::tpmkit` and get a clear error if they forget `find_package`.
-- **`add_compile_options` instead of an interface target.** Affects unrelated targets in the same directory; doesn't propagate to subdirectories. Centralize in an interface target and link it explicitly.
+- **`add_compile_options` instead of the project option helper.** Affects unrelated targets in the same directory and silently changes subdirectory behavior. Centralize in `cmake/TpmkitBuildOptions.cmake` and call `tpmkit_configure_library_target()` / `tpmkit_configure_executable_target()` explicitly.
 - **Hand-defining the export macro.** `generate_export_header` handles MSVC/GCC/Clang differences correctly. A handwritten `__attribute__((visibility))` macro will get a corner case wrong on at least one platform.
 - **Shipping `find_dependency(OpenSSL)` in `Config.cmake.in`.** This is the diagnostic, not the fix. Find the `target_link_libraries` line that should have been `PRIVATE` and change it.
-- **`CMAKE_CXX_FLAGS += "-fsanitize=…"`.** Pollutes every target globally and silently breaks targets (e.g., release-only tools) you didn't intend. Use a sanitizer interface target.
+- **`CMAKE_CXX_FLAGS += "-fsanitize=…"`.** Pollutes every target globally and silently breaks targets (e.g., release-only tools) you didn't intend. Use the sanitizer branch in `tpmkit_apply_project_options()`.
 - **Mixing ASan and TSan in one build.** They are incompatible. Use separate presets and run them as separate CI jobs.
 - **Calling `enable_testing()` from a subdirectory.** CTest only registers the test directory rooted at the cache file. The call belongs in the top-level `CMakeLists.txt`; subdirectories use `gtest_discover_tests` to add entries.
 - **`pkg_check_modules(... tss2-fapi)` without `IMPORTED_TARGET`.** Produces loose `*_LIBRARIES`/`*_INCLUDE_DIRS` variables and forces `target_include_directories` everywhere. With `IMPORTED_TARGET`, you link `PkgConfig::TSS2_FAPI` and the includes propagate.
@@ -587,7 +577,7 @@ If a property is the same across all configurations and platforms, use a plain s
 - **`set(BUILD_SHARED_LIBS ON)` inside the library.** Overrides the consumer's choice. Leave `BUILD_SHARED_LIBS` to the consumer or to the preset.
 - **Using `gtest_add_tests` instead of `gtest_discover_tests`.** The former parses sources at configure time and silently misses parameterised or computed test names.
 - **Combining `TPMKIT_COVERAGE` with a release preset or a sanitizer.** Coverage requires `-O0` and Debug; release hardening assumes optimization, and sanitizer signals get tangled with coverage data. One instrumentation per build.
-- **Forgetting to attach the coverage interface target to test executables.** Library-only instrumentation produces no `.gcda`/`.profraw` files because the data is written by the running test binary.
+- **Forgetting to apply project options to test executables.** Library-only coverage instrumentation produces no `.gcda`/`.profraw` files because the data is written by the running test binary.
 - **Linking adapter dependencies (OpenSSL, TSS) into the header self-containment stub library.** Defeats the test — the point is that public headers are self-contained without those deps. If a stub fails compilation, fix the header, not the stub library's link line.
 - **Adding an `--update` flag to the exported-symbol diff script.** Removes the human-in-the-loop check that the gate exists to enforce. Baseline updates are PR-reviewed, never automated.
 - **Putting the invariant checks only in CI.** They are wired as `add_test` entries so a developer's local `ctest` sees the same failure. A "passes locally, fails in CI" gap on these gates is itself a process failure.

@@ -1,6 +1,7 @@
 add_executable(tpm_context_basics
     tpm_context_basics.cpp
 )
+tpmkit_configure_executable_target(tpm_context_basics)
 
 target_link_libraries(tpm_context_basics
     PRIVATE
