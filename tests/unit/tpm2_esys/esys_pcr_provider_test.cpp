@@ -7,9 +7,6 @@
 
 #include <gtest/gtest.h>
 
-#include <openssl/hmac.h>
-#include <openssl/sha.h>
-
 #include <tss2/tss2_common.h>
 #include <tss2/tss2_esys.h>
 #include <tss2/tss2_tcti.h>
@@ -152,72 +149,6 @@ std::uint8_t read_u8(const std::vector<std::uint8_t>& bytes, const std::size_t o
     return bytes.at(offset);
 }
 
-std::uint8_t first_session_attributes(const std::vector<std::uint8_t>& command)
-{
-    const std::size_t auth_size_offset = 14U;
-    const std::size_t auth_offset = auth_size_offset + 4U;
-    const std::size_t nonce_size_offset = auth_offset + 4U;
-    const std::size_t nonce_size = read_u16(command, nonce_size_offset);
-    return command.at(nonce_size_offset + 2U + nonce_size);
-}
-
-std::vector<std::uint8_t> first_session_nonce(const std::vector<std::uint8_t>& command)
-{
-    const std::size_t auth_size_offset = 14U;
-    const std::size_t auth_offset = auth_size_offset + 4U;
-    const std::size_t nonce_size_offset = auth_offset + 4U;
-    const std::size_t nonce_size = read_u16(command, nonce_size_offset);
-    const auto begin = command.begin() + static_cast<std::ptrdiff_t>(nonce_size_offset + 2U);
-    return std::vector<std::uint8_t>{begin, begin + static_cast<std::ptrdiff_t>(nonce_size)};
-}
-
-std::vector<std::uint8_t> sha256_bytes(const std::vector<std::uint8_t>& bytes)
-{
-    std::vector<std::uint8_t> result(SHA256_DIGEST_LENGTH);
-    SHA256(bytes.data(), bytes.size(), result.data());
-    return result;
-}
-
-std::vector<std::uint8_t> hmac_sha256(const std::vector<std::uint8_t>& key,
-                                      const std::vector<std::uint8_t>& bytes)
-{
-    std::vector<std::uint8_t> result(EVP_MAX_MD_SIZE);
-    unsigned int result_size = 0U;
-    HMAC(EVP_sha256(), key.data(), static_cast<int>(key.size()), bytes.data(), bytes.size(),
-         result.data(), &result_size);
-    result.resize(result_size);
-    return result;
-}
-
-std::vector<std::uint8_t>
-pcr_set_auth_value_hmac_response(const std::vector<std::uint8_t>& command,
-                                 const std::vector<std::uint8_t>& auth_value)
-{
-    constexpr std::uint8_t response_attributes =
-        TPMA_SESSION_CONTINUESESSION | TPMA_SESSION_DECRYPT;
-    std::vector<std::uint8_t> rp_hash_input;
-    append_u32(rp_hash_input, TSS2_RC_SUCCESS);
-    append_u32(rp_hash_input, TPM2_CC_PCR_SetAuthValue);
-    const std::vector<std::uint8_t> rp_hash = sha256_bytes(rp_hash_input);
-
-    std::vector<std::uint8_t> hmac_input = rp_hash;
-    const std::vector<std::uint8_t> nonce_caller = first_session_nonce(command);
-    hmac_input.insert(hmac_input.end(), nonce_caller.begin(), nonce_caller.end());
-    append_u8(hmac_input, response_attributes);
-    const std::vector<std::uint8_t> hmac = hmac_sha256(auth_value, hmac_input);
-
-    std::vector<std::uint8_t> response;
-    append_header(response, TPM2_ST_SESSIONS,
-                  static_cast<std::uint32_t>(10U + 4U + 2U + 1U + 2U + hmac.size()),
-                  TSS2_RC_SUCCESS);
-    append_u32(response, 0U);
-    append_u16(response, 0U);
-    append_u8(response, response_attributes);
-    append_u16(response, static_cast<std::uint16_t>(hmac.size()));
-    response.insert(response.end(), hmac.begin(), hmac.end());
-    return response;
-}
-
 std::vector<std::uint8_t> error_response(const std::uint32_t rc)
 {
     std::vector<std::uint8_t> response;
@@ -237,23 +168,6 @@ std::vector<std::uint8_t> extend_success_response()
 std::vector<std::uint8_t> simple_session_success_response()
 {
     return extend_success_response();
-}
-
-std::vector<std::uint8_t> start_auth_session_success_response()
-{
-    std::vector<std::uint8_t> parameters;
-    append_u16(parameters, TPM2_SHA256_DIGEST_SIZE);
-    for (std::size_t index = 0U; index < TPM2_SHA256_DIGEST_SIZE; ++index) {
-        append_u8(parameters, static_cast<std::uint8_t>(0xa0U + index));
-    }
-    append_u16(parameters, 0U);
-
-    std::vector<std::uint8_t> response;
-    append_header(response, TPM2_ST_NO_SESSIONS,
-                  static_cast<std::uint32_t>(10U + 4U + parameters.size()), TSS2_RC_SUCCESS);
-    append_u32(response, 0x02000000U);
-    response.insert(response.end(), parameters.begin(), parameters.end());
-    return response;
 }
 
 std::vector<std::uint8_t> event_success_response(const std::vector<std::uint8_t>& digest)
@@ -284,8 +198,7 @@ std::vector<std::uint8_t> allocate_success_response(const bool allocation_succes
 
     std::vector<std::uint8_t> response;
     append_header(response, TPM2_ST_SESSIONS,
-                  static_cast<std::uint32_t>(10U + 4U + parameters.size() + 5U),
-                  TSS2_RC_SUCCESS);
+                  static_cast<std::uint32_t>(10U + 4U + parameters.size() + 5U), TSS2_RC_SUCCESS);
     append_u32(response, static_cast<std::uint32_t>(parameters.size()));
     response.insert(response.end(), parameters.begin(), parameters.end());
     append_empty_auth_response(response);
@@ -411,9 +324,10 @@ std::uint32_t allocation_selection_count(const std::vector<std::uint8_t>& comman
     return read_u32(command, command_parameter_offset(command));
 }
 
-bool has_full_pcr_bank_selection(const std::vector<std::uint8_t>& command,
-                                 const std::uint16_t algorithm)
+bool has_standard_pcr_bank_selection(const std::vector<std::uint8_t>& command,
+                                     const std::uint16_t algorithm)
 {
+    constexpr std::uint8_t standard_pcr_select_size = 3U;
     std::size_t offset = command_parameter_offset(command);
     const std::uint32_t count = read_u32(command, offset);
     offset += 4U;
@@ -423,7 +337,7 @@ bool has_full_pcr_bank_selection(const std::vector<std::uint8_t>& command,
         const std::uint8_t select_size = read_u8(command, offset + 2U);
         offset += 3U;
 
-        bool all_selected = select_size == TPM2_PCR_SELECT_MAX;
+        bool all_selected = select_size == standard_pcr_select_size;
         for (std::uint8_t byte_index = 0U; byte_index < select_size; ++byte_index) {
             all_selected = all_selected && read_u8(command, offset + byte_index) == 0xffU;
         }
@@ -476,8 +390,29 @@ TEST(esys_pcr_provider, read_translates_selection_and_returns_result)
     const auto commands = fake.transmitted_commands();
     ASSERT_EQ(commands.size(), 1U);
     EXPECT_EQ(read_u32(commands.front(), 6U), TPM2_CC_PCR_Read);
+    EXPECT_TRUE(contains_bytes(commands.front(), {0x00U, 0x0bU, 0x03U, 0x00U, 0x00U, 0x01U}));
+}
+
+TEST(esys_pcr_provider, read_uses_four_byte_selection_for_high_pcr_index)
+{
+    // Verifies PCR indices above 23 are represented without widening standard selections.
+
+    tpmkit::testing::fake_tcti fake;
+    fake.push_response(read_empty_selection_response());
+    auto context = tpmkit::tpm_context::create(owned_config(fake));
+    ASSERT_TRUE(context.has_value());
+    tpmkit::detail::esys::esys_pcr_provider provider{
+        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, nullptr};
+
+    const auto result = provider.read(
+        tpmkit::pcr_selection{tpmkit::hash_algorithm::sha256, {tpmkit::pcr_index{31U}}});
+
+    ASSERT_TRUE(result.has_value());
+    const auto commands = fake.transmitted_commands();
+    ASSERT_EQ(commands.size(), 1U);
+    EXPECT_EQ(read_u32(commands.front(), 6U), TPM2_CC_PCR_Read);
     EXPECT_TRUE(
-        contains_bytes(commands.front(), {0x00U, 0x0bU, 0x04U, 0x00U, 0x00U, 0x01U, 0x00U}));
+        contains_bytes(commands.front(), {0x00U, 0x0bU, 0x04U, 0x00U, 0x00U, 0x00U, 0x80U}));
 }
 
 TEST(esys_pcr_provider, read_returns_resource_error_for_transport_failure)
@@ -994,81 +929,70 @@ TEST(esys_pcr_provider, set_auth_policy_emits_success_log_fields)
     EXPECT_EQ(field_value(records.front(), events::fields::policy_algorithm), "sha256");
 }
 
-TEST(esys_pcr_provider, set_auth_value_returns_error_on_session_creation_failure)
+TEST(esys_pcr_provider, set_auth_value_rejects_non_empty_auth_without_secure_transport)
 {
-    // Verifies SetAuthValue fails before command dispatch when HMAC session creation fails.
+    // Verifies non-empty auth values fail closed until protected transport is available.
 
     tpmkit::testing::fake_tcti fake;
-    fake.push_response(error_response(TPM2_RC_MEMORY));
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
     tpmkit::detail::esys::esys_pcr_provider provider{
         static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, nullptr};
-    tpmkit::secret_buffer auth{{0x73U, 0x65U, 0x6bU, 0x72U, 0x69U, 0x74U}};
+    tpmkit::secret_buffer auth{std::vector<std::uint8_t>{0x73U, 0x65U, 0x6bU, 0x72U, 0x69U, 0x74U}};
 
     const auto result = provider.set_auth_value(tpmkit::pcr_index::debug, std::move(auth));
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().category, tpmkit::error_category::resource_error);
     const auto commands = fake.transmitted_commands();
-    ASSERT_EQ(commands.size(), 1U);
-    EXPECT_EQ(read_u32(commands.front(), 6U), TPM2_CC_StartAuthSession);
+    EXPECT_TRUE(commands.empty());
 }
 
-TEST(esys_pcr_provider, set_auth_value_transmits_auth_with_encrypted_session)
+TEST(esys_pcr_provider, set_auth_value_does_not_dispatch_non_empty_auth_material)
 {
-    // Verifies SetAuthValue uses command parameter encryption for the auth value.
+    // Verifies a non-empty auth value is not sent under an unprotected session.
 
     tpmkit::testing::fake_tcti fake;
-    fake.push_response(start_auth_session_success_response());
     const std::vector<std::uint8_t> secret{0x73U, 0x65U, 0x6bU, 0x72U, 0x69U, 0x74U};
-    fake.push_response_factory([secret](const std::vector<std::uint8_t>& command) {
-        return pcr_set_auth_value_hmac_response(command, secret);
-    });
-    fake.push_response(error_response(TPM2_RC_SUCCESS));
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
     tpmkit::detail::esys::esys_pcr_provider provider{
         static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, nullptr};
-    tpmkit::secret_buffer auth{secret};
+    std::vector<std::uint8_t> owned_secret = secret;
+    tpmkit::secret_buffer auth{std::move(owned_secret)};
 
     const auto result = provider.set_auth_value(tpmkit::pcr_index::debug, std::move(auth));
 
-    ASSERT_TRUE(result.has_value());
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().category, tpmkit::error_category::resource_error);
     const auto commands = fake.transmitted_commands();
-    ASSERT_GE(commands.size(), 2U);
-    EXPECT_EQ(read_u32(commands[0U], 6U), TPM2_CC_StartAuthSession);
-    EXPECT_EQ(read_u32(commands[1U], 6U), TPM2_CC_PCR_SetAuthValue);
-    EXPECT_NE(first_session_attributes(commands[1U]) & TPMA_SESSION_DECRYPT, 0U);
-    EXPECT_FALSE(contains_bytes(commands[1U], secret));
+    EXPECT_TRUE(commands.empty());
 }
 
 TEST(esys_pcr_provider, set_auth_value_emits_success_log_without_auth_value)
 {
-    // Verifies SetAuthValue success logs no authorization value bytes.
+    // Verifies empty SetAuthValue success logs no authorization value bytes.
 
     tpmkit::testing::fake_tcti fake;
-    fake.push_response(start_auth_session_success_response());
-    const std::vector<std::uint8_t> secret{0x73U, 0x65U, 0x6bU, 0x72U, 0x69U, 0x74U};
-    fake.push_response_factory([secret](const std::vector<std::uint8_t>& command) {
-        return pcr_set_auth_value_hmac_response(command, secret);
-    });
-    fake.push_response(error_response(TPM2_RC_SUCCESS));
+    fake.push_response(simple_session_success_response());
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
     tpmkit::testing::recording_logger log;
     tpmkit::detail::esys::esys_pcr_provider provider{
         static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), &log, nullptr};
-    tpmkit::secret_buffer auth{secret};
+    tpmkit::secret_buffer auth;
 
     const auto result = provider.set_auth_value(tpmkit::pcr_index::debug, std::move(auth));
 
     ASSERT_TRUE(result.has_value());
+    const auto commands = fake.transmitted_commands();
+    ASSERT_EQ(commands.size(), 1U);
+    EXPECT_EQ(read_u32(commands.front(), 6U), TPM2_CC_PCR_SetAuthValue);
+    EXPECT_EQ(read_u16(commands.front(), command_parameter_offset(commands.front())), 0U);
     const auto records = log.snapshot();
     ASSERT_EQ(records.size(), 1U);
     EXPECT_EQ(std::string_view{records.front().message}, events::pcr_auth_value_set);
     EXPECT_EQ(field_value(records.front(), events::fields::pcr_index), "16");
-    EXPECT_FALSE(contains_field_value(records, "sekrit"));
 }
 
 TEST(esys_pcr_provider, auth_operation_logs_do_not_leak_secret_material)
@@ -1076,26 +1000,22 @@ TEST(esys_pcr_provider, auth_operation_logs_do_not_leak_secret_material)
     // Verifies PCR auth operation logs omit auth values and policy digest material.
 
     tpmkit::testing::fake_tcti fake;
-    fake.push_response(start_auth_session_success_response());
     const std::vector<std::uint8_t> secret{0x73U, 0x65U, 0x6bU, 0x72U, 0x69U, 0x74U};
-    fake.push_response_factory([secret](const std::vector<std::uint8_t>& command) {
-        return pcr_set_auth_value_hmac_response(command, secret);
-    });
-    fake.push_response(error_response(TPM2_RC_SUCCESS));
     fake.push_response(simple_session_success_response());
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
     tpmkit::testing::recording_logger log;
     tpmkit::detail::esys::esys_pcr_provider provider{
         static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), &log, nullptr};
-    tpmkit::secret_buffer auth{secret};
+    std::vector<std::uint8_t> owned_secret = secret;
+    tpmkit::secret_buffer auth{std::move(owned_secret)};
     const auto policy_digest = digest_bytes(0xdeU);
 
     const auto auth_value = provider.set_auth_value(tpmkit::pcr_index::debug, std::move(auth));
     const auto auth_policy = provider.set_auth_policy(
         tpmkit::pcr_index::debug, tpmkit::hash_algorithm::sha256, policy_digest);
 
-    ASSERT_TRUE(auth_value.has_value());
+    ASSERT_FALSE(auth_value.has_value());
     ASSERT_TRUE(auth_policy.has_value());
     const auto records = log.snapshot();
     EXPECT_FALSE(contains_field_value(records, "sekrit"));
@@ -1123,8 +1043,8 @@ TEST(esys_pcr_provider, allocate_translates_bank_list_to_full_pcr_selections)
     EXPECT_EQ(read_u32(commands.front(), 6U), TPM2_CC_PCR_Allocate);
     EXPECT_EQ(read_u32(commands.front(), 10U), TPM2_RH_PLATFORM);
     EXPECT_EQ(allocation_selection_count(commands.front()), 2U);
-    EXPECT_TRUE(has_full_pcr_bank_selection(commands.front(), TPM2_ALG_SHA256));
-    EXPECT_TRUE(has_full_pcr_bank_selection(commands.front(), TPM2_ALG_SHA384));
+    EXPECT_TRUE(has_standard_pcr_bank_selection(commands.front(), TPM2_ALG_SHA256));
+    EXPECT_TRUE(has_standard_pcr_bank_selection(commands.front(), TPM2_ALG_SHA384));
 }
 
 TEST(esys_pcr_provider, allocate_returns_result_fields_on_success)

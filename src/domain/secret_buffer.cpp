@@ -3,7 +3,6 @@
 #include "secret_buffer_testing.h"
 
 #include <atomic>
-#include <cstdio>
 #include <utility>
 #include <vector>
 
@@ -54,12 +53,6 @@ void cleanse(std::vector<std::uint8_t>& data) noexcept
     const auto* const observer = active_observer.load(std::memory_order_acquire);
     if (observer != nullptr && observer->on_lock_attempt != nullptr) {
         observer->on_lock_attempt(size, locked);
-    }
-
-    if (!locked) {
-        static_cast<void>(std::fputs(
-            "tpmkit warning: secret_buffer memory lock failed; continuing without locked pages\n",
-            stderr));
     }
 
     return locked;
@@ -138,7 +131,7 @@ private:
 
 secret_buffer::secret_buffer() noexcept = default;
 
-secret_buffer::secret_buffer(std::vector<std::uint8_t> data)
+secret_buffer::secret_buffer(std::vector<std::uint8_t>&& data)
     : impl_(std::make_unique<impl>(std::move(data)))
 {}
 

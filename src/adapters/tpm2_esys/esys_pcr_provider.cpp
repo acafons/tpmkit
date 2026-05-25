@@ -5,8 +5,6 @@
 
 #include <tpmkit/logging/logger.h>
 
-#include <openssl/rand.h>
-
 #include <tss2/tss2_esys.h>
 #include <tss2/tss2_tpm2_types.h>
 
@@ -29,40 +27,17 @@ using unique_pcr_values = std::unique_ptr<TPML_DIGEST, void (*)(void*)>;
 
 constexpr std::uint8_t pcr_select_min_size = 3U;
 
-class esys_session final {
-public:
-    esys_session(ESYS_CONTEXT* const esys, const ESYS_TR handle, logger* const log) noexcept
-        : esys_{esys}, handle_{handle}, log_{log}
-    {}
+template <class Element, std::size_t Size>
+[[nodiscard]] constexpr std::size_t array_size(const Element (&)[Size]) noexcept
+{
+    return Size;
+}
 
-    ~esys_session() noexcept
-    {
-        if (esys_ == nullptr || handle_ == ESYS_TR_NONE) {
-            return;
-        }
-
-        const TSS2_RC rc = Esys_FlushContext(esys_, handle_);
-        if (rc != TSS2_RC_SUCCESS) {
-            static_cast<void>(translate_tss_rc(rc, "pcr_set_auth_value_flush_session", log_,
-                                               events::pcr_tss_error));
-        }
-    }
-
-    esys_session(const esys_session&) = delete;
-    esys_session& operator=(const esys_session&) = delete;
-    esys_session(esys_session&&) noexcept = delete;
-    esys_session& operator=(esys_session&&) noexcept = delete;
-
-    [[nodiscard]] ESYS_TR get() const noexcept
-    {
-        return handle_;
-    }
-
-private:
-    ESYS_CONTEXT* esys_;
-    ESYS_TR handle_;
-    logger* log_;
-};
+[[nodiscard]] constexpr std::uint8_t selection_size_for_pcr(const std::uint8_t pcr) noexcept
+{
+    const auto required_size = static_cast<std::uint8_t>((pcr / 8U) + 1U);
+    return std::max(pcr_select_min_size, required_size);
+}
 
 [[nodiscard]] std::string algorithm_name(const hash_algorithm algorithm)
 {
@@ -155,6 +130,18 @@ private:
 {
     if (size > sizeof(TPM2B_DIGEST::buffer)) {
         return tl::unexpected(error{error_category::input_error, std::string{message}});
+    }
+
+    return {};
+}
+
+[[nodiscard]] outcome<void>
+ensure_secure_auth_value_transport(const gsl::span<const std::uint8_t> auth)
+{
+    if (!auth.empty()) {
+        return tl::unexpected(error{
+            error_category::resource_error,
+            "secure PCR auth value transport is unavailable for non-empty authorization values"});
     }
 
     return {};
@@ -253,8 +240,8 @@ to_tpm_digest_values(const gsl::span<const pcr_digest_value> digests)
 
     for (const pcr_index index : selection.indices()) {
         const std::uint8_t value = index.value();
-        tpm_selection.sizeofSelect = std::max<std::uint8_t>(
-            tpm_selection.sizeofSelect, static_cast<std::uint8_t>((value / 8U) + 1U));
+        tpm_selection.sizeofSelect =
+            std::max(tpm_selection.sizeofSelect, selection_size_for_pcr(value));
         tpm_selection.pcrSelect[value / 8U] =
             static_cast<BYTE>(tpm_selection.pcrSelect[value / 8U] | (1U << (value % 8U)));
     }
@@ -303,8 +290,12 @@ void select_all_pcrs(TPMS_PCR_SELECTION& selection) noexcept
     }
 
     std::set<pcr_index> indices;
-    const std::size_t select_size =
-        std::min<std::size_t>(tpm_selection.sizeofSelect, TPM2_PCR_SELECT_MAX);
+    if (tpm_selection.sizeofSelect > TPM2_PCR_SELECT_MAX) {
+        return tl::unexpected(
+            error{error_category::backend_error, "TPM returned malformed PCR selection size"});
+    }
+
+    const std::size_t select_size = tpm_selection.sizeofSelect;
     for (std::size_t byte_index = 0U; byte_index < select_size; ++byte_index) {
         for (std::uint8_t bit = 0U; bit < 8U; ++bit) {
             if ((tpm_selection.pcrSelect[byte_index] & (1U << bit)) == 0U) {
@@ -327,6 +318,11 @@ void select_all_pcrs(TPMS_PCR_SELECTION& selection) noexcept
 [[nodiscard]] outcome<std::vector<pcr_digest_value>>
 to_domain_digests(const TPML_DIGEST_VALUES& digests)
 {
+    if (digests.count > array_size(digests.digests)) {
+        return tl::unexpected(
+            error{error_category::backend_error, "TPM returned too many PCR event digests"});
+    }
+
     std::vector<pcr_digest_value> result;
     result.reserve(digests.count);
 
@@ -345,6 +341,11 @@ to_domain_digests(const TPML_DIGEST_VALUES& digests)
 [[nodiscard]] outcome<std::vector<pcr_digest_value>>
 to_domain_read_values(const TPML_DIGEST& values, const hash_algorithm algorithm)
 {
+    if (values.count > array_size(values.digests)) {
+        return tl::unexpected(
+            error{error_category::backend_error, "TPM returned too many PCR read digests"});
+    }
+
     std::vector<pcr_digest_value> result;
     result.reserve(values.count);
 
@@ -380,17 +381,6 @@ to_domain_read_values(const TPML_DIGEST& values, const hash_algorithm algorithm)
 [[nodiscard]] TPM2B_DIGEST to_tpm_sized_digest(const gsl::span<const std::uint8_t> bytes) noexcept
 {
     TPM2B_DIGEST result{};
-    result.size = static_cast<UINT16>(bytes.size());
-    if (!bytes.empty()) {
-        std::memcpy(result.buffer, bytes.data(), bytes.size());
-    }
-
-    return result;
-}
-
-[[nodiscard]] TPM2B_AUTH to_tpm_auth(const gsl::span<const std::uint8_t> bytes) noexcept
-{
-    TPM2B_AUTH result{};
     result.size = static_cast<UINT16>(bytes.size());
     if (!bytes.empty()) {
         std::memcpy(result.buffer, bytes.data(), bytes.size());
@@ -507,60 +497,6 @@ void log_reset_completed(logger* const log, const pcr_index index)
     }};
 
     log->log(log_level::info, events::pcr_reset_completed, gsl::span<const log_field>(fields));
-}
-
-[[nodiscard]] outcome<void> populate_nonce(TPM2B_NONCE& nonce)
-{
-    nonce.size = TPM2_SHA256_DIGEST_SIZE;
-    // StartAuthSession requires a fresh caller nonce; host RNG is sufficient for uniqueness here.
-    if (RAND_bytes(nonce.buffer, nonce.size) != 1) {
-        return tl::unexpected(error{error_category::resource_error,
-                                    "host RNG failed while starting TPM auth session"});
-    }
-
-    return {};
-}
-
-[[nodiscard]] TPMT_SYM_DEF parameter_encryption_symmetric() noexcept
-{
-    TPMT_SYM_DEF symmetric{};
-    symmetric.algorithm = TPM2_ALG_AES;
-    symmetric.keyBits.aes = 128U;
-    symmetric.mode.aes = TPM2_ALG_CFB;
-    return symmetric;
-}
-
-[[nodiscard]] outcome<ESYS_TR> start_parameter_encryption_session(ESYS_CONTEXT* const esys,
-                                                                  logger* const log)
-{
-    TPM2B_NONCE nonce_caller{};
-    auto nonce = populate_nonce(nonce_caller);
-    if (!nonce.has_value()) {
-        return tl::unexpected(nonce.error());
-    }
-
-    const TPMT_SYM_DEF symmetric = parameter_encryption_symmetric();
-    ESYS_TR session = ESYS_TR_NONE;
-    const TSS2_RC rc = Esys_StartAuthSession(esys, ESYS_TR_NONE, ESYS_TR_NONE, ESYS_TR_NONE,
-                                             ESYS_TR_NONE, ESYS_TR_NONE, &nonce_caller,
-                                             TPM2_SE_HMAC, &symmetric, TPM2_ALG_SHA256, &session);
-    if (rc != TSS2_RC_SUCCESS) {
-        auto translated =
-            translate_tss_rc(rc, "pcr_set_auth_value_start_session", log, events::pcr_tss_error);
-        return tl::unexpected(translated.error());
-    }
-
-    const TPMA_SESSION session_attributes = TPMA_SESSION_CONTINUESESSION | TPMA_SESSION_DECRYPT;
-    const TSS2_RC attr_rc =
-        Esys_TRSess_SetAttributes(esys, session, session_attributes, session_attributes);
-    if (attr_rc != TSS2_RC_SUCCESS) {
-        esys_session cleanup{esys, session, log};
-        auto translated = translate_tss_rc(attr_rc, "pcr_set_auth_value_encrypt_session", log,
-                                           events::pcr_tss_error);
-        return tl::unexpected(translated.error());
-    }
-
-    return session;
 }
 
 } // namespace
@@ -771,12 +707,11 @@ outcome<void> esys_pcr_provider::set_auth_value(const pcr_index index, secret_bu
         return tl::unexpected(valid_auth.error());
     }
 
-    auto session_handle = start_parameter_encryption_session(esys_, log_);
-    if (!session_handle.has_value()) {
-        return tl::unexpected(session_handle.error());
+    const auto secure_transport = ensure_secure_auth_value_transport(auth_view);
+    if (!secure_transport.has_value()) {
+        return tl::unexpected(secure_transport.error());
     }
 
-    esys_session session{esys_, session_handle.value(), log_};
     const TPM2B_AUTH current_auth{};
     const TSS2_RC set_auth_rc = Esys_TR_SetAuth(esys_, pcr_handle(index), &current_auth);
     if (set_auth_rc != TSS2_RC_SUCCESS) {
@@ -786,14 +721,14 @@ outcome<void> esys_pcr_provider::set_auth_value(const pcr_index index, secret_bu
     }
 
     const TPM2B_DIGEST tpm_auth = to_tpm_sized_digest(auth_view);
-    const TSS2_RC rc = Esys_PCR_SetAuthValue(esys_, pcr_handle(index), session.get(), ESYS_TR_NONE,
-                                             ESYS_TR_NONE, &tpm_auth);
+    const TSS2_RC rc = Esys_PCR_SetAuthValue(esys_, pcr_handle(index), ESYS_TR_PASSWORD,
+                                             ESYS_TR_NONE, ESYS_TR_NONE, &tpm_auth);
     if (rc != TSS2_RC_SUCCESS) {
         auto translated = translate_tss_rc(rc, "pcr_set_auth_value", log_, events::pcr_tss_error);
         return tl::unexpected(translated.error());
     }
 
-    const TPM2B_AUTH new_auth = to_tpm_auth(auth_view);
+    const TPM2B_AUTH new_auth{};
     const TSS2_RC update_auth_rc = Esys_TR_SetAuth(esys_, pcr_handle(index), &new_auth);
     if (update_auth_rc != TSS2_RC_SUCCESS) {
         auto translated = translate_tss_rc(update_auth_rc, "pcr_set_auth_value_update_current_auth",

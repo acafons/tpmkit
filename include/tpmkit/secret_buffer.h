@@ -42,13 +42,13 @@ public:
     /**
      * @brief Construct a secret buffer by taking ownership of byte material.
      *
-     * @param[in] data Secret bytes to own. The source vector is moved from.
+     * @param[in] data Secret bytes to own. The source vector must be moved from.
      * @throws std::bad_alloc if internal allocation fails.
      * @thread_safety Thread-compatible.
      * @exception_safety Strong; failure does not publish a partially
      * initialized instance.
      */
-    explicit secret_buffer(std::vector<std::uint8_t> data);
+    explicit secret_buffer(std::vector<std::uint8_t>&& data);
 
     /**
      * @brief Clear and release the secret buffer.
