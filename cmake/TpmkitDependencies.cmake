@@ -3,6 +3,7 @@ include_guard(GLOBAL)
 find_package(PkgConfig REQUIRED)
 
 find_package(Microsoft.GSL CONFIG REQUIRED)
+find_package(OpenSSL REQUIRED)
 find_package(tl-expected CONFIG QUIET)
 if(NOT TARGET tl::expected)
     find_path(TL_EXPECTED_INCLUDE_DIR NAMES tl/expected.hpp REQUIRED)

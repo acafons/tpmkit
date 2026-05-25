@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <deque>
+#include <functional>
 #include <mutex>
 #include <type_traits>
 #include <variant>
@@ -23,6 +24,10 @@ struct response_bytes {
     std::vector<std::uint8_t> bytes;
 };
 
+struct response_factory {
+    std::function<std::vector<std::uint8_t>(const std::vector<std::uint8_t>&)> factory;
+};
+
 struct failure_rc {
     TSS2_RC rc;
 };
@@ -31,7 +36,8 @@ struct transmit_failure_rc {
     TSS2_RC rc;
 };
 
-using queued_result = std::variant<response_bytes, failure_rc, transmit_failure_rc>;
+using queued_result =
+    std::variant<response_bytes, response_factory, failure_rc, transmit_failure_rc>;
 
 struct fake_tcti_storage {
     TSS2_TCTI_CONTEXT_COMMON_V1 common;
@@ -128,6 +134,12 @@ public:
         return queue_.size();
     }
 
+    [[nodiscard]] std::vector<std::vector<std::uint8_t>> transmitted_commands() const
+    {
+        const std::lock_guard<std::mutex> lock{mu_};
+        return transmitted_commands_;
+    }
+
     void push_failure(const std::uint32_t tss_rc)
     {
         const std::lock_guard<std::mutex> lock{mu_};
@@ -144,6 +156,13 @@ public:
     {
         const std::lock_guard<std::mutex> lock{mu_};
         queue_.push_back(response_bytes{std::move(bytes)});
+    }
+
+    void push_response_factory(
+        std::function<std::vector<std::uint8_t>(const std::vector<std::uint8_t>&)> factory)
+    {
+        const std::lock_guard<std::mutex> lock{mu_};
+        queue_.push_back(response_factory{std::move(factory)});
     }
 
     [[nodiscard]] std::size_t transmits_observed() const noexcept
@@ -229,7 +248,18 @@ private:
             return TSS2_TCTI_RC_BAD_SEQUENCE;
         }
 
-        const TSS2_RC rc = copy_response(std::get<response_bytes>(next), size, response);
+        response_bytes materialized{};
+        if (const auto* const scripted = std::get_if<response_bytes>(&next)) {
+            materialized = *scripted;
+        } else {
+            const auto& dynamic = std::get<response_factory>(next);
+            const std::vector<std::uint8_t> empty_command;
+            const std::vector<std::uint8_t>& last_command =
+                transmitted_commands_.empty() ? empty_command : transmitted_commands_.back();
+            materialized.bytes = dynamic.factory(last_command);
+        }
+
+        const TSS2_RC rc = copy_response(materialized, size, response);
         if (rc == TSS2_RC_SUCCESS && response != nullptr) {
             queue_.pop_front();
             return rc;
@@ -265,16 +295,21 @@ private:
                 return TSS2_TCTI_RC_BAD_REFERENCE;
             }
 
-            return self->observe_transmit();
+            return self->observe_transmit(size, command);
         } catch (...) {
             return TSS2_TCTI_RC_GENERAL_FAILURE;
         }
     }
 
-    TSS2_RC observe_transmit()
+    TSS2_RC observe_transmit(const std::size_t size, const std::uint8_t* const command)
     {
         const std::lock_guard<std::mutex> lock{mu_};
         ++transmits_observed_;
+        if (command == nullptr || size == 0U) {
+            transmitted_commands_.emplace_back();
+        } else {
+            transmitted_commands_.emplace_back(command, command + size);
+        }
         if (queue_.empty()) {
             return TSS2_TCTI_RC_IO_ERROR;
         }
@@ -298,6 +333,7 @@ private:
     mutable std::mutex mu_;
     std::deque<queued_result> queue_;
     fake_tcti_storage storage_;
+    std::vector<std::vector<std::uint8_t>> transmitted_commands_;
     std::size_t transmits_observed_{0U};
 };
 
@@ -319,6 +355,11 @@ std::size_t fake_tcti::pending_responses() const noexcept
     return impl_->pending_responses();
 }
 
+std::vector<std::vector<std::uint8_t>> fake_tcti::transmitted_commands() const
+{
+    return impl_->transmitted_commands();
+}
+
 void fake_tcti::push_failure(const std::uint32_t tss_rc)
 {
     impl_->push_failure(tss_rc);
@@ -332,6 +373,12 @@ void fake_tcti::push_transmit_failure(const std::uint32_t tss_rc)
 void fake_tcti::push_response(std::vector<std::uint8_t> bytes)
 {
     impl_->push_response(std::move(bytes));
+}
+
+void fake_tcti::push_response_factory(
+    std::function<std::vector<std::uint8_t>(const std::vector<std::uint8_t>&)> factory)
+{
+    impl_->push_response_factory(std::move(factory));
 }
 
 std::size_t fake_tcti::transmits_observed() const noexcept

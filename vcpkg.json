@@ -6,6 +6,7 @@
   "dependencies": [
     "tl-expected",
     "ms-gsl",
+    "openssl",
     "tpm2-tss",
     "spdlog",
     "gtest"

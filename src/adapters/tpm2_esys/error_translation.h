@@ -12,10 +12,10 @@ class logger;
 
 namespace detail::esys {
 
-[[nodiscard]] outcome<void> translate_tss_rc(
-    TSS2_RC rc,
-    std::string_view operation,
-    logger* log);
+[[nodiscard]] outcome<void> translate_tss_rc(TSS2_RC rc, std::string_view operation, logger* log);
+
+[[nodiscard]] outcome<void> translate_tss_rc(TSS2_RC rc, std::string_view operation, logger* log,
+                                             std::string_view error_event);
 
 } // namespace detail::esys
 } // namespace tpmkit

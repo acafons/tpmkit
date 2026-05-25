@@ -5,11 +5,15 @@ target_sources(tpmkit_testing
     PUBLIC
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/testing/fake_tcti.h>
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/testing/fake_tpm_context.h>
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/testing/in_memory_pcr_observer.h>
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/testing/mock_pcr_provider.h>
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/testing/recording_logger.h>
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/testing/testing_api.h>
     PRIVATE
         fake_tcti.cpp
         fake_tpm_context.cpp
+        in_memory_pcr_observer.cpp
+        mock_pcr_provider.cpp
         recording_logger.cpp
 )
 target_include_directories(tpmkit_testing

@@ -40,6 +40,7 @@ if(NOT TARGET tl::expected)
 endif()
 
 if(_tpmkit_need_production)
+    find_dependency(OpenSSL)
     set(TPMKIT_TSS2_REQUIRED_VERSION "@TPMKIT_TSS2_REQUIRED_VERSION@")
     find_dependency(PkgConfig)
     pkg_check_modules(TSS2_ESYS REQUIRED IMPORTED_TARGET

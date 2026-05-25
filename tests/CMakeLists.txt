@@ -13,11 +13,22 @@ endfunction()
 
 set(tpmkit_unit_public_api_sources
     unit/public_api/exception_header_smoke.cpp
+    unit/public_api/esys_pcr_provider_header_self_contained.cpp
     unit/public_api/foundational_headers_smoke.cpp
     unit/public_api/foundational_types_test.cpp
+    unit/public_api/hash_algorithm_header_self_contained.cpp
     unit/public_api/logger_header_smoke.cpp
     unit/public_api/noop_logger_header_smoke.cpp
+    unit/public_api/pcr_bank_header_self_contained.cpp
+    unit/public_api/pcr_digest_value_header_self_contained.cpp
+    unit/public_api/pcr_index_header_self_contained.cpp
+    unit/public_api/pcr_observer_header_self_contained.cpp
+    unit/public_api/pcr_ports_test.cpp
+    unit/public_api/pcr_provider_header_self_contained.cpp
+    unit/public_api/pcr_result_types_header_self_contained.cpp
+    unit/public_api/pcr_selection_header_self_contained.cpp
     unit/public_api/result_header_smoke.cpp
+    unit/public_api/secret_buffer_header_self_contained.cpp
     unit/public_api/tpm_context_config_test.cpp
     unit/public_api/tpm_context_header_self_contained.cpp
     unit/public_api/tpm_context_header_smoke.cpp
@@ -58,6 +69,23 @@ target_link_libraries(tpmkit_unit_common_tests
 )
 tpmkit_discover_gtests(tpmkit_unit_common_tests Unit Common)
 
+add_executable(tpmkit_unit_domain_tests
+    unit/domain/hash_algorithm_test.cpp
+    unit/domain/pcr_value_types_test.cpp
+    unit/domain/secret_buffer_test.cpp
+)
+tpmkit_configure_executable_target(tpmkit_unit_domain_tests)
+target_include_directories(tpmkit_unit_domain_tests
+    PRIVATE
+        "${PROJECT_SOURCE_DIR}/src"
+)
+target_link_libraries(tpmkit_unit_domain_tests
+    PRIVATE
+        GTest::gtest_main
+        tpmkit::tpmkit
+)
+tpmkit_discover_gtests(tpmkit_unit_domain_tests Unit Domain Security)
+
 if(TARGET tpmkit_spdlog)
     add_executable(tpmkit_unit_spdlog_tests
         unit/logging/spdlog/spdlog_logger_test.cpp
@@ -87,8 +115,12 @@ endif()
 
 add_executable(tpmkit_unit_testing_tests
     unit/public_api/fake_tpm_context_header_self_contained.cpp
+    unit/public_api/in_memory_pcr_observer_header_self_contained.cpp
+    unit/public_api/mock_pcr_provider_header_self_contained.cpp
     unit/public_api/recording_logger_header_self_contained.cpp
     unit/testing/fake_tpm_context_test.cpp
+    unit/testing/in_memory_pcr_observer_test.cpp
+    unit/testing/mock_pcr_provider_test.cpp
     unit/testing/recording_logger_test.cpp
     unit/testing/tpm2_esys/fake_tcti_test.cpp
 )
@@ -104,6 +136,8 @@ tpmkit_discover_gtests(tpmkit_unit_testing_tests Unit Testing)
 
 add_executable(tpmkit_unit_tpm2_esys_tests
     unit/tpm2_esys/error_translation_test.cpp
+    unit/tpm2_esys/esys_pcr_provider_factory_test.cpp
+    unit/tpm2_esys/esys_pcr_provider_test.cpp
     unit/tpm2_esys/log_events_test.cpp
     unit/tpm2_esys/tcti_loader_test.cpp
     unit/tpm2_esys/tpm_context_lifecycle_test.cpp
@@ -152,6 +186,7 @@ endif()
 tpmkit_discover_gtests(tpmkit_contract_logger_tests Contract)
 
 add_executable(tpmkit_integration_tpm2_esys_tests
+    integration/tpm2_esys/pcr_integration_test.cpp
     integration/tpm2_esys/tcti_loader_test.cpp
     integration/tpm2_esys/tpm_context_swtpm_test.cpp
 )
@@ -163,6 +198,7 @@ target_include_directories(tpmkit_integration_tpm2_esys_tests
 target_link_libraries(tpmkit_integration_tpm2_esys_tests
     PRIVATE
         GTest::gtest_main
+        OpenSSL::Crypto
         tpmkit::tpmkit
         tpmkit::tpmkit_testing
         PkgConfig::TSS2_ESYS
@@ -189,11 +225,14 @@ gtest_discover_tests(tpmkit_integration_tpm2_esys_tests
         TIMEOUT 30
         LABELS "Integration\\;Integration_tpm2_esys\\;Security"
         FIXTURES_REQUIRED tpm_stack
+        RESOURCE_LOCK tpm_stack
 )
 
 add_test(
     NAME tpm_stack_start
-    COMMAND ${PROJECT_SOURCE_DIR}/scripts/tpm-start.sh
+    COMMAND
+        /bin/bash -c
+        "${PROJECT_SOURCE_DIR}/scripts/tpm-start.sh && tpm2_pcrallocate sha1:0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23+sha256:0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23+sha384:0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23 >/dev/null && tpm2_shutdown -c >/dev/null && ${PROJECT_SOURCE_DIR}/scripts/tpm-stop.sh >/dev/null && ${PROJECT_SOURCE_DIR}/scripts/tpm-start.sh"
 )
 set_tests_properties(tpm_stack_start
     PROPERTIES

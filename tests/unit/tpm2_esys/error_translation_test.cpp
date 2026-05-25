@@ -205,6 +205,37 @@ TEST(error_translation, maps_explicit_task_examples)
     }
 }
 
+TEST(error_translation, maps_pcr_specific_tpm_return_codes)
+{
+    // Verifies PCR-specific TPM return codes map to stable domain categories.
+
+#if defined(__GNUC__) || defined(__clang__)
+// TSS return-code constants expand through C-style casts in the system headers.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wold-style-cast"
+#endif
+    const std::vector<mapping_case> cases{
+        {"TPM2_RC_LOCALITY", static_cast<TSS2_RC>(TPM2_RC_LOCALITY), resource, "tpm"},
+        {"TPM2_RC_AUTH_FAIL", static_cast<TSS2_RC>(TPM2_RC_AUTH_FAIL), security, "tpm"},
+        {"TPM2_RC_BAD_AUTH", static_cast<TSS2_RC>(TPM2_RC_BAD_AUTH), security, "tpm"},
+        {"TPM2_RC_POLICY_FAIL", static_cast<TSS2_RC>(TPM2_RC_POLICY_FAIL), security, "tpm"},
+        {"TPM2_RC_VALUE", static_cast<TSS2_RC>(TPM2_RC_VALUE), input, "tpm"},
+        {"TPM2_RC_SIZE", static_cast<TSS2_RC>(TPM2_RC_SIZE), input, "tpm"},
+    };
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+
+    for (const auto& test_case : cases) {
+        const auto result =
+            tpmkit::detail::esys::translate_tss_rc(test_case.rc, "pcr_extend", nullptr);
+
+        ASSERT_FALSE(result.has_value()) << test_case.name;
+        EXPECT_EQ(result.error().category, test_case.category) << test_case.name;
+        EXPECT_FALSE(contains_disallowed_message_detail(result.error().message)) << test_case.name;
+    }
+}
+
 TEST(error_translation, logs_non_success_rc_with_schema_fields)
 {
     // Verifies failed TSS return codes emit the documented schema fields.
@@ -239,6 +270,29 @@ TEST(error_translation, logs_non_success_rc_with_schema_fields)
     EXPECT_EQ(operation->second, "tcti_init");
     EXPECT_EQ(rc_hex->second, "0x000a000a");
     EXPECT_EQ(layer->second, "tcti");
+}
+
+TEST(error_translation, overload_logs_custom_error_event)
+{
+    // Verifies callers can select PCR-specific TSS error event names.
+
+#if defined(__GNUC__) || defined(__clang__)
+// TSS return-code constants expand through C-style casts in the system headers.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wold-style-cast"
+#endif
+    constexpr TSS2_RC rc = static_cast<TSS2_RC>(TPM2_RC_LOCALITY);
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+    recording_logger log;
+
+    const auto result =
+        tpmkit::detail::esys::translate_tss_rc(rc, "pcr_extend", &log, events::pcr_tss_error);
+
+    ASSERT_FALSE(result.has_value());
+    ASSERT_EQ(log.records.size(), 1U);
+    EXPECT_EQ(log.records.front().message, events::pcr_tss_error);
 }
 
 TEST(error_translation, logs_representative_tss_layer_names)

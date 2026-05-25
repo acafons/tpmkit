@@ -65,4 +65,22 @@ private:
     }
 };
 
+/**
+ * @brief Exception for invalid public API construction arguments.
+ *
+ * Thrown by value objects whose constructor validates caller-provided input.
+ * The message is diagnostic only and must not contain secret-derived data.
+ *
+ * @thread_safety Thread-compatible. Independent exception objects may be used
+ * concurrently; a shared object follows `std::runtime_error` synchronization
+ * requirements.
+ * @exception_safety Construction follows `tpmkit_error`; destruction is
+ * noexcept.
+ * @since v0.1
+ */
+class TPMKIT_API input_validation_error final : public tpmkit_error {
+public:
+    using tpmkit_error::tpmkit_error;
+};
+
 } // namespace tpmkit

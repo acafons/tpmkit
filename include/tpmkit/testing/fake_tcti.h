@@ -12,6 +12,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -126,6 +127,15 @@ public:
     [[nodiscard]] std::size_t pending_responses() const noexcept;
 
     /**
+     * @brief Return copied TPM command buffers observed by transmit callbacks.
+     *
+     * @return Command buffers in transmit order.
+     * @thread_safety Thread-safe.
+     * @exception_safety Strong; returned copies do not mutate the fake.
+     */
+    [[nodiscard]] std::vector<std::vector<std::uint8_t>> transmitted_commands() const;
+
+    /**
      * @brief Queue one TSS return code for the next receive callback.
      *
      * @param[in] tss_rc TSS2 return code surfaced by the next scripted failure.
@@ -152,6 +162,17 @@ public:
      * @exception_safety Basic; allocation failure leaves the fake valid.
      */
     void push_response(std::vector<std::uint8_t> bytes);
+
+    /**
+     * @brief Queue one response generated from the most recent command buffer.
+     *
+     * @param[in] factory Callable receiving the latest transmitted command and
+     * returning the response bytes for the next receive callback.
+     * @thread_safety Thread-safe.
+     * @exception_safety Basic; allocation failure leaves the fake valid.
+     */
+    void push_response_factory(
+        std::function<std::vector<std::uint8_t>(const std::vector<std::uint8_t>&)> factory);
 
     /**
      * @brief Return the number of transmit calls observed by the fake.
