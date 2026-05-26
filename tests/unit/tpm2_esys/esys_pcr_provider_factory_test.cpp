@@ -227,7 +227,8 @@ TEST(esys_pcr_provider_factory, provider_reads_through_port_interface)
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result.value().update_counter, 5U);
     ASSERT_EQ(result.value().values.size(), 1U);
-    EXPECT_EQ(result.value().values.front().digest(), digest);
+    EXPECT_EQ(result.value().values.front().index, tpmkit::pcr_index::debug);
+    EXPECT_EQ(result.value().values.front().digest.digest(), digest);
 }
 
 TEST(esys_pcr_provider_factory, provider_extends_with_null_observer_and_default_logger)

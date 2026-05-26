@@ -20,7 +20,7 @@ namespace {
     return tpmkit::pcr_read_result{
         tpmkit::pcr_selection{tpmkit::hash_algorithm::sha256, {tpmkit::pcr_index::debug}},
         7U,
-        {make_sha256_digest(0xA5U)}};
+        {tpmkit::pcr_value{tpmkit::pcr_index::debug, make_sha256_digest(0xA5U)}}};
 }
 
 [[nodiscard]] tpmkit::error make_test_error()

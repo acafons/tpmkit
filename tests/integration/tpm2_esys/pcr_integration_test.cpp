@@ -140,7 +140,7 @@ read_debug_digest(tpmkit::pcr_provider& provider, const tpmkit::hash_algorithm a
                                             "PCR bank is not active in swtpm"});
     }
 
-    return read.value().values.front().digest();
+    return read.value().values.front().digest.digest();
 }
 
 [[nodiscard]] std::vector<tpmkit::hash_algorithm> active_algorithms(tpmkit::pcr_provider& provider)
@@ -284,9 +284,10 @@ TEST(pcr_provider_swtpm, reads_default_sha256_debug_pcr_as_zero)
 
     ASSERT_TRUE(read.has_value()) << read.error().message;
     ASSERT_EQ(read.value().values.size(), 1U);
-    const auto& digest = read.value().values.front();
-    EXPECT_EQ(digest.algorithm(), tpmkit::hash_algorithm::sha256);
-    EXPECT_EQ(digest.digest(),
+    const auto& value = read.value().values.front();
+    EXPECT_EQ(value.index, tpmkit::pcr_index::debug);
+    EXPECT_EQ(value.digest.algorithm(), tpmkit::hash_algorithm::sha256);
+    EXPECT_EQ(value.digest.digest(),
               std::vector<std::uint8_t>(tpmkit::digest_size(tpmkit::hash_algorithm::sha256), 0U));
 }
 

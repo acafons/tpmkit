@@ -271,6 +271,28 @@ std::vector<std::uint8_t> read_bad_digest_size_response(const std::vector<std::u
     return response;
 }
 
+std::vector<std::uint8_t>
+read_digest_count_mismatch_response(const std::vector<std::uint8_t>& digest)
+{
+    std::vector<std::uint8_t> parameters;
+    append_u32(parameters, 1U);
+    append_u32(parameters, 1U);
+    append_u16(parameters, TPM2_ALG_SHA256);
+    append_u8(parameters, TPM2_PCR_SELECT_MAX);
+    std::array<std::uint8_t, TPM2_PCR_SELECT_MAX> select{};
+    select[2U] = 0x03U;
+    parameters.insert(parameters.end(), select.begin(), select.end());
+    append_u32(parameters, 1U);
+    append_u16(parameters, static_cast<std::uint16_t>(digest.size()));
+    parameters.insert(parameters.end(), digest.begin(), digest.end());
+
+    std::vector<std::uint8_t> response;
+    append_header(response, TPM2_ST_NO_SESSIONS,
+                  static_cast<std::uint32_t>(10U + parameters.size()), TSS2_RC_SUCCESS);
+    response.insert(response.end(), parameters.begin(), parameters.end());
+    return response;
+}
+
 tpmkit::tpm_context_config owned_config(tpmkit::testing::fake_tcti& fake)
 {
     tpmkit::tpm_context_config config;
@@ -386,7 +408,8 @@ TEST(esys_pcr_provider, read_translates_selection_and_returns_result)
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result.value().update_counter, 7U);
     ASSERT_EQ(result.value().values.size(), 1U);
-    EXPECT_EQ(result.value().values.front().digest(), digest);
+    EXPECT_EQ(result.value().values.front().index, tpmkit::pcr_index::debug);
+    EXPECT_EQ(result.value().values.front().digest.digest(), digest);
     const auto commands = fake.transmitted_commands();
     ASSERT_EQ(commands.size(), 1U);
     EXPECT_EQ(read_u32(commands.front(), 6U), TPM2_CC_PCR_Read);
@@ -446,6 +469,24 @@ TEST(esys_pcr_provider, read_returns_backend_error_for_unexpected_tpm_code)
 
     const auto result = provider.read(
         tpmkit::pcr_selection{tpmkit::hash_algorithm::sha256, {tpmkit::pcr_index::debug}});
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().category, tpmkit::error_category::backend_error);
+}
+
+TEST(esys_pcr_provider, read_rejects_digest_count_mismatch_from_tpm)
+{
+    // Verifies PCR read rejects TPM responses whose digest count does not match selection.
+
+    tpmkit::testing::fake_tcti fake;
+    fake.push_response(read_digest_count_mismatch_response(digest_bytes(0x12U)));
+    auto context = tpmkit::tpm_context::create(owned_config(fake));
+    ASSERT_TRUE(context.has_value());
+    tpmkit::detail::esys::esys_pcr_provider provider{
+        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, nullptr};
+
+    const auto result = provider.read(tpmkit::pcr_selection{
+        tpmkit::hash_algorithm::sha256, {tpmkit::pcr_index::debug, tpmkit::pcr_index::drtm_17}});
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().category, tpmkit::error_category::backend_error);

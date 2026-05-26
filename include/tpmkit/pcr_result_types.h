@@ -7,12 +7,37 @@
 
 #include <tpmkit/api.h>
 #include <tpmkit/pcr_digest_value.h>
+#include <tpmkit/pcr_index.h>
 #include <tpmkit/pcr_selection.h>
 
 #include <cstdint>
 #include <vector>
 
 namespace tpmkit {
+
+/**
+ * @brief One PCR value returned by a PCR read operation.
+ *
+ * @thread_safety Thread-compatible. Independent values may be used concurrently.
+ * @exception_safety Follows member type guarantees.
+ * @since v0.1
+ */
+struct pcr_value {
+    /** @brief PCR register that produced this value. */
+    pcr_index index;
+    /** @brief Digest value read from the selected PCR bank. */
+    pcr_digest_value digest;
+};
+
+/**
+ * @brief Compare PCR values by index and digest.
+ */
+[[nodiscard]] TPMKIT_API bool operator==(const pcr_value& lhs, const pcr_value& rhs);
+
+/**
+ * @brief Compare PCR values by index and digest.
+ */
+[[nodiscard]] TPMKIT_API bool operator!=(const pcr_value& lhs, const pcr_value& rhs);
 
 /**
  * @brief Result returned by a PCR read operation.
@@ -26,8 +51,8 @@ struct pcr_read_result {
     pcr_selection actual_selection;
     /** @brief TPM PCR generation counter reported with the read. */
     std::uint32_t update_counter;
-    /** @brief Digest values returned for the selected PCRs. */
-    std::vector<pcr_digest_value> values;
+    /** @brief PCR values returned for the selected PCRs. */
+    std::vector<pcr_value> values;
 };
 
 /**

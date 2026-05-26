@@ -8,9 +8,12 @@ int tpmkit_pcr_result_types_header_self_contained()
     const tpmkit::pcr_read_result result{
         tpmkit::pcr_selection{tpmkit::hash_algorithm::sha256, {tpmkit::pcr_index::debug}},
         7U,
-        std::vector<tpmkit::pcr_digest_value>{
-            tpmkit::pcr_digest_value{tpmkit::hash_algorithm::sha256,
-                                     std::vector<std::uint8_t>(32U)},
+        std::vector<tpmkit::pcr_value>{
+            tpmkit::pcr_value{
+                tpmkit::pcr_index::debug,
+                tpmkit::pcr_digest_value{tpmkit::hash_algorithm::sha256,
+                                         std::vector<std::uint8_t>(32U)},
+            },
         },
     };
 

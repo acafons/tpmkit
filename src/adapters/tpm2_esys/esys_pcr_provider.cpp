@@ -363,25 +363,32 @@ to_domain_digests(const TPML_DIGEST_VALUES& digests)
     return result;
 }
 
-[[nodiscard]] outcome<std::vector<pcr_digest_value>>
-to_domain_read_values(const TPML_DIGEST& values, const hash_algorithm algorithm)
+[[nodiscard]] outcome<std::vector<pcr_value>> to_domain_read_values(const TPML_DIGEST& values,
+                                                                    const pcr_selection& selection)
 {
     if (values.count > array_size(values.digests)) {
         return tl::unexpected(
             error{error_category::backend_error, "TPM returned too many PCR read digests"});
     }
 
-    std::vector<pcr_digest_value> result;
+    if (values.count != selection.indices().size()) {
+        return tl::unexpected(
+            error{error_category::backend_error, "TPM returned PCR digest count mismatch"});
+    }
+
+    std::vector<pcr_value> result;
     result.reserve(values.count);
 
+    auto selected_index = selection.indices().begin();
     for (UINT32 index = 0U; index < values.count; ++index) {
         const TPM2B_DIGEST& digest = values.digests[index];
-        auto value = make_digest_value(algorithm, digest.buffer, digest.size);
+        auto value = make_digest_value(selection.algorithm(), digest.buffer, digest.size);
         if (!value.has_value()) {
             return tl::unexpected(value.error());
         }
 
-        result.push_back(std::move(value.value()));
+        result.push_back(pcr_value{*selected_index, std::move(value.value())});
+        ++selected_index;
     }
 
     return result;
@@ -662,7 +669,7 @@ outcome<pcr_read_result> esys_pcr_provider::read(const pcr_selection& selection)
         return tl::unexpected(domain_selection.error());
     }
 
-    auto domain_values = to_domain_read_values(*values, domain_selection.value().algorithm());
+    auto domain_values = to_domain_read_values(*values, domain_selection.value());
     if (!domain_values.has_value()) {
         return tl::unexpected(domain_values.error());
     }

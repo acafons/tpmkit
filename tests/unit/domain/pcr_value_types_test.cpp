@@ -305,20 +305,28 @@ TEST(pcr_result_types, pcr_read_result_holds_values_and_compares_by_value)
     const tpmkit::pcr_read_result result{
         tpmkit::pcr_selection{tpmkit::hash_algorithm::sha256, {tpmkit::pcr_index::debug}},
         42U,
-        std::vector<tpmkit::pcr_digest_value>{
-            tpmkit::pcr_digest_value{tpmkit::hash_algorithm::sha256, digest_bytes(32U, 0x11U)},
+        std::vector<tpmkit::pcr_value>{
+            tpmkit::pcr_value{
+                tpmkit::pcr_index::debug,
+                tpmkit::pcr_digest_value{tpmkit::hash_algorithm::sha256, digest_bytes(32U, 0x11U)},
+            },
         },
     };
     const tpmkit::pcr_read_result same_result{
         tpmkit::pcr_selection{tpmkit::hash_algorithm::sha256, {tpmkit::pcr_index::debug}},
         42U,
-        std::vector<tpmkit::pcr_digest_value>{
-            tpmkit::pcr_digest_value{tpmkit::hash_algorithm::sha256, digest_bytes(32U, 0x11U)},
+        std::vector<tpmkit::pcr_value>{
+            tpmkit::pcr_value{
+                tpmkit::pcr_index::debug,
+                tpmkit::pcr_digest_value{tpmkit::hash_algorithm::sha256, digest_bytes(32U, 0x11U)},
+            },
         },
     };
 
     EXPECT_EQ(result.update_counter, 42U);
     EXPECT_EQ(result.values.size(), 1U);
+    EXPECT_EQ(result.values.front().index, tpmkit::pcr_index::debug);
+    EXPECT_EQ(result.values.front().digest.digest(), digest_bytes(32U, 0x11U));
     EXPECT_EQ(result.actual_selection.indices().count(tpmkit::pcr_index::debug), 1U);
     EXPECT_EQ(result, same_result);
 }

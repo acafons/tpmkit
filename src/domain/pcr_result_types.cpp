@@ -2,6 +2,16 @@
 
 namespace tpmkit {
 
+bool operator==(const pcr_value& lhs, const pcr_value& rhs)
+{
+    return lhs.index == rhs.index && lhs.digest == rhs.digest;
+}
+
+bool operator!=(const pcr_value& lhs, const pcr_value& rhs)
+{
+    return !(lhs == rhs);
+}
+
 bool operator==(const pcr_read_result& lhs, const pcr_read_result& rhs)
 {
     return lhs.actual_selection == rhs.actual_selection &&
