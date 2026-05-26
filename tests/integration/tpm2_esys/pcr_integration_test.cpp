@@ -1,4 +1,3 @@
-#include <tpmkit/esys_pcr_provider.h>
 #include <tpmkit/hash_algorithm.h>
 #include <tpmkit/pcr_bank.h>
 #include <tpmkit/pcr_digest_value.h>
@@ -60,17 +59,19 @@ context_config(const tpmkit::tpm_context_config::startup_mode startup)
 }
 
 [[nodiscard]] provider_bundle make_provider(tpmkit::pcr_observer* const observer = nullptr,
-                                            tpmkit::logger* const log = nullptr,
+                                            std::shared_ptr<tpmkit::logger> log = nullptr,
                                             const tpmkit::tpm_context_config::startup_mode startup =
                                                 tpmkit::tpm_context_config::startup_mode::clear)
 {
-    auto context = tpmkit::tpm_context::create(context_config(startup));
+    tpmkit::tpm_context_config config = context_config(startup);
+    config.log = std::move(log);
+    auto context = tpmkit::tpm_context::create(std::move(config));
     if (!context.has_value()) {
         throw std::runtime_error{context.error().message};
     }
 
     auto owned_context = std::make_unique<tpmkit::tpm_context>(std::move(context.value()));
-    auto provider = tpmkit::create_esys_pcr_provider(*owned_context, observer, log);
+    auto provider = owned_context->create_pcr_provider(observer);
     if (!provider.has_value()) {
         throw std::runtime_error{provider.error().message};
     }
@@ -386,8 +387,8 @@ TEST(pcr_provider_swtpm, set_auth_value_rejects_non_empty_auth_when_transport_is
 {
     // Verifies non-empty SetAuthValue fails closed without leaking auth material.
 
-    tpmkit::testing::recording_logger log;
-    auto bundle = make_provider(nullptr, &log);
+    auto log = std::make_shared<tpmkit::testing::recording_logger>();
+    auto bundle = make_provider(nullptr, log);
     const std::vector<std::uint8_t> secret{'t', 'a', 's', 'k', '0', '9', '-', 'a', 'u',
                                            't', 'h', '-', 'c', 'a', 'n', 'a', 'r', 'y'};
 
@@ -395,7 +396,7 @@ TEST(pcr_provider_swtpm, set_auth_value_rejects_non_empty_auth_when_transport_is
 
     ASSERT_FALSE(authorized_index.has_value());
     EXPECT_EQ(authorized_index.error().category, tpmkit::error_category::resource_error);
-    expect_no_secret_leaks(log, secret);
+    expect_no_secret_leaks(*log, secret);
 }
 
 TEST(pcr_provider_swtpm, set_auth_policy_enforces_policy_when_supported)

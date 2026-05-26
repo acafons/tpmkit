@@ -4,7 +4,6 @@ add_library(tpmkit::tpmkit ALIAS tpmkit)
 target_sources(tpmkit
     PUBLIC
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/api.h>
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/esys_pcr_provider.h>
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/exception.h>
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/hash_algorithm.h>
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/logging/logger.h>
@@ -31,7 +30,6 @@ target_sources(tpmkit
         error_translation.cpp
         error_translation.h
         esys_pcr_provider.cpp
-        esys_pcr_provider_factory.cpp
         esys_pcr_provider.h
         impl.h
         log_events.h

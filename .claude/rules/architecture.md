@@ -15,6 +15,9 @@ This project follows **hexagonal architecture** (ports and adapters). The goal i
 - Domain headers must not include any third-party header. Grep should find zero matches for `openssl/`, `tss2/`, etc. under the domain folder.
 - Ports are declared in the domain. Adapters live in their own translation units and are linked in by the composition root.
 - The public library API (see `library-api-design.md`) is part of the domain layer. Consumers see domain types, not adapter types.
+- Public context-owned services that borrow backend state are exposed as
+  backend-neutral member factories returning domain ports. The concrete adapter
+  is named only inside the owning context's adapter implementation.
 
 ## Folder layout
 
@@ -66,6 +69,10 @@ The two main backends are settled:
 
 - **OpenSSL** uses option 3 (build-time selection). CMake picks one crypto backend per build via `LIB_CRYPTO_BACKEND`.
 - **TPM2 TSS** uses option 1 (runtime adapter selection). All TPM adapters — FAPI, ESYS, software fallback, mock — sit behind a single `key_provider` port and are picked by the composition root at runtime. The **FAPI/ESYS split is an internal adapter detail, not a port boundary** — never declare separate ports for them.
+- ESYS/FAPI details do not appear in public factory names, public context
+  accessors, or public headers unless the project deliberately introduces a
+  separate low-level API. Prefer `tpm_context::create_*` factories that return
+  domain ports for components borrowing a TPM connection.
 
 For the full walkthrough — file paths, CMake wiring, the per-adapter list, and the reasoning behind each choice — see `.claude/skills/tpm-write-code/references/worked-examples.md`.
 

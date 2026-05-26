@@ -13,7 +13,6 @@ endfunction()
 
 set(tpmkit_unit_public_api_sources
     unit/public_api/exception_header_smoke.cpp
-    unit/public_api/esys_pcr_provider_header_self_contained.cpp
     unit/public_api/foundational_headers_smoke.cpp
     unit/public_api/foundational_types_test.cpp
     unit/public_api/hash_algorithm_header_self_contained.cpp
@@ -136,7 +135,7 @@ tpmkit_discover_gtests(tpmkit_unit_testing_tests Unit Testing)
 
 add_executable(tpmkit_unit_tpm2_esys_tests
     unit/tpm2_esys/error_translation_test.cpp
-    unit/tpm2_esys/esys_pcr_provider_factory_test.cpp
+    unit/tpm2_esys/tpm_context_pcr_provider_test.cpp
     unit/tpm2_esys/esys_pcr_provider_test.cpp
     unit/tpm2_esys/log_events_test.cpp
     unit/tpm2_esys/tcti_loader_test.cpp

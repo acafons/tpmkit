@@ -431,13 +431,9 @@ to_domain_digests(const TPML_DIGEST_VALUES& digests)
     return result;
 }
 
-void log_read_completed(logger* const log, const pcr_selection& selection,
+void log_read_completed(logger& log, const pcr_selection& selection,
                         const std::size_t value_count)
 {
-    if (log == nullptr) {
-        return;
-    }
-
     const std::string pcr_count = std::to_string(value_count);
     const std::string bank = algorithm_name(selection.algorithm());
     const std::array<log_field, 2U> fields{{
@@ -445,15 +441,11 @@ void log_read_completed(logger* const log, const pcr_selection& selection,
         {events::fields::pcr_count, pcr_count},
     }};
 
-    log->log(log_level::info, events::pcr_read_completed, gsl::span<const log_field>(fields));
+    log.log(log_level::info, events::pcr_read_completed, gsl::span<const log_field>(fields));
 }
 
-void log_extend_completed(logger* const log, const pcr_index index, const std::size_t bank_count)
+void log_extend_completed(logger& log, const pcr_index index, const std::size_t bank_count)
 {
-    if (log == nullptr) {
-        return;
-    }
-
     const std::string index_value = std::to_string(index.value());
     const std::string bank_count_value = std::to_string(bank_count);
     const std::array<log_field, 2U> fields{{
@@ -461,15 +453,11 @@ void log_extend_completed(logger* const log, const pcr_index index, const std::s
         {events::fields::pcr_index, index_value},
     }};
 
-    log->log(log_level::info, events::pcr_extend_completed, gsl::span<const log_field>(fields));
+    log.log(log_level::info, events::pcr_extend_completed, gsl::span<const log_field>(fields));
 }
 
-void log_event_completed(logger* const log, const pcr_index index, const std::size_t event_size)
+void log_event_completed(logger& log, const pcr_index index, const std::size_t event_size)
 {
-    if (log == nullptr) {
-        return;
-    }
-
     const std::string index_value = std::to_string(index.value());
     const std::string event_size_value = std::to_string(event_size);
     const std::array<log_field, 2U> fields{{
@@ -477,16 +465,12 @@ void log_event_completed(logger* const log, const pcr_index index, const std::si
         {events::fields::pcr_index, index_value},
     }};
 
-    log->log(log_level::info, events::pcr_event_completed, gsl::span<const log_field>(fields));
+    log.log(log_level::info, events::pcr_event_completed, gsl::span<const log_field>(fields));
 }
 
-void log_allocate_completed(logger* const log, const bool allocation_success,
+void log_allocate_completed(logger& log, const bool allocation_success,
                             const std::size_t bank_count)
 {
-    if (log == nullptr) {
-        return;
-    }
-
     const std::string allocation_success_value = allocation_success ? "true" : "false";
     const std::string bank_count_value = std::to_string(bank_count);
     const std::array<log_field, 2U> fields{{
@@ -494,15 +478,11 @@ void log_allocate_completed(logger* const log, const bool allocation_success,
         {events::fields::bank_count, bank_count_value},
     }};
 
-    log->log(log_level::info, events::pcr_allocate_completed, gsl::span<const log_field>(fields));
+    log.log(log_level::info, events::pcr_allocate_completed, gsl::span<const log_field>(fields));
 }
 
-void log_auth_policy_set(logger* const log, const pcr_index index, const hash_algorithm algorithm)
+void log_auth_policy_set(logger& log, const pcr_index index, const hash_algorithm algorithm)
 {
-    if (log == nullptr) {
-        return;
-    }
-
     const std::string index_value = std::to_string(index.value());
     const std::string algorithm_value = algorithm_name(algorithm);
     const std::array<log_field, 2U> fields{{
@@ -510,40 +490,32 @@ void log_auth_policy_set(logger* const log, const pcr_index index, const hash_al
         {events::fields::policy_algorithm, algorithm_value},
     }};
 
-    log->log(log_level::info, events::pcr_auth_policy_set, gsl::span<const log_field>(fields));
+    log.log(log_level::info, events::pcr_auth_policy_set, gsl::span<const log_field>(fields));
 }
 
-void log_auth_value_set(logger* const log, const pcr_index index)
+void log_auth_value_set(logger& log, const pcr_index index)
 {
-    if (log == nullptr) {
-        return;
-    }
-
     const std::string index_value = std::to_string(index.value());
     const std::array<log_field, 1U> fields{{
         {events::fields::pcr_index, index_value},
     }};
 
-    log->log(log_level::info, events::pcr_auth_value_set, gsl::span<const log_field>(fields));
+    log.log(log_level::info, events::pcr_auth_value_set, gsl::span<const log_field>(fields));
 }
 
-void log_reset_completed(logger* const log, const pcr_index index)
+void log_reset_completed(logger& log, const pcr_index index)
 {
-    if (log == nullptr) {
-        return;
-    }
-
     const std::string index_value = std::to_string(index.value());
     const std::array<log_field, 1U> fields{{
         {events::fields::pcr_index, index_value},
     }};
 
-    log->log(log_level::info, events::pcr_reset_completed, gsl::span<const log_field>(fields));
+    log.log(log_level::info, events::pcr_reset_completed, gsl::span<const log_field>(fields));
 }
 
 } // namespace
 
-esys_pcr_provider::esys_pcr_provider(ESYS_CONTEXT* const esys, logger* const log,
+esys_pcr_provider::esys_pcr_provider(ESYS_CONTEXT* const esys, logger& log,
                                      pcr_observer* const observer) noexcept
     : esys_{esys}, log_{log}, observer_{observer}
 {}
@@ -569,7 +541,7 @@ outcome<pcr_allocate_result> esys_pcr_provider::allocate(const gsl::span<const p
                                          ESYS_TR_NONE, &allocation, &allocation_success, &max_pcr,
                                          &size_needed, &size_available);
     if (rc != TSS2_RC_SUCCESS) {
-        auto translated = translate_tss_rc(rc, "pcr_allocate", log_, events::pcr_tss_error);
+        auto translated = translate_tss_rc(rc, "pcr_allocate", &log_, events::pcr_tss_error);
         return tl::unexpected(translated.error());
     }
 
@@ -597,7 +569,7 @@ outcome<pcr_event_result> esys_pcr_provider::event(const pcr_index index,
                                       ESYS_TR_NONE, &tpm_event, &raw_digests);
     unique_digest_values digests{raw_digests, &Esys_Free};
     if (rc != TSS2_RC_SUCCESS) {
-        auto translated = translate_tss_rc(rc, "pcr_event", log_, events::pcr_tss_error);
+        auto translated = translate_tss_rc(rc, "pcr_event", &log_, events::pcr_tss_error);
         return tl::unexpected(translated.error());
     }
 
@@ -637,7 +609,7 @@ outcome<void> esys_pcr_provider::extend(const pcr_index index,
     const TSS2_RC rc = Esys_PCR_Extend(esys_, pcr_handle(index), ESYS_TR_PASSWORD, ESYS_TR_NONE,
                                        ESYS_TR_NONE, &tpm_digests);
     if (rc != TSS2_RC_SUCCESS) {
-        auto translated = translate_tss_rc(rc, "pcr_extend", log_, events::pcr_tss_error);
+        auto translated = translate_tss_rc(rc, "pcr_extend", &log_, events::pcr_tss_error);
         return tl::unexpected(translated.error());
     }
 
@@ -665,7 +637,7 @@ outcome<pcr_read_result> esys_pcr_provider::read(const pcr_selection& selection)
     unique_pcr_selection actual_selection{raw_selection, &Esys_Free};
     unique_pcr_values values{raw_values, &Esys_Free};
     if (rc != TSS2_RC_SUCCESS) {
-        auto translated = translate_tss_rc(rc, "pcr_read", log_, events::pcr_tss_error);
+        auto translated = translate_tss_rc(rc, "pcr_read", &log_, events::pcr_tss_error);
         return tl::unexpected(translated.error());
     }
 
@@ -700,7 +672,7 @@ outcome<void> esys_pcr_provider::reset(const pcr_index index)
     const TSS2_RC rc =
         Esys_PCR_Reset(esys_, pcr_handle(index), ESYS_TR_PASSWORD, ESYS_TR_NONE, ESYS_TR_NONE);
     if (rc != TSS2_RC_SUCCESS) {
-        auto translated = translate_tss_rc(rc, "pcr_reset", log_, events::pcr_tss_error);
+        auto translated = translate_tss_rc(rc, "pcr_reset", &log_, events::pcr_tss_error);
         return tl::unexpected(translated.error());
     }
 
@@ -727,7 +699,7 @@ outcome<void> esys_pcr_provider::set_auth_policy(const pcr_index index,
         esys_, ESYS_TR_RH_PLATFORM, ESYS_TR_PASSWORD, ESYS_TR_NONE, ESYS_TR_NONE, &auth_policy,
         algorithm_to_tpm(policy_alg), static_cast<TPMI_DH_PCR>(TPM2_HR_PCR + index.value()));
     if (rc != TSS2_RC_SUCCESS) {
-        auto translated = translate_tss_rc(rc, "pcr_set_auth_policy", log_, events::pcr_tss_error);
+        auto translated = translate_tss_rc(rc, "pcr_set_auth_policy", &log_, events::pcr_tss_error);
         return tl::unexpected(translated.error());
     }
 
@@ -757,7 +729,7 @@ outcome<void> esys_pcr_provider::set_auth_value(const pcr_index index, secret_bu
     const TPM2B_AUTH current_auth{};
     const TSS2_RC set_auth_rc = Esys_TR_SetAuth(esys_, pcr_handle(index), &current_auth);
     if (set_auth_rc != TSS2_RC_SUCCESS) {
-        auto translated = translate_tss_rc(set_auth_rc, "pcr_set_auth_value_set_current_auth", log_,
+        auto translated = translate_tss_rc(set_auth_rc, "pcr_set_auth_value_set_current_auth", &log_,
                                            events::pcr_tss_error);
         return tl::unexpected(translated.error());
     }
@@ -766,7 +738,7 @@ outcome<void> esys_pcr_provider::set_auth_value(const pcr_index index, secret_bu
     const TSS2_RC rc = Esys_PCR_SetAuthValue(esys_, pcr_handle(index), ESYS_TR_PASSWORD,
                                              ESYS_TR_NONE, ESYS_TR_NONE, &tpm_auth);
     if (rc != TSS2_RC_SUCCESS) {
-        auto translated = translate_tss_rc(rc, "pcr_set_auth_value", log_, events::pcr_tss_error);
+        auto translated = translate_tss_rc(rc, "pcr_set_auth_value", &log_, events::pcr_tss_error);
         return tl::unexpected(translated.error());
     }
 
@@ -774,7 +746,7 @@ outcome<void> esys_pcr_provider::set_auth_value(const pcr_index index, secret_bu
     const TSS2_RC update_auth_rc = Esys_TR_SetAuth(esys_, pcr_handle(index), &new_auth);
     if (update_auth_rc != TSS2_RC_SUCCESS) {
         auto translated = translate_tss_rc(update_auth_rc, "pcr_set_auth_value_update_current_auth",
-                                           log_, events::pcr_tss_error);
+                                           &log_, events::pcr_tss_error);
         return tl::unexpected(translated.error());
     }
 

@@ -1,6 +1,7 @@
 #include "impl.h"
 
 #include "error_translation.h"
+#include "esys_pcr_provider.h"
 #include "log_events.h"
 
 #include <tpmkit/logging/noop_logger.h>
@@ -293,6 +294,11 @@ ESYS_CONTEXT* tpm_context::impl::esys() const noexcept
     return esys_.get();
 }
 
+logger& tpm_context::impl::log() const noexcept
+{
+    return *log_;
+}
+
 tpm_context::~tpm_context() noexcept = default;
 
 tpm_context::tpm_context(tpm_context&&) noexcept = default;
@@ -332,9 +338,15 @@ outcome<tpm_context> tpm_context::create(tpm_context_config config)
     return tpm_context{std::move(implementation)};
 }
 
-void* tpm_context::esys_handle() const noexcept
+outcome<std::unique_ptr<pcr_provider>> tpm_context::create_pcr_provider(pcr_observer* const observer)
 {
-    return impl_ == nullptr ? nullptr : static_cast<void*>(impl_->esys());
+    if (impl_ == nullptr || impl_->esys() == nullptr) {
+        return tl::unexpected(
+            error{error_category::resource_error, "TPM context does not contain a usable backend"});
+    }
+
+    return std::make_unique<detail::esys::esys_pcr_provider>(impl_->esys(), impl_->log(),
+                                                             observer);
 }
 
 } // namespace tpmkit

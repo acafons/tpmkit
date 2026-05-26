@@ -5,12 +5,14 @@
  * @brief Passive test substitute for tpmkit::tpm_context.
  *
  * Declares a lifecycle-only fake context with the same public method shape as
- * tpm_context for construction, move semantics, destruction, and configuration
- * introspection.
+ * tpm_context for construction, move semantics, destruction, PCR provider
+ * creation, and configuration introspection.
  */
 
 #include <tpmkit/testing/testing_api.h>
 #include <tpmkit/tpm_context.h>
+
+#include <memory>
 
 /**
  * @namespace tpmkit::testing
@@ -25,8 +27,8 @@ namespace tpmkit::testing {
  *
  * fake_tpm_context stores the configuration it was created with and performs
  * the same construction-time validation that does not require touching TSS. It
- * does not open a TCTI, initialize ESYS, start a TPM, or acquire system
- * resources.
+ * does not open a TCTI, initialize a TPM backend, start a TPM, or acquire
+ * system resources.
  *
  * @warning Experimental - API may change before 1.0.0.
  * @thread_safety Thread-compatible. Independent instances may be used
@@ -107,13 +109,17 @@ public:
     [[nodiscard]] const tpm_context_config& last_config() const noexcept;
 
     /**
-     * @brief Return the fake backend handle.
+     * @brief Attempt to create a PCR provider from the fake context.
      *
-     * @return Always nullptr because this fake does not initialize ESYS.
+     * @param[in] observer Optional non-owning PCR observer. It is ignored.
+     * @return Always `resource_error` because this fake has no TPM backend
+     *         connection to borrow.
      * @thread_safety Thread-compatible.
-     * @exception_safety noexcept.
+     * @exception_safety Strong; no state is modified.
+     * @since v0.1
      */
-    [[nodiscard]] void* esys_handle() const noexcept;
+    [[nodiscard]] outcome<std::unique_ptr<pcr_provider>>
+    create_pcr_provider(pcr_observer* observer = nullptr);
 
 private:
     explicit fake_tpm_context(tpm_context_config config) noexcept;

@@ -97,6 +97,8 @@ When the domain needs one of several backends and the choice is a runtime decisi
 
 The composition root is a Factory. It assembles an adapter with its dependencies, configuration, and connection setup, and hands it back as the port type. Keep factories close to the entry point — every binary, test, or example has its own composition root. The domain never instantiates an adapter directly.
 
+When a factory creates a component from an existing owner/context, it is not a new composition root. Prefer a backend-neutral member factory on the owner (`ctx.create_pcr_provider()`), return the domain port type, and keep backend names such as ESYS/FAPI out of the public API. Reuse the owner's effective logger instead of adding another logger parameter; see `tpm-write-logging` "Owning the logger" for the context-derived component rule. Do not add public raw-handle accessors or friend/free-function seams solely to wire an adapter.
+
 ### RAII wrapper — owning a C-library resource
 
 Every TSS2 context, OpenSSL `EVP_*` handle, file descriptor, or mutex lock has a destructor that releases it. For one-off resources, `std::unique_ptr<T, deleter>` is enough. For resources used in many places, write a dedicated class with deleted copy and defined move; the wrapper has one job: ensure release on scope exit. Manual `_free` calls at use sites are an anti-pattern.

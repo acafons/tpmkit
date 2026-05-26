@@ -114,9 +114,12 @@ const tpm_context_config& fake_tpm_context::last_config() const noexcept
     return config_;
 }
 
-void* fake_tpm_context::esys_handle() const noexcept
+outcome<std::unique_ptr<pcr_provider>>
+fake_tpm_context::create_pcr_provider(pcr_observer* const observer)
 {
-    return nullptr;
+    static_cast<void>(observer);
+    return tl::unexpected(
+        error{error_category::resource_error, "Fake TPM context has no TPM backend"});
 }
 
 } // namespace tpmkit::testing

@@ -10,6 +10,7 @@
 
 #include <tpmkit/api.h>
 #include <tpmkit/logging/logger.h>
+#include <tpmkit/pcr_provider.h>
 #include <tpmkit/result.h>
 
 #include <memory>
@@ -30,6 +31,8 @@ typedef struct TSS2_TCTI_OPAQUE_CONTEXT_BLOB TSS2_TCTI_CONTEXT;
 }
 
 namespace tpmkit {
+
+class pcr_observer;
 
 /**
  * @brief TCTI source selected by a tpm2-tools-compatible configuration string.
@@ -179,14 +182,27 @@ public:
     [[nodiscard]] static outcome<tpm_context> create(tpm_context_config config);
 
     /**
-     * @brief Return the opaque in-library ESYS handle.
+     * @brief Create a PCR provider bound to this TPM context.
      *
-     * @return Non-owning backend handle for in-library adapters.
-     * @note This is not a consumer extension point.
-     * @thread_safety Thread-compatible.
-     * @exception_safety noexcept.
+     * The returned provider borrows the TPM connection and effective logger
+     * owned by this context. The optional observer is called after successful
+     * PCR Extend and PCR Event operations.
+     *
+     * @param[in] observer Optional non-owning PCR observer. It may be null.
+     * @return On success, an owning pointer to the PCR provider port. On
+     *         failure, returns `resource_error` when this context does not
+     *         contain a usable TPM backend.
+     * @note The returned `pcr_provider` must not outlive this context or
+     *       `observer` when an observer is supplied. This context must not be
+     *       moved while the returned provider is alive.
+     * @thread_safety Thread-compatible. A shared context or provider requires
+     *        external synchronization.
+     * @exception_safety Strong; allocation failure may throw and failed
+     *        creation does not modify this context.
+     * @since v0.1
      */
-    [[nodiscard]] void* esys_handle() const noexcept;
+    [[nodiscard]] outcome<std::unique_ptr<pcr_provider>>
+    create_pcr_provider(pcr_observer* observer = nullptr);
 
 private:
     class impl;

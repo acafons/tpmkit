@@ -1,7 +1,7 @@
-#include <tpmkit/esys_pcr_provider.h>
 #include <tpmkit/pcr_observer.h>
 #include <tpmkit/testing/fake_tcti.h>
 #include <tpmkit/testing/recording_logger.h>
+#include <tpmkit/tpm_context.h>
 
 #include "src/adapters/tpm2_esys/log_events.h"
 
@@ -126,13 +126,15 @@ std::string field_value(const tpmkit::testing::log_record& record, const std::st
     return {};
 }
 
-tpmkit::tpm_context_config owned_config(tpmkit::testing::fake_tcti& fake)
+tpmkit::tpm_context_config
+owned_config(tpmkit::testing::fake_tcti& fake, std::shared_ptr<tpmkit::logger> log = nullptr)
 {
     tpmkit::tpm_context_config config;
     config.tcti =
         tpmkit::tcti_owned_handle{std::unique_ptr<TSS2_TCTI_CONTEXT, void (*)(TSS2_TCTI_CONTEXT*)>(
             fake.handle(), finalize_tcti_handle)};
     config.startup = startup_mode::skip;
+    config.log = std::move(log);
     return config;
 }
 
@@ -178,21 +180,21 @@ std::vector<std::uint8_t> read_success_response(const std::uint32_t update_count
     return response;
 }
 
-TEST(esys_pcr_provider_factory, creates_provider_for_valid_context)
+TEST(tpm_context_pcr_provider, creates_provider_for_valid_context)
 {
-    // Verifies the public factory returns a PCR provider for a valid TPM context.
+    // Verifies a valid TPM context creates a PCR provider.
 
     tpmkit::testing::fake_tcti fake;
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
 
-    auto provider = tpmkit::create_esys_pcr_provider(context.value());
+    auto provider = context.value().create_pcr_provider();
 
     ASSERT_TRUE(provider.has_value());
     EXPECT_NE(provider.value(), nullptr);
 }
 
-TEST(esys_pcr_provider_factory, returns_resource_error_for_invalid_context)
+TEST(tpm_context_pcr_provider, returns_resource_error_for_invalid_context)
 {
     // Verifies moved-from TPM contexts are rejected before provider construction.
 
@@ -201,23 +203,23 @@ TEST(esys_pcr_provider_factory, returns_resource_error_for_invalid_context)
     ASSERT_TRUE(context.has_value());
     tpmkit::tpm_context moved_context{std::move(context.value())};
 
-    auto provider = tpmkit::create_esys_pcr_provider(context.value());
+    auto provider = context.value().create_pcr_provider();
 
     static_cast<void>(moved_context);
     ASSERT_FALSE(provider.has_value());
     EXPECT_EQ(provider.error().category, tpmkit::error_category::resource_error);
 }
 
-TEST(esys_pcr_provider_factory, provider_reads_through_port_interface)
+TEST(tpm_context_pcr_provider, provider_reads_through_port_interface)
 {
-    // Verifies a factory-created provider works through the pcr_provider interface.
+    // Verifies a context-created provider works through the pcr_provider interface.
 
     tpmkit::testing::fake_tcti fake;
     const auto digest = digest_bytes(0x10U);
     fake.push_response(read_success_response(5U, 16U, digest));
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
-    auto provider = tpmkit::create_esys_pcr_provider(context.value());
+    auto provider = context.value().create_pcr_provider();
     ASSERT_TRUE(provider.has_value());
     tpmkit::pcr_provider& port = *provider.value();
 
@@ -231,7 +233,7 @@ TEST(esys_pcr_provider_factory, provider_reads_through_port_interface)
     EXPECT_EQ(result.value().values.front().digest.digest(), digest);
 }
 
-TEST(esys_pcr_provider_factory, provider_extends_with_null_observer_and_default_logger)
+TEST(tpm_context_pcr_provider, provider_extends_with_null_observer_and_default_logger)
 {
     // Verifies null observer and omitted logger select no-op behavior.
 
@@ -239,7 +241,7 @@ TEST(esys_pcr_provider_factory, provider_extends_with_null_observer_and_default_
     fake.push_response(extend_success_response());
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
-    auto provider = tpmkit::create_esys_pcr_provider(context.value(), nullptr);
+    auto provider = context.value().create_pcr_provider(nullptr);
     ASSERT_TRUE(provider.has_value());
     const tpmkit::pcr_digest_value digest = sha256_digest(0x20U);
 
@@ -249,7 +251,7 @@ TEST(esys_pcr_provider_factory, provider_extends_with_null_observer_and_default_
     EXPECT_TRUE(result.has_value());
 }
 
-TEST(esys_pcr_provider_factory, provider_notifies_non_null_observer)
+TEST(tpm_context_pcr_provider, provider_notifies_non_null_observer)
 {
     // Verifies non-null observer is passed into the ESYS PCR provider.
 
@@ -258,7 +260,7 @@ TEST(esys_pcr_provider_factory, provider_notifies_non_null_observer)
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
     recording_observer observer;
-    auto provider = tpmkit::create_esys_pcr_provider(context.value(), &observer);
+    auto provider = context.value().create_pcr_provider(&observer);
     ASSERT_TRUE(provider.has_value());
     const tpmkit::pcr_digest_value digest = sha256_digest(0x30U);
 
@@ -272,16 +274,17 @@ TEST(esys_pcr_provider_factory, provider_notifies_non_null_observer)
     EXPECT_EQ(observer.extended_digests.front(), digest);
 }
 
-TEST(esys_pcr_provider_factory, provider_uses_supplied_logger)
+TEST(tpm_context_pcr_provider, provider_uses_context_logger)
 {
-    // Verifies the optional factory logger is wired into provider operations.
+    // Verifies provider operations use the logger configured on the TPM context.
 
     tpmkit::testing::fake_tcti fake;
     fake.push_response(extend_success_response());
-    auto context = tpmkit::tpm_context::create(owned_config(fake));
+    auto log = std::make_shared<tpmkit::testing::recording_logger>();
+    auto context = tpmkit::tpm_context::create(owned_config(fake, log));
     ASSERT_TRUE(context.has_value());
-    tpmkit::testing::recording_logger log;
-    auto provider = tpmkit::create_esys_pcr_provider(context.value(), nullptr, &log);
+    log->clear();
+    auto provider = context.value().create_pcr_provider(nullptr);
     ASSERT_TRUE(provider.has_value());
     const tpmkit::pcr_digest_value digest = sha256_digest(0x40U);
 
@@ -289,7 +292,7 @@ TEST(esys_pcr_provider_factory, provider_uses_supplied_logger)
         provider.value()->extend(tpmkit::pcr_index::debug, gsl::make_span(&digest, 1U));
 
     ASSERT_TRUE(result.has_value());
-    const auto records = log.snapshot();
+    const auto records = log->snapshot();
     ASSERT_EQ(records.size(), 1U);
     EXPECT_EQ(std::string_view{records.front().message}, events::pcr_extend_completed);
     EXPECT_EQ(field_value(records.front(), events::fields::pcr_index), "16");

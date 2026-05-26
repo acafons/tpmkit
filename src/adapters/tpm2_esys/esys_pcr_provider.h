@@ -17,7 +17,7 @@ namespace detail::esys {
 
 class esys_pcr_provider final : public pcr_provider {
 public:
-    esys_pcr_provider(ESYS_CONTEXT* esys, logger* log, pcr_observer* observer) noexcept;
+    esys_pcr_provider(ESYS_CONTEXT* esys, logger& log, pcr_observer* observer) noexcept;
 
     [[nodiscard]] outcome<pcr_allocate_result> allocate(gsl::span<const pcr_bank> banks) final;
     [[nodiscard]] outcome<pcr_event_result> event(pcr_index index,
@@ -32,7 +32,7 @@ public:
 
 private:
     ESYS_CONTEXT* esys_;
-    logger* log_;
+    logger& log_;
     pcr_observer* observer_;
 };
 

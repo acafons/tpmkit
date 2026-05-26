@@ -76,4 +76,21 @@ TEST(foundational_types, noop_logger_satisfies_logger_port)
                              gsl::span<const tpmkit::log_field>(fields)));
 }
 
+TEST(foundational_types, noop_logger_instance_returns_stable_logger)
+{
+    // Verifies noop_logger exposes a stable no-throw Null Object instance.
+
+    static_assert(noexcept(tpmkit::noop_logger::instance()),
+                  "noop_logger::instance() must be noexcept");
+
+    tpmkit::noop_logger& first = tpmkit::noop_logger::instance();
+    tpmkit::noop_logger& second = tpmkit::noop_logger::instance();
+    tpmkit::logger& log = first;
+    const std::array<tpmkit::log_field, 1> fields{{{"event", "test.noop"}}};
+
+    EXPECT_EQ(&first, &second);
+    EXPECT_NO_THROW(log.log(tpmkit::log_level::debug, "noop logger instance called",
+                            gsl::span<const tpmkit::log_field>(fields)));
+}
+
 } // namespace

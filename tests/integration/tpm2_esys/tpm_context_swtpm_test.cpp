@@ -51,7 +51,9 @@ TEST(tpm_context_swtpm, constructs_and_tears_down_against_simulator)
         string_config(swtpm_tcti(), tpmkit::tpm_context_config::startup_mode::clear));
 
     ASSERT_TRUE(result.has_value()) << result.error().message;
-    EXPECT_NE(result.value().esys_handle(), nullptr);
+    auto provider = result.value().create_pcr_provider();
+    ASSERT_TRUE(provider.has_value()) << provider.error().message;
+    EXPECT_NE(provider.value(), nullptr);
 }
 
 TEST(tpm_context_swtpm, clear_startup_is_idempotent_against_simulator)

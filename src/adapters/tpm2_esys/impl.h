@@ -32,6 +32,7 @@ public:
     impl& operator=(const impl&) = delete;
 
     [[nodiscard]] ESYS_CONTEXT* esys() const noexcept;
+    [[nodiscard]] logger& log() const noexcept;
 
 private:
     // Non-alphabetical order is intentional: C++ destroys in reverse declaration

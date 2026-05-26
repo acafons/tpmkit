@@ -111,7 +111,9 @@ TEST(tpm_context_lifecycle, create_with_owned_tcti_clear_starts_and_finalizes)
         auto result = tpmkit::tpm_context::create(owned_config(fake, startup_mode::clear));
 
         ASSERT_TRUE(result.has_value());
-        EXPECT_NE(result.value().esys_handle(), nullptr);
+        auto provider = result.value().create_pcr_provider();
+        ASSERT_TRUE(provider.has_value());
+        EXPECT_NE(provider.value(), nullptr);
         EXPECT_EQ(fake.transmits_observed(), 1U);
         EXPECT_EQ(fake.finalizes_observed(), 0U);
     }

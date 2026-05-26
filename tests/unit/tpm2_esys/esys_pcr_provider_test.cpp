@@ -1,3 +1,4 @@
+#include <tpmkit/logging/noop_logger.h>
 #include <tpmkit/testing/fake_tcti.h>
 #include <tpmkit/testing/recording_logger.h>
 #include <tpmkit/tpm_context.h>
@@ -33,6 +34,11 @@ namespace {
 namespace events = tpmkit::detail::esys::events;
 
 using startup_mode = tpmkit::tpm_context_config::startup_mode;
+
+tpmkit::logger& default_log()
+{
+    return tpmkit::noop_logger::instance();
+}
 
 class recording_observer final : public tpmkit::pcr_observer {
 public:
@@ -293,14 +299,28 @@ read_digest_count_mismatch_response(const std::vector<std::uint8_t>& digest)
     return response;
 }
 
-tpmkit::tpm_context_config owned_config(tpmkit::testing::fake_tcti& fake)
+tpmkit::tpm_context_config
+owned_config(tpmkit::testing::fake_tcti& fake, std::shared_ptr<tpmkit::logger> log = nullptr)
 {
     tpmkit::tpm_context_config config;
     config.tcti =
         tpmkit::tcti_owned_handle{std::unique_ptr<TSS2_TCTI_CONTEXT, void (*)(TSS2_TCTI_CONTEXT*)>(
             fake.handle(), finalize_tcti_handle)};
     config.startup = startup_mode::skip;
+    config.log = std::move(log);
     return config;
+}
+
+std::unique_ptr<tpmkit::pcr_provider>
+require_pcr_provider(tpmkit::tpm_context& context, tpmkit::pcr_observer* const observer = nullptr)
+{
+    auto provider = context.create_pcr_provider(observer);
+    if (!provider.has_value()) {
+        ADD_FAILURE() << provider.error().message;
+        return nullptr;
+    }
+
+    return std::move(provider).value();
 }
 
 std::string field_value(const tpmkit::testing::log_record& record, const std::string_view key)
@@ -396,11 +416,13 @@ TEST(esys_pcr_provider, read_translates_selection_and_returns_result)
     tpmkit::testing::fake_tcti fake;
     const auto digest = digest_bytes(0x10U);
     fake.push_response(read_success_response(7U, 16U, digest));
-    auto context = tpmkit::tpm_context::create(owned_config(fake));
+    auto log = std::make_shared<tpmkit::testing::recording_logger>();
+    auto context = tpmkit::tpm_context::create(owned_config(fake, log));
     ASSERT_TRUE(context.has_value());
-    tpmkit::testing::recording_logger log;
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), &log, nullptr};
+    log->clear();
+    auto provider_owner = require_pcr_provider(context.value());
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
 
     const auto result = provider.read(
         tpmkit::pcr_selection{tpmkit::hash_algorithm::sha256, {tpmkit::pcr_index::debug}});
@@ -424,8 +446,9 @@ TEST(esys_pcr_provider, read_uses_four_byte_selection_for_high_pcr_index)
     fake.push_response(read_empty_selection_response());
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, nullptr};
+    auto provider_owner = require_pcr_provider(context.value());
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
 
     const auto result = provider.read(
         tpmkit::pcr_selection{tpmkit::hash_algorithm::sha256, {tpmkit::pcr_index{31U}}});
@@ -446,8 +469,9 @@ TEST(esys_pcr_provider, read_returns_resource_error_for_transport_failure)
     fake.push_transmit_failure(TSS2_TCTI_RC_IO_ERROR);
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, nullptr};
+    auto provider_owner = require_pcr_provider(context.value());
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
 
     const auto result = provider.read(
         tpmkit::pcr_selection{tpmkit::hash_algorithm::sha256, {tpmkit::pcr_index::debug}});
@@ -464,8 +488,9 @@ TEST(esys_pcr_provider, read_returns_backend_error_for_unexpected_tpm_code)
     fake.push_response(error_response(TPM2_RC_INITIALIZE));
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, nullptr};
+    auto provider_owner = require_pcr_provider(context.value());
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
 
     const auto result = provider.read(
         tpmkit::pcr_selection{tpmkit::hash_algorithm::sha256, {tpmkit::pcr_index::debug}});
@@ -482,8 +507,9 @@ TEST(esys_pcr_provider, read_rejects_digest_count_mismatch_from_tpm)
     fake.push_response(read_digest_count_mismatch_response(digest_bytes(0x12U)));
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, nullptr};
+    auto provider_owner = require_pcr_provider(context.value());
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
 
     const auto result = provider.read(tpmkit::pcr_selection{
         tpmkit::hash_algorithm::sha256, {tpmkit::pcr_index::debug, tpmkit::pcr_index::drtm_17}});
@@ -498,17 +524,19 @@ TEST(esys_pcr_provider, read_emits_success_log_fields)
 
     tpmkit::testing::fake_tcti fake;
     fake.push_response(read_success_response(1U, 16U, digest_bytes(0x20U)));
-    auto context = tpmkit::tpm_context::create(owned_config(fake));
+    auto log = std::make_shared<tpmkit::testing::recording_logger>();
+    auto context = tpmkit::tpm_context::create(owned_config(fake, log));
     ASSERT_TRUE(context.has_value());
-    tpmkit::testing::recording_logger log;
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), &log, nullptr};
+    log->clear();
+    auto provider_owner = require_pcr_provider(context.value());
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
 
     const auto result = provider.read(
         tpmkit::pcr_selection{tpmkit::hash_algorithm::sha256, {tpmkit::pcr_index::debug}});
 
     ASSERT_TRUE(result.has_value());
-    const auto records = log.snapshot();
+    const auto records = log->snapshot();
     ASSERT_EQ(records.size(), 1U);
     EXPECT_EQ(std::string_view{records.front().message}, events::pcr_read_completed);
     EXPECT_EQ(field_value(records.front(), events::fields::bank), "sha256");
@@ -523,8 +551,9 @@ TEST(esys_pcr_provider, read_accepts_empty_actual_selection)
     fake.push_response(read_empty_selection_response());
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, nullptr};
+    auto provider_owner = require_pcr_provider(context.value());
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
 
     const auto result = provider.read(tpmkit::pcr_selection{tpmkit::hash_algorithm::sha256});
 
@@ -541,8 +570,9 @@ TEST(esys_pcr_provider, read_rejects_bad_digest_size_from_tpm)
     fake.push_response(read_bad_digest_size_response(std::vector<std::uint8_t>(31U, 0xaaU)));
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, nullptr};
+    auto provider_owner = require_pcr_provider(context.value());
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
 
     const auto result = provider.read(
         tpmkit::pcr_selection{tpmkit::hash_algorithm::sha256, {tpmkit::pcr_index::debug}});
@@ -555,7 +585,7 @@ TEST(esys_pcr_provider, read_rejects_missing_esys_context)
 {
     // Verifies PCR read requires an ESYS context.
 
-    tpmkit::detail::esys::esys_pcr_provider provider{nullptr, nullptr, nullptr};
+    tpmkit::detail::esys::esys_pcr_provider provider{nullptr, default_log(), nullptr};
 
     const auto result = provider.read(tpmkit::pcr_selection{tpmkit::hash_algorithm::sha256});
 
@@ -572,8 +602,9 @@ TEST(esys_pcr_provider, extend_translates_digest_and_calls_observer)
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
     recording_observer observer;
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, &observer};
+    auto provider_owner = require_pcr_provider(context.value(), &observer);
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
     const tpmkit::pcr_digest_value digest = sha256_digest(0x30U);
 
     const auto result = provider.extend(tpmkit::pcr_index::debug, gsl::make_span(&digest, 1U));
@@ -593,7 +624,7 @@ TEST(esys_pcr_provider, extend_rejects_missing_esys_context)
 {
     // Verifies PCR extend requires an ESYS context.
 
-    tpmkit::detail::esys::esys_pcr_provider provider{nullptr, nullptr, nullptr};
+    tpmkit::detail::esys::esys_pcr_provider provider{nullptr, default_log(), nullptr};
     const tpmkit::pcr_digest_value digest = sha256_digest(0x38U);
 
     const auto result = provider.extend(tpmkit::pcr_index::debug, gsl::make_span(&digest, 1U));
@@ -609,8 +640,9 @@ TEST(esys_pcr_provider, extend_rejects_too_many_digests)
     tpmkit::testing::fake_tcti fake;
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, nullptr};
+    auto provider_owner = require_pcr_provider(context.value());
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
     std::vector<tpmkit::pcr_digest_value> digests;
     digests.reserve(TPM2_NUM_PCR_BANKS + 1U);
     for (std::size_t index = 0U; index < TPM2_NUM_PCR_BANKS + 1U; ++index) {
@@ -631,8 +663,9 @@ TEST(esys_pcr_provider, extend_rejects_empty_digest_list_before_dispatch)
     tpmkit::testing::fake_tcti fake;
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, nullptr};
+    auto provider_owner = require_pcr_provider(context.value());
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
 
     const auto result = provider.extend(
         tpmkit::pcr_index::debug, gsl::span<const tpmkit::pcr_digest_value>{});
@@ -649,8 +682,9 @@ TEST(esys_pcr_provider, extend_rejects_duplicate_digest_algorithms_before_dispat
     tpmkit::testing::fake_tcti fake;
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, nullptr};
+    auto provider_owner = require_pcr_provider(context.value());
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
     const std::array<tpmkit::pcr_digest_value, 2U> digests{
         {sha256_digest(0x01U), sha256_digest(0x02U)}};
 
@@ -670,8 +704,9 @@ TEST(esys_pcr_provider, extend_does_not_call_observer_on_failure)
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
     recording_observer observer;
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, &observer};
+    auto provider_owner = require_pcr_provider(context.value(), &observer);
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
     const tpmkit::pcr_digest_value digest = sha256_digest(0x40U);
 
     const auto result = provider.extend(tpmkit::pcr_index::debug, gsl::make_span(&digest, 1U));
@@ -684,7 +719,7 @@ TEST(esys_pcr_provider, event_rejects_missing_esys_context)
 {
     // Verifies PCR event requires an ESYS context.
 
-    tpmkit::detail::esys::esys_pcr_provider provider{nullptr, nullptr, nullptr};
+    tpmkit::detail::esys::esys_pcr_provider provider{nullptr, default_log(), nullptr};
     const std::vector<std::uint8_t> event_data{0x01U};
 
     const auto result = provider.event(tpmkit::pcr_index::debug, event_data);
@@ -700,8 +735,9 @@ TEST(esys_pcr_provider, event_rejects_oversized_event_data)
     tpmkit::testing::fake_tcti fake;
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, nullptr};
+    auto provider_owner = require_pcr_provider(context.value());
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
     const std::vector<std::uint8_t> event_data(sizeof(TPM2B_EVENT::buffer) + 1U, 0xabU);
 
     const auto result = provider.event(tpmkit::pcr_index::debug, event_data);
@@ -720,8 +756,9 @@ TEST(esys_pcr_provider, event_returns_error_without_observer_on_failure)
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
     recording_observer observer;
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, &observer};
+    auto provider_owner = require_pcr_provider(context.value(), &observer);
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
     const std::vector<std::uint8_t> event_data{0x02U};
 
     const auto result = provider.event(tpmkit::pcr_index::debug, event_data);
@@ -739,8 +776,9 @@ TEST(esys_pcr_provider, event_rejects_unknown_digest_algorithm_from_tpm)
         event_success_response_with_algorithm(TPM2_ALG_SHA3_256, digest_bytes(0x81U)));
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, nullptr};
+    auto provider_owner = require_pcr_provider(context.value());
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
     const std::vector<std::uint8_t> event_data{0x03U};
 
     const auto result = provider.event(tpmkit::pcr_index::debug, event_data);
@@ -757,8 +795,9 @@ TEST(esys_pcr_provider, extend_succeeds_with_null_observer)
     fake.push_response(extend_success_response());
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, nullptr};
+    auto provider_owner = require_pcr_provider(context.value());
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
     const tpmkit::pcr_digest_value digest = sha256_digest(0x50U);
 
     const auto result = provider.extend(tpmkit::pcr_index::debug, gsl::make_span(&digest, 1U));
@@ -772,17 +811,19 @@ TEST(esys_pcr_provider, extend_emits_success_log_fields)
 
     tpmkit::testing::fake_tcti fake;
     fake.push_response(extend_success_response());
-    auto context = tpmkit::tpm_context::create(owned_config(fake));
+    auto log = std::make_shared<tpmkit::testing::recording_logger>();
+    auto context = tpmkit::tpm_context::create(owned_config(fake, log));
     ASSERT_TRUE(context.has_value());
-    tpmkit::testing::recording_logger log;
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), &log, nullptr};
+    log->clear();
+    auto provider_owner = require_pcr_provider(context.value());
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
     const tpmkit::pcr_digest_value digest = sha256_digest(0x60U);
 
     const auto result = provider.extend(tpmkit::pcr_index::debug, gsl::make_span(&digest, 1U));
 
     ASSERT_TRUE(result.has_value());
-    const auto records = log.snapshot();
+    const auto records = log->snapshot();
     ASSERT_EQ(records.size(), 1U);
     EXPECT_EQ(std::string_view{records.front().message}, events::pcr_extend_completed);
     EXPECT_EQ(field_value(records.front(), events::fields::pcr_index), "16");
@@ -798,8 +839,9 @@ TEST(esys_pcr_provider, event_passes_event_data_and_returns_result)
     fake.push_response(event_success_response(digest));
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, nullptr};
+    auto provider_owner = require_pcr_provider(context.value());
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
     const std::vector<std::uint8_t> event_data{0xa0U, 0xa1U, 0xa2U, 0xa3U};
 
     const auto result = provider.event(tpmkit::pcr_index::debug, event_data);
@@ -823,8 +865,9 @@ TEST(esys_pcr_provider, event_calls_observer_with_result)
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
     recording_observer observer;
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, &observer};
+    auto provider_owner = require_pcr_provider(context.value(), &observer);
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
     const std::vector<std::uint8_t> event_data{0xb0U, 0xb1U};
 
     const auto result = provider.event(tpmkit::pcr_index::debug, event_data);
@@ -842,17 +885,19 @@ TEST(esys_pcr_provider, event_emits_success_log_fields)
 
     tpmkit::testing::fake_tcti fake;
     fake.push_response(event_success_response(digest_bytes(0x90U)));
-    auto context = tpmkit::tpm_context::create(owned_config(fake));
+    auto log = std::make_shared<tpmkit::testing::recording_logger>();
+    auto context = tpmkit::tpm_context::create(owned_config(fake, log));
     ASSERT_TRUE(context.has_value());
-    tpmkit::testing::recording_logger log;
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), &log, nullptr};
+    log->clear();
+    auto provider_owner = require_pcr_provider(context.value());
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
     const std::vector<std::uint8_t> event_data{0xc0U, 0xc1U, 0xc2U};
 
     const auto result = provider.event(tpmkit::pcr_index::debug, event_data);
 
     ASSERT_TRUE(result.has_value());
-    const auto records = log.snapshot();
+    const auto records = log->snapshot();
     ASSERT_EQ(records.size(), 1U);
     EXPECT_EQ(std::string_view{records.front().message}, events::pcr_event_completed);
     EXPECT_EQ(field_value(records.front(), events::fields::pcr_index), "16");
@@ -865,17 +910,19 @@ TEST(esys_pcr_provider, failure_emits_pcr_tss_error_without_measurement_bytes)
 
     tpmkit::testing::fake_tcti fake;
     fake.push_response(error_response(TPM2_RC_LOCALITY));
-    auto context = tpmkit::tpm_context::create(owned_config(fake));
+    auto log = std::make_shared<tpmkit::testing::recording_logger>();
+    auto context = tpmkit::tpm_context::create(owned_config(fake, log));
     ASSERT_TRUE(context.has_value());
-    tpmkit::testing::recording_logger log;
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), &log, nullptr};
+    log->clear();
+    auto provider_owner = require_pcr_provider(context.value());
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
     const tpmkit::pcr_digest_value digest = sha256_digest(0xd0U);
 
     const auto result = provider.extend(tpmkit::pcr_index::debug, gsl::make_span(&digest, 1U));
 
     ASSERT_FALSE(result.has_value());
-    const auto records = log.snapshot();
+    const auto records = log->snapshot();
     ASSERT_EQ(records.size(), 1U);
     EXPECT_EQ(std::string_view{records.front().message}, events::pcr_tss_error);
     EXPECT_EQ(field_value(records.front(), events::fields::operation), "pcr_extend");
@@ -892,8 +939,9 @@ TEST(esys_pcr_provider, reset_succeeds_for_resettable_pcr)
     fake.push_response(simple_session_success_response());
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, nullptr};
+    auto provider_owner = require_pcr_provider(context.value());
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
 
     const auto reset = provider.reset(tpmkit::pcr_index::debug);
 
@@ -911,8 +959,9 @@ TEST(esys_pcr_provider, reset_returns_resource_error_for_non_resettable_pcr)
     fake.push_response(error_response(TPM2_RC_LOCALITY));
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, nullptr};
+    auto provider_owner = require_pcr_provider(context.value());
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
 
     const auto reset = provider.reset(tpmkit::pcr_index::firmware_0);
 
@@ -926,16 +975,18 @@ TEST(esys_pcr_provider, reset_emits_success_log_fields)
 
     tpmkit::testing::fake_tcti fake;
     fake.push_response(simple_session_success_response());
-    auto context = tpmkit::tpm_context::create(owned_config(fake));
+    auto log = std::make_shared<tpmkit::testing::recording_logger>();
+    auto context = tpmkit::tpm_context::create(owned_config(fake, log));
     ASSERT_TRUE(context.has_value());
-    tpmkit::testing::recording_logger log;
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), &log, nullptr};
+    log->clear();
+    auto provider_owner = require_pcr_provider(context.value());
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
 
     const auto reset = provider.reset(tpmkit::pcr_index::debug);
 
     ASSERT_TRUE(reset.has_value());
-    const auto records = log.snapshot();
+    const auto records = log->snapshot();
     ASSERT_EQ(records.size(), 1U);
     EXPECT_EQ(std::string_view{records.front().message}, events::pcr_reset_completed);
     EXPECT_EQ(field_value(records.front(), events::fields::pcr_index), "16");
@@ -949,8 +1000,9 @@ TEST(esys_pcr_provider, set_auth_policy_uses_platform_authorization)
     fake.push_response(simple_session_success_response());
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, nullptr};
+    auto provider_owner = require_pcr_provider(context.value());
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
     const auto policy_digest = digest_bytes(0xe0U);
 
     const auto result = provider.set_auth_policy(tpmkit::pcr_index::debug,
@@ -972,8 +1024,9 @@ TEST(esys_pcr_provider, set_auth_policy_returns_error_when_platform_auth_unavail
     fake.push_response(error_response(TPM2_RC_AUTH_FAIL));
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, nullptr};
+    auto provider_owner = require_pcr_provider(context.value());
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
     const auto policy_digest = digest_bytes(0xe4U);
 
     const auto result = provider.set_auth_policy(tpmkit::pcr_index::debug,
@@ -990,8 +1043,9 @@ TEST(esys_pcr_provider, set_auth_policy_rejects_invalid_algorithm_before_dispatc
     tpmkit::testing::fake_tcti fake;
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, nullptr};
+    auto provider_owner = require_pcr_provider(context.value());
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
     const std::array<std::uint8_t, 1U> policy_digest{{0x01U}};
 
     const auto result =
@@ -1009,18 +1063,20 @@ TEST(esys_pcr_provider, set_auth_policy_emits_success_log_fields)
 
     tpmkit::testing::fake_tcti fake;
     fake.push_response(simple_session_success_response());
-    auto context = tpmkit::tpm_context::create(owned_config(fake));
+    auto log = std::make_shared<tpmkit::testing::recording_logger>();
+    auto context = tpmkit::tpm_context::create(owned_config(fake, log));
     ASSERT_TRUE(context.has_value());
-    tpmkit::testing::recording_logger log;
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), &log, nullptr};
+    log->clear();
+    auto provider_owner = require_pcr_provider(context.value());
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
     const auto policy_digest = digest_bytes(0xe8U);
 
     const auto result = provider.set_auth_policy(tpmkit::pcr_index::debug,
                                                  tpmkit::hash_algorithm::sha256, policy_digest);
 
     ASSERT_TRUE(result.has_value());
-    const auto records = log.snapshot();
+    const auto records = log->snapshot();
     ASSERT_EQ(records.size(), 1U);
     EXPECT_EQ(std::string_view{records.front().message}, events::pcr_auth_policy_set);
     EXPECT_EQ(field_value(records.front(), events::fields::pcr_index), "16");
@@ -1034,8 +1090,9 @@ TEST(esys_pcr_provider, set_auth_value_rejects_non_empty_auth_without_secure_tra
     tpmkit::testing::fake_tcti fake;
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, nullptr};
+    auto provider_owner = require_pcr_provider(context.value());
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
     tpmkit::secret_buffer auth{std::vector<std::uint8_t>{0x73U, 0x65U, 0x6bU, 0x72U, 0x69U, 0x74U}};
 
     const auto result = provider.set_auth_value(tpmkit::pcr_index::debug, std::move(auth));
@@ -1054,8 +1111,9 @@ TEST(esys_pcr_provider, set_auth_value_does_not_dispatch_non_empty_auth_material
     const std::vector<std::uint8_t> secret{0x73U, 0x65U, 0x6bU, 0x72U, 0x69U, 0x74U};
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, nullptr};
+    auto provider_owner = require_pcr_provider(context.value());
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
     std::vector<std::uint8_t> owned_secret = secret;
     tpmkit::secret_buffer auth{std::move(owned_secret)};
 
@@ -1073,11 +1131,13 @@ TEST(esys_pcr_provider, set_auth_value_emits_success_log_without_auth_value)
 
     tpmkit::testing::fake_tcti fake;
     fake.push_response(simple_session_success_response());
-    auto context = tpmkit::tpm_context::create(owned_config(fake));
+    auto log = std::make_shared<tpmkit::testing::recording_logger>();
+    auto context = tpmkit::tpm_context::create(owned_config(fake, log));
     ASSERT_TRUE(context.has_value());
-    tpmkit::testing::recording_logger log;
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), &log, nullptr};
+    log->clear();
+    auto provider_owner = require_pcr_provider(context.value());
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
     tpmkit::secret_buffer auth;
 
     const auto result = provider.set_auth_value(tpmkit::pcr_index::debug, std::move(auth));
@@ -1087,7 +1147,7 @@ TEST(esys_pcr_provider, set_auth_value_emits_success_log_without_auth_value)
     ASSERT_EQ(commands.size(), 1U);
     EXPECT_EQ(read_u32(commands.front(), 6U), TPM2_CC_PCR_SetAuthValue);
     EXPECT_EQ(read_u16(commands.front(), command_parameter_offset(commands.front())), 0U);
-    const auto records = log.snapshot();
+    const auto records = log->snapshot();
     ASSERT_EQ(records.size(), 1U);
     EXPECT_EQ(std::string_view{records.front().message}, events::pcr_auth_value_set);
     EXPECT_EQ(field_value(records.front(), events::fields::pcr_index), "16");
@@ -1100,11 +1160,13 @@ TEST(esys_pcr_provider, auth_operation_logs_do_not_leak_secret_material)
     tpmkit::testing::fake_tcti fake;
     const std::vector<std::uint8_t> secret{0x73U, 0x65U, 0x6bU, 0x72U, 0x69U, 0x74U};
     fake.push_response(simple_session_success_response());
-    auto context = tpmkit::tpm_context::create(owned_config(fake));
+    auto log = std::make_shared<tpmkit::testing::recording_logger>();
+    auto context = tpmkit::tpm_context::create(owned_config(fake, log));
     ASSERT_TRUE(context.has_value());
-    tpmkit::testing::recording_logger log;
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), &log, nullptr};
+    log->clear();
+    auto provider_owner = require_pcr_provider(context.value());
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
     std::vector<std::uint8_t> owned_secret = secret;
     tpmkit::secret_buffer auth{std::move(owned_secret)};
     const auto policy_digest = digest_bytes(0xdeU);
@@ -1115,7 +1177,7 @@ TEST(esys_pcr_provider, auth_operation_logs_do_not_leak_secret_material)
 
     ASSERT_FALSE(auth_value.has_value());
     ASSERT_TRUE(auth_policy.has_value());
-    const auto records = log.snapshot();
+    const auto records = log->snapshot();
     EXPECT_FALSE(contains_field_value(records, "sekrit"));
     EXPECT_FALSE(contains_field_value(records, "de"));
 }
@@ -1128,8 +1190,9 @@ TEST(esys_pcr_provider, allocate_translates_bank_list_to_full_pcr_selections)
     fake.push_response(allocate_success_response(true, 32U, 12U, 44U));
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, nullptr};
+    auto provider_owner = require_pcr_provider(context.value());
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
     std::array<tpmkit::pcr_bank, 2U> banks{{tpmkit::pcr_bank{tpmkit::hash_algorithm::sha256},
                                             tpmkit::pcr_bank{tpmkit::hash_algorithm::sha384}}};
 
@@ -1153,8 +1216,9 @@ TEST(esys_pcr_provider, allocate_returns_result_fields_on_success)
     fake.push_response(allocate_success_response(true, 32U, 88U, 120U));
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, nullptr};
+    auto provider_owner = require_pcr_provider(context.value());
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
     std::array<tpmkit::pcr_bank, 1U> banks{{tpmkit::pcr_bank{tpmkit::hash_algorithm::sha256}}};
 
     const auto allocate = provider.allocate(gsl::make_span(banks));
@@ -1173,8 +1237,9 @@ TEST(esys_pcr_provider, allocate_rejects_duplicate_banks_before_dispatch)
     tpmkit::testing::fake_tcti fake;
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, nullptr};
+    auto provider_owner = require_pcr_provider(context.value());
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
     const std::array<tpmkit::pcr_bank, 2U> banks{
         {tpmkit::pcr_bank{tpmkit::hash_algorithm::sha256},
          tpmkit::pcr_bank{tpmkit::hash_algorithm::sha256}}};
@@ -1193,8 +1258,9 @@ TEST(esys_pcr_provider, allocate_rejects_empty_bank_list_before_dispatch)
     tpmkit::testing::fake_tcti fake;
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, nullptr};
+    auto provider_owner = require_pcr_provider(context.value());
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
 
     const auto allocate = provider.allocate(gsl::span<const tpmkit::pcr_bank>{});
 
@@ -1211,8 +1277,9 @@ TEST(esys_pcr_provider, allocate_returns_security_failure_when_platform_auth_una
     fake.push_response(error_response(TPM2_RC_AUTH_FAIL));
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, nullptr};
+    auto provider_owner = require_pcr_provider(context.value());
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
     std::array<tpmkit::pcr_bank, 1U> banks{{tpmkit::pcr_bank{tpmkit::hash_algorithm::sha256}}};
 
     const auto allocate = provider.allocate(gsl::make_span(banks));
@@ -1229,8 +1296,9 @@ TEST(esys_pcr_provider, allocate_handles_partial_allocation_result)
     fake.push_response(allocate_success_response(false, 32U, 90U, 11U));
     auto context = tpmkit::tpm_context::create(owned_config(fake));
     ASSERT_TRUE(context.has_value());
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, nullptr};
+    auto provider_owner = require_pcr_provider(context.value());
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
     std::array<tpmkit::pcr_bank, 1U> banks{{tpmkit::pcr_bank{tpmkit::hash_algorithm::sha512}}};
 
     const auto allocate = provider.allocate(gsl::make_span(banks));
@@ -1248,17 +1316,19 @@ TEST(esys_pcr_provider, allocate_emits_success_log_fields)
 
     tpmkit::testing::fake_tcti fake;
     fake.push_response(allocate_success_response(true, 32U, 12U, 44U));
-    auto context = tpmkit::tpm_context::create(owned_config(fake));
+    auto log = std::make_shared<tpmkit::testing::recording_logger>();
+    auto context = tpmkit::tpm_context::create(owned_config(fake, log));
     ASSERT_TRUE(context.has_value());
-    tpmkit::testing::recording_logger log;
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), &log, nullptr};
+    log->clear();
+    auto provider_owner = require_pcr_provider(context.value());
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
     std::array<tpmkit::pcr_bank, 1U> banks{{tpmkit::pcr_bank{tpmkit::hash_algorithm::sha384}}};
 
     const auto allocate = provider.allocate(gsl::make_span(banks));
 
     ASSERT_TRUE(allocate.has_value());
-    const auto records = log.snapshot();
+    const auto records = log->snapshot();
     ASSERT_EQ(records.size(), 1U);
     EXPECT_EQ(std::string_view{records.front().message}, events::pcr_allocate_completed);
     EXPECT_EQ(field_value(records.front(), events::fields::bank_count), "1");
@@ -1271,17 +1341,19 @@ TEST(esys_pcr_provider, allocate_emits_pcr_tss_error_on_failure)
 
     tpmkit::testing::fake_tcti fake;
     fake.push_response(error_response(TPM2_RC_AUTH_FAIL));
-    auto context = tpmkit::tpm_context::create(owned_config(fake));
+    auto log = std::make_shared<tpmkit::testing::recording_logger>();
+    auto context = tpmkit::tpm_context::create(owned_config(fake, log));
     ASSERT_TRUE(context.has_value());
-    tpmkit::testing::recording_logger log;
-    tpmkit::detail::esys::esys_pcr_provider provider{
-        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), &log, nullptr};
+    log->clear();
+    auto provider_owner = require_pcr_provider(context.value());
+    ASSERT_NE(provider_owner, nullptr);
+    tpmkit::pcr_provider& provider = *provider_owner;
     std::array<tpmkit::pcr_bank, 1U> banks{{tpmkit::pcr_bank{tpmkit::hash_algorithm::sha256}}};
 
     const auto allocate = provider.allocate(gsl::make_span(banks));
 
     ASSERT_FALSE(allocate.has_value());
-    const auto records = log.snapshot();
+    const auto records = log->snapshot();
     ASSERT_EQ(records.size(), 1U);
     EXPECT_EQ(std::string_view{records.front().message}, events::pcr_tss_error);
     EXPECT_EQ(field_value(records.front(), events::fields::operation), "pcr_allocate");

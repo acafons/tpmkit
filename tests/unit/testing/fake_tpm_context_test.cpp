@@ -89,14 +89,9 @@ TEST(fake_tpm_context, successful_context_exposes_last_config_for_introspection)
               "mssim:host=localhost,port=2321");
 }
 
-template <class Context> void assert_context_shape(Context& context)
+TEST(fake_tpm_context, create_pcr_provider_returns_resource_error)
 {
-    static_cast<void>(context.esys_handle());
-}
-
-TEST(fake_tpm_context, mirrors_real_context_esys_handle_shape)
-{
-    // Verifies the fake exposes the same ESYS handle method shape.
+    // Verifies the fake exposes the context PCR provider factory shape.
 
     tpmkit::tpm_context_config config;
     config.tcti = tpmkit::tcti_string_config{"mssim:host=localhost,port=2321"};
@@ -107,8 +102,10 @@ TEST(fake_tpm_context, mirrors_real_context_esys_handle_shape)
 
     ASSERT_TRUE(created.has_value());
     tpmkit::testing::fake_tpm_context context = std::move(created).value();
-    assert_context_shape(context);
-    EXPECT_EQ(context.esys_handle(), nullptr);
+    auto provider = context.create_pcr_provider();
+
+    ASSERT_FALSE(provider.has_value());
+    EXPECT_EQ(provider.error().category, tpmkit::error_category::resource_error);
 }
 
 TEST(fake_tpm_context, is_move_only)

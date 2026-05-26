@@ -76,6 +76,13 @@ Add the selection logic in `src/composition/`. The composition root is the *only
 
 For option 1, this is a runtime `std::make_unique<concrete_adapter>(...)` returning a `std::unique_ptr<port>`. For option 3, this is implicit at link time — the composition root names the port directly.
 
+If the new component borrows an existing public owner/context (for example a
+service using `tpm_context`'s TPM connection), expose it as a backend-neutral
+member factory on that owner instead of a free function named after the
+adapter. The member returns the domain port type, uses the owner's logger and
+backend state internally, and documents that the returned object must not
+outlive the owner.
+
 ### A.8 Update consumers
 
 Replace direct uses of the previous concrete type (if any) with the port type, working from the public API inward. Tests that were exercising a specific adapter via a concrete type should now go through the contract suite or the relevant adapter's integration tests (`tests/integration/<backend>/`).
@@ -121,6 +128,12 @@ Add the selection rule (configuration flag, hardware-presence check, capability 
 
 For runtime selection (option 1), the composition root inspects environment or configuration, instantiates the chosen adapter, and returns it as the port type. For build-time selection (option 3), update the `LIB_<PORT>_BACKEND` switch.
 
+For adapters that are created from an existing context rather than a standalone
+composition root, keep the concrete adapter name inside the context adapter
+implementation and add a `context.create_*()` member returning the existing
+port. Do not expose backend handles or a public backend-named factory just to
+construct the adapter.
+
 ## Decision tree at a glance
 
 ```
@@ -149,6 +162,7 @@ Is the port new?
 - **Adding a "not supported" stub for a method that does not apply to the new backend.** This is a port-segregation problem in disguise. Split the port.
 - **Naming the new adapter after the port shape (`key_provider_v2`, `key_provider_new`).** Name after the backend (`hsm_key_provider`, `pkcs11_key_provider`). The shape lives in the port; the backend lives in the name.
 - **Wiring the composition root before the contract suite passes.** A contract failure should be caught in the test tier, not by integration users discovering subtle behavior differences.
+- **Exposing a backend-named factory for a context-borrowing adapter.** A public `create_esys_*`-style function turns an internal adapter detail into API. Add a backend-neutral member factory on the owning context instead.
 
 ## Error Handling
 

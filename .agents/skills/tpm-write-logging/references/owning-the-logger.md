@@ -38,6 +38,30 @@ The pattern delivers, with no extra wiring:
 - **Tests that do not care about logging:** omit the argument entirely; the class compiles, runs, and stays silent.
 - **The library-with-logging-disabled use case** that `logging.md` mandates: identical to the silent-test case.
 
+## Context-derived components
+
+A factory that creates a component from an existing owner is not a new
+composition root. It must inherit the owner's effective logger instead of asking
+the caller for another one.
+
+Use this rule whenever the new component borrows a resource from an existing
+context, such as a provider created from `tpm_context`:
+
+- The public factory is a backend-neutral member on the owner/context, such as
+  `ctx.create_pcr_provider(observer)`.
+- The member takes only functional collaborators; it does not take `logger*`,
+  `logger&`, or `std::shared_ptr<logger>`.
+- The owner resolves the no-op default once, during owner construction.
+- The member borrows the effective logger from the owner's private
+  implementation and keeps backend names out of the public API.
+- The returned component's lifetime note already says it must not outlive the
+  owner; the borrowed logger follows that same lifetime.
+
+This keeps lifecycle, adapter-boundary, and operation records for one TPM
+connection in one audit trail. Allowing a second logger at the derived factory
+creates silent log loss when omitted and split traces when callers pass a
+different sink.
+
 ## Why this is not the singleton anti-pattern
 
 The singleton anti-pattern is about *mutable, configurable, process-wide state hidden from constructors* — every consumer implicitly couples to whatever the singleton was last configured with, and tests cannot isolate from each other. A stateless no-op is none of those things:
@@ -91,4 +115,6 @@ Notes on the composition root:
 - **Thread-local logger** (`thread_local logger* current_logger`). Cross-reference `concurrency.md` Thread-local state. Per-thread loggers would require thread-local storage owned by the library, which the rules forbid.
 - **Setter injection** (`adapter.set_logger(&log)` after construction). Two-phase initialization is forbidden by `code-standards.md` (Avoid two-phase initialization). The constructor either receives the logger or defaults to no-op; there is no third state.
 - **Optional `logger*` (raw pointer) parameter that may be null.** Reintroduces null checks at every call site. Use `logger&` with a no-op default instead.
+- **Logger override on a context-derived factory** (`ctx.create_x(..., log)` or `create_x(ctx, ..., log)`). The context already owns the logger for that object graph; the derived component must borrow it.
+- **Backend-named context-derived factory** (`create_esys_x(ctx, ...)`). The backend is an internal adapter detail. Expose `ctx.create_x(...)` returning a domain port.
 - **Per-method logger parameter** (every method takes `logger&` as an argument). Adds permanent API noise for a cross-cutting concern. The constructor parameter pattern keeps the API clean.

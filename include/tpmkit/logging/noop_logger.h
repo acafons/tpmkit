@@ -27,6 +27,20 @@ namespace tpmkit {
 class noop_logger final : public logger {
 public:
     /**
+     * @brief Return the shared stateless no-op logger instance.
+     *
+     * @return Reference to an immutable no-op logger that lives until process shutdown.
+     * @thread_safety Thread-safe. Initialization is guaranteed once by C++.
+     * @exception_safety noexcept.
+     * @since v0.1
+     */
+    [[nodiscard]] static noop_logger& instance() noexcept
+    {
+        static noop_logger log;
+        return log;
+    }
+
+    /**
      * @brief Discard one structured log record.
      *
      * @param[in] level Ignored severity.

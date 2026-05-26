@@ -26,9 +26,9 @@ Constraints that follow from `logging.md` and `security.md`:
 
 ## Owning the logger
 
-The `logger` is a port like `key_provider` or `crypto_primitives`, but it is a **cross-cutting concern** — the operation's outcome does not depend on whether logging is enabled. The project's pattern is constructor injection of `logger& log` with a stateless no-op default (`noop_logger::instance()`), wired logger-first in the composition root so every adapter's reference outlives the adapter. Singletons, thread-locals, globals, setter injection, and per-method logger parameters are all forbidden.
+The `logger` is a port like `key_provider` or `crypto_primitives`, but it is a **cross-cutting concern** — the operation's outcome does not depend on whether logging is enabled. The project's pattern is constructor injection of `logger& log` with a stateless no-op default (`noop_logger::instance()`), wired logger-first in the composition root so every adapter's reference outlives the adapter. Components derived from an existing owner/context use a backend-neutral owner member factory (`ctx.create_*()`), borrow the owner's effective logger internally, and do not expose another logger override. Singletons, thread-locals, globals, setter injection, and per-method logger parameters are all forbidden.
 
-Read `references/owning-the-logger.md` when wiring a new adapter or composition root, deciding how a class should take the logger, or reviewing a PR that touches logger ownership. It covers the where-logging-lives split (adapters and composition only), the constructor-with-no-op-default sketch, why a stateless no-op is not the singleton anti-pattern, the composition-root wiring example with lifetime-ordering rules, and the full anti-pattern list.
+Read `references/owning-the-logger.md` when wiring a new adapter or composition root, deciding how a class should take the logger, creating a public factory from an existing context, or reviewing a PR that touches logger ownership. It covers the where-logging-lives split (adapters and composition only), the constructor-with-no-op-default sketch, context-derived component wiring, why a stateless no-op is not the singleton anti-pattern, the composition-root wiring example with lifetime-ordering rules, and the full anti-pattern list.
 
 ## Adding a log call site
 

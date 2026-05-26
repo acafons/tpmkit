@@ -10,6 +10,21 @@ These rules govern the public surface of the library. They apply to installed/pu
 - Do not write `using namespace` at namespace scope in any public header.
 - Wrap the entire public API in a single top-level namespace named after the library. Place implementation-only types under a nested `detail` namespace and document that `detail` is not part of the public contract.
 
+## Context-derived factories
+
+- A component that borrows resources from an existing public owner/context is
+  created by a backend-neutral member factory on that owner, such as
+  `ctx.create_pcr_provider()`.
+- Public context-derived factories return domain port types or value types, not
+  adapter-specific concrete types, and their names do not expose backend names
+  such as ESYS or FAPI.
+- Do not expose raw backend handles, public `detail` accessors, or friend
+  functions solely to wire another in-library component. The owning context's
+  implementation performs that wiring internally.
+- The factory documentation states the borrowed lifetime rule: returned objects
+  must not outlive the owner/context or any non-owning collaborator passed to
+  the factory.
+
 ## Pimpl idiom
 
 - Public classes with non-trivial internals use Pimpl. It insulates layout changes from consumers (cross-reference: ABI section below) and keeps adapter headers out of the public surface.

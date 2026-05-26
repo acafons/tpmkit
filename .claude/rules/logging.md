@@ -6,6 +6,25 @@ These rules build on `security.md` (what must never be logged), `library-api-des
 
 The library does not import a logging framework. The domain declares an abstract `logger` port; consumers wire an adapter (spdlog, syslog, `std::cerr`, no-op) at the composition root. The library must function correctly with logging fully disabled. This follows directly from `architecture.md`: anything backend-specific belongs behind a port.
 
+## Logger ownership
+
+One composition root selects one logger for the object graph it owns. Components
+constructed from an existing owner or context inherit that owner's logger; they
+do not become a fresh logging composition root.
+
+For example, a context member factory such as
+`tpm_context::create_pcr_provider()` must borrow the effective logger already
+owned by that context. It must not expose another logger parameter, create a
+second no-op fallback, or let callers split one TPM connection's audit trail
+across different logger instances.
+
+Adapters constructed directly by a composition root take `logger&` at
+construction, with the no-op default handled at that boundary. Optional or
+nullable logger parameters are forbidden on public APIs and adapter
+constructors. Nullable logger pointers are limited to private helper functions
+used while the owning context is still being created or while translating
+backend errors at an already-null-tolerant boundary.
+
 ## Port shape
 
 The `logger` port has exactly one logging method, taking a structured record. It does not take a preformatted string. Adapters decide formatting; the domain decides content.
@@ -102,6 +121,7 @@ If a structured field's *key* is sensitive (e.g., a session-correlation token), 
 ## Adapters and defaults
 
 - **No-op adapter** is the library default when no logger is wired. `noop_logger::log` is empty and `noexcept`. The library compiles and runs identically with logging disabled.
+- **`noop_logger::instance()` is allowed as a Null Object convenience.** It returns a stateless, immutable no-op logger reference; it is not a configurable global logger and must not be used to smuggle mutable logging state into the library.
 - **Reference adapter for spdlog** lives under `src/adapters/logging/spdlog/`. It demonstrates structured-field translation, level mapping, and the never-retain-pointers contract.
 - **stdio adapter** under `src/adapters/logging/stdio/` is the zero-dependency reference for tests and one-binary tools.
 - **Recording adapter** under `src/adapters/mock/` captures records into an in-memory vector for test assertions.
