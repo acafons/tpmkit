@@ -14,9 +14,18 @@ Build the debug preset and run the example inside the dev container. The helper 
 ./scripts/exec-tpmkit-docker.sh 'cmake --preset debug'
 ./scripts/exec-tpmkit-docker.sh 'cmake --build --preset debug'
 ./scripts/exec-tpmkit-docker.sh './build/debug/examples/tpm_context_basics "tabrmd:bus_type=system"'
+./scripts/exec-tpmkit-docker.sh './build/debug/examples/pcr_read_sha256 "tabrmd:bus_type=system"'
 ```
 
-The source for that program is [examples/tpm_context_basics.cpp](examples/tpm_context_basics.cpp).
+The example sources live under [examples/](examples/), including:
+[tpm_context_basics.cpp](examples/tpm_context_basics.cpp),
+[pcr/active_banks.cpp](examples/pcr/active_banks.cpp),
+[pcr/read_sha256.cpp](examples/pcr/read_sha256.cpp),
+[pcr/read_all_sha256.cpp](examples/pcr/read_all_sha256.cpp),
+[pcr/reset_debug.cpp](examples/pcr/reset_debug.cpp),
+[pcr/extend_debug.cpp](examples/pcr/extend_debug.cpp),
+[pcr/event_debug.cpp](examples/pcr/event_debug.cpp), and
+[pcr/observer_trace.cpp](examples/pcr/observer_trace.cpp).
 
 ## TCTI Selection
 
