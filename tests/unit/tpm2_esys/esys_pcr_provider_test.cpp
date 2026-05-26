@@ -583,6 +583,25 @@ TEST(esys_pcr_provider, extend_rejects_too_many_digests)
     EXPECT_EQ(fake.transmits_observed(), 0U);
 }
 
+TEST(esys_pcr_provider, extend_rejects_duplicate_digest_algorithms_before_dispatch)
+{
+    // Verifies PCR extend rejects duplicate bank digests without sending a TPM command.
+
+    tpmkit::testing::fake_tcti fake;
+    auto context = tpmkit::tpm_context::create(owned_config(fake));
+    ASSERT_TRUE(context.has_value());
+    tpmkit::detail::esys::esys_pcr_provider provider{
+        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, nullptr};
+    const std::array<tpmkit::pcr_digest_value, 2U> digests{
+        {sha256_digest(0x01U), sha256_digest(0x02U)}};
+
+    const auto result = provider.extend(tpmkit::pcr_index::debug, gsl::make_span(digests));
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().category, tpmkit::error_category::input_error);
+    EXPECT_TRUE(fake.transmitted_commands().empty());
+}
+
 TEST(esys_pcr_provider, extend_does_not_call_observer_on_failure)
 {
     // Verifies PCR extend suppresses observer callbacks when ESYS fails.
@@ -905,6 +924,26 @@ TEST(esys_pcr_provider, set_auth_policy_returns_error_when_platform_auth_unavail
     EXPECT_EQ(result.error().category, tpmkit::error_category::security_failure);
 }
 
+TEST(esys_pcr_provider, set_auth_policy_rejects_invalid_algorithm_before_dispatch)
+{
+    // Verifies unsupported policy algorithms return input_error without throwing or dispatching.
+
+    tpmkit::testing::fake_tcti fake;
+    auto context = tpmkit::tpm_context::create(owned_config(fake));
+    ASSERT_TRUE(context.has_value());
+    tpmkit::detail::esys::esys_pcr_provider provider{
+        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, nullptr};
+    const std::array<std::uint8_t, 1U> policy_digest{{0x01U}};
+
+    const auto result =
+        provider.set_auth_policy(tpmkit::pcr_index::debug, static_cast<tpmkit::hash_algorithm>(99),
+                                 gsl::make_span(policy_digest));
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().category, tpmkit::error_category::input_error);
+    EXPECT_TRUE(fake.transmitted_commands().empty());
+}
+
 TEST(esys_pcr_provider, set_auth_policy_emits_success_log_fields)
 {
     // Verifies PCR auth policy success emits the documented PCR log event.
@@ -1066,6 +1105,26 @@ TEST(esys_pcr_provider, allocate_returns_result_fields_on_success)
     EXPECT_EQ(allocate.value().max_pcr, 32U);
     EXPECT_EQ(allocate.value().size_needed, 88U);
     EXPECT_EQ(allocate.value().size_available, 120U);
+}
+
+TEST(esys_pcr_provider, allocate_rejects_duplicate_banks_before_dispatch)
+{
+    // Verifies PCR allocate rejects duplicate banks without sending a TPM command.
+
+    tpmkit::testing::fake_tcti fake;
+    auto context = tpmkit::tpm_context::create(owned_config(fake));
+    ASSERT_TRUE(context.has_value());
+    tpmkit::detail::esys::esys_pcr_provider provider{
+        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, nullptr};
+    const std::array<tpmkit::pcr_bank, 2U> banks{
+        {tpmkit::pcr_bank{tpmkit::hash_algorithm::sha256},
+         tpmkit::pcr_bank{tpmkit::hash_algorithm::sha256}}};
+
+    const auto allocate = provider.allocate(gsl::make_span(banks));
+
+    ASSERT_FALSE(allocate.has_value());
+    EXPECT_EQ(allocate.error().category, tpmkit::error_category::input_error);
+    EXPECT_TRUE(fake.transmitted_commands().empty());
 }
 
 TEST(esys_pcr_provider, allocate_returns_security_failure_when_platform_auth_unavailable)

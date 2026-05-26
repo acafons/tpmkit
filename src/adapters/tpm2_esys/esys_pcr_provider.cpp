@@ -71,6 +71,11 @@ template <class Element, std::size_t Size>
     return TPM2_ALG_ERROR;
 }
 
+[[nodiscard]] bool is_supported_algorithm(const hash_algorithm algorithm) noexcept
+{
+    return algorithm_to_tpm(algorithm) != TPM2_ALG_ERROR;
+}
+
 [[nodiscard]] outcome<hash_algorithm> algorithm_from_tpm(const TPMI_ALG_HASH algorithm)
 {
     switch (algorithm) {
@@ -113,6 +118,14 @@ template <class Element, std::size_t Size>
         return tl::unexpected(error{error_category::input_error, "too many PCR digests"});
     }
 
+    std::set<hash_algorithm> algorithms;
+    for (const auto& digest : digests) {
+        if (!algorithms.insert(digest.algorithm()).second) {
+            return tl::unexpected(
+                error{error_category::input_error, "duplicate PCR digest algorithm"});
+        }
+    }
+
     return {};
 }
 
@@ -120,6 +133,13 @@ template <class Element, std::size_t Size>
 {
     if (banks.size() > TPM2_NUM_PCR_BANKS) {
         return tl::unexpected(error{error_category::input_error, "too many PCR banks"});
+    }
+
+    std::set<hash_algorithm> algorithms;
+    for (const auto& bank : banks) {
+        if (!algorithms.insert(bank.algorithm()).second) {
+            return tl::unexpected(error{error_category::input_error, "duplicate PCR bank"});
+        }
     }
 
     return {};
@@ -150,6 +170,11 @@ ensure_secure_auth_value_transport(const gsl::span<const std::uint8_t> auth)
 [[nodiscard]] outcome<void> ensure_policy_digest_size(const hash_algorithm algorithm,
                                                       const gsl::span<const std::uint8_t> digest)
 {
+    if (!is_supported_algorithm(algorithm)) {
+        return tl::unexpected(
+            error{error_category::input_error, "unsupported PCR auth policy hash algorithm"});
+    }
+
     if (digest.size() != digest_size(algorithm)) {
         return tl::unexpected(
             error{error_category::input_error, "PCR auth policy digest has wrong size"});
