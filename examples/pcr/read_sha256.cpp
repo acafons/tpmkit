@@ -32,9 +32,9 @@ int main(const int argc, char** argv)
         return EXIT_FAILURE;
     }
 
-    const tpmkit::pcr_selection selection{
+    const tpmkit::pcr::selection selection{
         tpmkit::hash_algorithm::sha256,
-        {tpmkit::pcr_index::firmware_0, tpmkit::pcr_index::firmware_7, tpmkit::pcr_index::debug},
+        {tpmkit::pcr::index::firmware_0, tpmkit::pcr::index::firmware_7, tpmkit::pcr::index::debug},
     };
     const auto result = provider.value()->read(selection);
     if (!result.has_value()) {

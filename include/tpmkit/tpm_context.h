@@ -32,7 +32,9 @@ typedef struct TSS2_TCTI_OPAQUE_CONTEXT_BLOB TSS2_TCTI_CONTEXT;
 
 namespace tpmkit {
 
-class pcr_observer;
+namespace pcr {
+class observer;
+} // namespace pcr
 
 /**
  * @brief TCTI source selected by a tpm2-tools-compatible configuration string.
@@ -192,7 +194,7 @@ public:
      * @return On success, an owning pointer to the PCR provider port. On
      *         failure, returns `resource_error` when this context does not
      *         contain a usable TPM backend.
-     * @note The returned `pcr_provider` must not outlive this context or
+     * @note The returned `pcr::provider` must not outlive this context or
      *       `observer` when an observer is supplied. This context must not be
      *       moved while the returned provider is alive.
      * @thread_safety Thread-compatible. A shared context or provider requires
@@ -201,8 +203,8 @@ public:
      *        creation does not modify this context.
      * @since v0.1
      */
-    [[nodiscard]] outcome<std::unique_ptr<pcr_provider>>
-    create_pcr_provider(pcr_observer* observer = nullptr);
+    [[nodiscard]] outcome<std::unique_ptr<pcr::provider>>
+    create_pcr_provider(pcr::observer* observer = nullptr);
 
 private:
     class impl;

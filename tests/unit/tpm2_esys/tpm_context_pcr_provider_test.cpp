@@ -32,16 +32,16 @@ namespace {
 namespace events = tpmkit::detail::esys::events;
 using startup_mode = tpmkit::tpm_context_config::startup_mode;
 
-class recording_observer final : public tpmkit::pcr_observer {
+class recording_observer final : public tpmkit::pcr::observer {
 public:
-    void on_event(tpmkit::pcr_index, gsl::span<const std::uint8_t>,
-                  const tpmkit::pcr_event_result&) noexcept final
+    void on_event(tpmkit::pcr::index, gsl::span<const std::uint8_t>,
+                  const tpmkit::pcr::event_result&) noexcept final
     {
         ++event_calls;
     }
 
-    void on_extend(const tpmkit::pcr_index index,
-                   const gsl::span<const tpmkit::pcr_digest_value> digests) noexcept final
+    void on_extend(const tpmkit::pcr::index index,
+                   const gsl::span<const tpmkit::pcr::digest_value> digests) noexcept final
     {
         extended_index = index.value();
         extended_digests.assign(digests.begin(), digests.end());
@@ -51,7 +51,7 @@ public:
     std::size_t event_calls{0U};
     std::size_t extend_calls{0U};
     std::uint8_t extended_index{0U};
-    std::vector<tpmkit::pcr_digest_value> extended_digests;
+    std::vector<tpmkit::pcr::digest_value> extended_digests;
 };
 
 TSS2_TCTI_CONTEXT_COMMON_V1* common(TSS2_TCTI_CONTEXT* const context) noexcept
@@ -148,9 +148,9 @@ std::vector<std::uint8_t> digest_bytes(const std::uint8_t seed)
     return bytes;
 }
 
-tpmkit::pcr_digest_value sha256_digest(const std::uint8_t seed)
+tpmkit::pcr::digest_value sha256_digest(const std::uint8_t seed)
 {
-    return tpmkit::pcr_digest_value{tpmkit::hash_algorithm::sha256, digest_bytes(seed)};
+    return tpmkit::pcr::digest_value{tpmkit::hash_algorithm::sha256, digest_bytes(seed)};
 }
 
 std::vector<std::uint8_t> extend_success_response()
@@ -212,7 +212,7 @@ TEST(tpm_context_pcr_provider, returns_resource_error_for_invalid_context)
 
 TEST(tpm_context_pcr_provider, provider_reads_through_port_interface)
 {
-    // Verifies a context-created provider works through the pcr_provider interface.
+    // Verifies a context-created provider works through the pcr::provider interface.
 
     tpmkit::testing::fake_tcti fake;
     const auto digest = digest_bytes(0x10U);
@@ -221,15 +221,15 @@ TEST(tpm_context_pcr_provider, provider_reads_through_port_interface)
     ASSERT_TRUE(context.has_value());
     auto provider = context.value().create_pcr_provider();
     ASSERT_TRUE(provider.has_value());
-    tpmkit::pcr_provider& port = *provider.value();
+    tpmkit::pcr::provider& port = *provider.value();
 
     const auto result = port.read(
-        tpmkit::pcr_selection{tpmkit::hash_algorithm::sha256, {tpmkit::pcr_index::debug}});
+        tpmkit::pcr::selection{tpmkit::hash_algorithm::sha256, {tpmkit::pcr::index::debug}});
 
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result.value().update_counter, 5U);
     ASSERT_EQ(result.value().values.size(), 1U);
-    EXPECT_EQ(result.value().values.front().index, tpmkit::pcr_index::debug);
+    EXPECT_EQ(result.value().values.front().index, tpmkit::pcr::index::debug);
     EXPECT_EQ(result.value().values.front().digest.digest(), digest);
 }
 
@@ -243,10 +243,10 @@ TEST(tpm_context_pcr_provider, provider_extends_with_null_observer_and_default_l
     ASSERT_TRUE(context.has_value());
     auto provider = context.value().create_pcr_provider(nullptr);
     ASSERT_TRUE(provider.has_value());
-    const tpmkit::pcr_digest_value digest = sha256_digest(0x20U);
+    const tpmkit::pcr::digest_value digest = sha256_digest(0x20U);
 
     const auto result =
-        provider.value()->extend(tpmkit::pcr_index::debug, gsl::make_span(&digest, 1U));
+        provider.value()->extend(tpmkit::pcr::index::debug, gsl::make_span(&digest, 1U));
 
     EXPECT_TRUE(result.has_value());
 }
@@ -262,10 +262,10 @@ TEST(tpm_context_pcr_provider, provider_notifies_non_null_observer)
     recording_observer observer;
     auto provider = context.value().create_pcr_provider(&observer);
     ASSERT_TRUE(provider.has_value());
-    const tpmkit::pcr_digest_value digest = sha256_digest(0x30U);
+    const tpmkit::pcr::digest_value digest = sha256_digest(0x30U);
 
     const auto result =
-        provider.value()->extend(tpmkit::pcr_index::debug, gsl::make_span(&digest, 1U));
+        provider.value()->extend(tpmkit::pcr::index::debug, gsl::make_span(&digest, 1U));
 
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(observer.extend_calls, 1U);
@@ -286,10 +286,10 @@ TEST(tpm_context_pcr_provider, provider_uses_context_logger)
     log->clear();
     auto provider = context.value().create_pcr_provider(nullptr);
     ASSERT_TRUE(provider.has_value());
-    const tpmkit::pcr_digest_value digest = sha256_digest(0x40U);
+    const tpmkit::pcr::digest_value digest = sha256_digest(0x40U);
 
     const auto result =
-        provider.value()->extend(tpmkit::pcr_index::debug, gsl::make_span(&digest, 1U));
+        provider.value()->extend(tpmkit::pcr::index::debug, gsl::make_span(&digest, 1U));
 
     ASSERT_TRUE(result.has_value());
     const auto records = log->snapshot();

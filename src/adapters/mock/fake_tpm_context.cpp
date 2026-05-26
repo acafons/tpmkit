@@ -114,8 +114,8 @@ const tpm_context_config& fake_tpm_context::last_config() const noexcept
     return config_;
 }
 
-outcome<std::unique_ptr<pcr_provider>>
-fake_tpm_context::create_pcr_provider(pcr_observer* const observer)
+outcome<std::unique_ptr<pcr::provider>>
+fake_tpm_context::create_pcr_provider(pcr::observer* const observer)
 {
     static_cast<void>(observer);
     return tl::unexpected(

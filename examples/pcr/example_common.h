@@ -126,12 +126,12 @@ constexpr std::string_view default_tcti_config = "tabrmd:bus_type=system";
     return bytes;
 }
 
-[[nodiscard]] inline std::set<pcr_index> make_pcr_range(const std::uint32_t first,
-                                                        const std::uint32_t count)
+[[nodiscard]] inline std::set<pcr::index> make_pcr_range(const std::uint32_t first,
+                                                         const std::uint32_t count)
 {
-    std::set<pcr_index> indices;
+    std::set<pcr::index> indices;
     for (std::uint32_t offset = 0U; offset < count; ++offset) {
-        indices.insert(pcr_index{first + offset});
+        indices.insert(pcr::index{first + offset});
     }
 
     return indices;
@@ -143,9 +143,9 @@ inline void print_error(const error& error_value)
 }
 
 [[nodiscard]] inline outcome<std::vector<std::uint8_t>>
-read_pcr_digest(pcr_provider& provider, const hash_algorithm algorithm, const pcr_index index)
+read_pcr_digest(pcr::provider& provider, const hash_algorithm algorithm, const pcr::index index)
 {
-    const auto read = provider.read(pcr_selection{algorithm, {index}});
+    const auto read = provider.read(pcr::selection{algorithm, {index}});
     if (!read.has_value()) {
         return tl::unexpected(read.error());
     }

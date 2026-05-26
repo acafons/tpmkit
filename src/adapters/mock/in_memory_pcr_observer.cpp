@@ -8,19 +8,19 @@ namespace tpmkit::testing {
 namespace {
 
 [[nodiscard]] pcr_measurement_record
-make_event_record(const pcr_index index, const gsl::span<const std::uint8_t> event_data,
-                  const pcr_event_result& result)
+make_event_record(const pcr::index index, const gsl::span<const std::uint8_t> event_data,
+                  const pcr::event_result& result)
 {
     return pcr_measurement_record{index, pcr_measurement_operation::event, result.digests,
                                   std::vector<std::uint8_t>{event_data.begin(), event_data.end()}};
 }
 
 [[nodiscard]] pcr_measurement_record
-make_extend_record(const pcr_index index, const gsl::span<const pcr_digest_value> digests)
+make_extend_record(const pcr::index index, const gsl::span<const pcr::digest_value> digests)
 {
     return pcr_measurement_record{index,
                                   pcr_measurement_operation::extend,
-                                  std::vector<pcr_digest_value>{digests.begin(), digests.end()},
+                                  std::vector<pcr::digest_value>{digests.begin(), digests.end()},
                                   {}};
 }
 
@@ -42,7 +42,7 @@ const std::vector<pcr_measurement_record>& in_memory_pcr_observer::entries() con
 }
 
 std::vector<pcr_measurement_record>
-in_memory_pcr_observer::entries_by_index(const pcr_index index) const
+in_memory_pcr_observer::entries_by_index(const pcr::index index) const
 {
     std::vector<pcr_measurement_record> matches;
     std::copy_if(records_.begin(), records_.end(), std::back_inserter(matches),
@@ -51,9 +51,9 @@ in_memory_pcr_observer::entries_by_index(const pcr_index index) const
     return matches;
 }
 
-void in_memory_pcr_observer::on_event(const pcr_index index,
+void in_memory_pcr_observer::on_event(const pcr::index index,
                                       const gsl::span<const std::uint8_t> event_data,
-                                      const pcr_event_result& result) noexcept
+                                      const pcr::event_result& result) noexcept
 {
     try {
         records_.emplace_back(make_event_record(index, event_data, result));
@@ -62,8 +62,8 @@ void in_memory_pcr_observer::on_event(const pcr_index index,
     }
 }
 
-void in_memory_pcr_observer::on_extend(const pcr_index index,
-                                       const gsl::span<const pcr_digest_value> digests) noexcept
+void in_memory_pcr_observer::on_extend(const pcr::index index,
+                                       const gsl::span<const pcr::digest_value> digests) noexcept
 {
     try {
         records_.emplace_back(make_extend_record(index, digests));

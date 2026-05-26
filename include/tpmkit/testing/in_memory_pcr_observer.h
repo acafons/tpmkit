@@ -48,11 +48,11 @@ enum class pcr_measurement_operation {
  */
 struct pcr_measurement_record {
     /** @brief Target PCR register. */
-    pcr_index index;
+    pcr::index index;
     /** @brief Operation that produced this record. */
     pcr_measurement_operation operation;
     /** @brief Extend input digests, or event result digests. */
-    std::vector<pcr_digest_value> digests;
+    std::vector<pcr::digest_value> digests;
     /** @brief Raw event bytes for PCR_Event; empty for PCR_Extend. */
     std::vector<std::uint8_t> event_data;
 };
@@ -68,10 +68,10 @@ struct pcr_measurement_record {
  * synchronization.
  * @exception_safety Observer callbacks are noexcept and drop records on
  * allocation failure; query methods follow `std::vector` guarantees.
- * @see pcr_observer
+ * @see pcr::observer
  * @since v0.1
  */
-class TPMKIT_TESTING_API in_memory_pcr_observer final : public pcr_observer {
+class TPMKIT_TESTING_API in_memory_pcr_observer final : public pcr::observer {
 public:
     /**
      * @brief Remove every captured measurement.
@@ -108,7 +108,7 @@ public:
      * @thread_safety Thread-compatible.
      * @exception_safety Strong; copy failure leaves the observer unchanged.
      */
-    [[nodiscard]] std::vector<pcr_measurement_record> entries_by_index(pcr_index index) const;
+    [[nodiscard]] std::vector<pcr_measurement_record> entries_by_index(pcr::index index) const;
 
     /**
      * @brief Capture one successful PCR event notification.
@@ -119,8 +119,8 @@ public:
      * @thread_safety Thread-compatible.
      * @exception_safety noexcept; allocation failures drop the record.
      */
-    void on_event(pcr_index index, gsl::span<const std::uint8_t> event_data,
-                  const pcr_event_result& result) noexcept final;
+    void on_event(pcr::index index, gsl::span<const std::uint8_t> event_data,
+                  const pcr::event_result& result) noexcept final;
 
     /**
      * @brief Capture one successful PCR extend notification.
@@ -130,7 +130,7 @@ public:
      * @thread_safety Thread-compatible.
      * @exception_safety noexcept; allocation failures drop the record.
      */
-    void on_extend(pcr_index index, gsl::span<const pcr_digest_value> digests) noexcept final;
+    void on_extend(pcr::index index, gsl::span<const pcr::digest_value> digests) noexcept final;
 
 private:
     std::vector<pcr_measurement_record> records_;

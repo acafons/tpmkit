@@ -17,9 +17,9 @@ namespace {
 
 } // namespace
 
-namespace tpmkit {
+namespace tpmkit::pcr {
 
-pcr_digest_value::pcr_digest_value(const hash_algorithm algorithm, std::vector<std::uint8_t> digest)
+digest_value::digest_value(const hash_algorithm algorithm, std::vector<std::uint8_t> digest)
     : algorithm_{algorithm}, digest_{std::move(digest)}
 {
     if (digest_.size() != validate_digest_size(algorithm_)) {
@@ -27,24 +27,24 @@ pcr_digest_value::pcr_digest_value(const hash_algorithm algorithm, std::vector<s
     }
 }
 
-hash_algorithm pcr_digest_value::algorithm() const noexcept
+hash_algorithm digest_value::algorithm() const noexcept
 {
     return algorithm_;
 }
 
-const std::vector<std::uint8_t>& pcr_digest_value::digest() const noexcept
+const std::vector<std::uint8_t>& digest_value::digest() const noexcept
 {
     return digest_;
 }
 
-bool pcr_digest_value::operator!=(const pcr_digest_value& other) const
+bool digest_value::operator!=(const digest_value& other) const
 {
     return !(*this == other);
 }
 
-bool pcr_digest_value::operator==(const pcr_digest_value& other) const
+bool digest_value::operator==(const digest_value& other) const
 {
     return algorithm_ == other.algorithm_ && digest_ == other.digest_;
 }
 
-} // namespace tpmkit
+} // namespace tpmkit::pcr

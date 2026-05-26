@@ -40,18 +40,18 @@ tpmkit::logger& default_log()
     return tpmkit::noop_logger::instance();
 }
 
-class recording_observer final : public tpmkit::pcr_observer {
+class recording_observer final : public tpmkit::pcr::observer {
 public:
-    void on_extend(const tpmkit::pcr_index index,
-                   const gsl::span<const tpmkit::pcr_digest_value> digests) noexcept final
+    void on_extend(const tpmkit::pcr::index index,
+                   const gsl::span<const tpmkit::pcr::digest_value> digests) noexcept final
     {
         extended_index = index.value();
         extended_digests.assign(digests.begin(), digests.end());
         ++extend_calls;
     }
 
-    void on_event(const tpmkit::pcr_index index, const gsl::span<const std::uint8_t> event_data,
-                  const tpmkit::pcr_event_result& result) noexcept final
+    void on_event(const tpmkit::pcr::index index, const gsl::span<const std::uint8_t> event_data,
+                  const tpmkit::pcr::event_result& result) noexcept final
     {
         event_index = index.value();
         event_bytes.assign(event_data.begin(), event_data.end());
@@ -64,8 +64,8 @@ public:
     std::uint8_t event_index{0U};
     std::uint8_t extended_index{0U};
     std::vector<std::uint8_t> event_bytes;
-    std::vector<tpmkit::pcr_digest_value> extended_digests;
-    tpmkit::pcr_event_result event_result;
+    std::vector<tpmkit::pcr::digest_value> extended_digests;
+    tpmkit::pcr::event_result event_result;
 };
 
 TSS2_TCTI_CONTEXT_COMMON_V1* common(TSS2_TCTI_CONTEXT* const context) noexcept
@@ -299,8 +299,8 @@ read_digest_count_mismatch_response(const std::vector<std::uint8_t>& digest)
     return response;
 }
 
-tpmkit::tpm_context_config
-owned_config(tpmkit::testing::fake_tcti& fake, std::shared_ptr<tpmkit::logger> log = nullptr)
+tpmkit::tpm_context_config owned_config(tpmkit::testing::fake_tcti& fake,
+                                        std::shared_ptr<tpmkit::logger> log = nullptr)
 {
     tpmkit::tpm_context_config config;
     config.tcti =
@@ -311,8 +311,8 @@ owned_config(tpmkit::testing::fake_tcti& fake, std::shared_ptr<tpmkit::logger> l
     return config;
 }
 
-std::unique_ptr<tpmkit::pcr_provider>
-require_pcr_provider(tpmkit::tpm_context& context, tpmkit::pcr_observer* const observer = nullptr)
+std::unique_ptr<tpmkit::pcr::provider>
+require_pcr_provider(tpmkit::tpm_context& context, tpmkit::pcr::observer* const observer = nullptr)
 {
     auto provider = context.create_pcr_provider(observer);
     if (!provider.has_value()) {
@@ -404,9 +404,9 @@ std::vector<std::uint8_t> digest_bytes(const std::uint8_t seed)
     return bytes;
 }
 
-tpmkit::pcr_digest_value sha256_digest(const std::uint8_t seed)
+tpmkit::pcr::digest_value sha256_digest(const std::uint8_t seed)
 {
-    return tpmkit::pcr_digest_value{tpmkit::hash_algorithm::sha256, digest_bytes(seed)};
+    return tpmkit::pcr::digest_value{tpmkit::hash_algorithm::sha256, digest_bytes(seed)};
 }
 
 TEST(esys_pcr_provider, read_translates_selection_and_returns_result)
@@ -422,15 +422,15 @@ TEST(esys_pcr_provider, read_translates_selection_and_returns_result)
     log->clear();
     auto provider_owner = require_pcr_provider(context.value());
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
+    tpmkit::pcr::provider& provider = *provider_owner;
 
     const auto result = provider.read(
-        tpmkit::pcr_selection{tpmkit::hash_algorithm::sha256, {tpmkit::pcr_index::debug}});
+        tpmkit::pcr::selection{tpmkit::hash_algorithm::sha256, {tpmkit::pcr::index::debug}});
 
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result.value().update_counter, 7U);
     ASSERT_EQ(result.value().values.size(), 1U);
-    EXPECT_EQ(result.value().values.front().index, tpmkit::pcr_index::debug);
+    EXPECT_EQ(result.value().values.front().index, tpmkit::pcr::index::debug);
     EXPECT_EQ(result.value().values.front().digest.digest(), digest);
     const auto commands = fake.transmitted_commands();
     ASSERT_EQ(commands.size(), 1U);
@@ -448,10 +448,10 @@ TEST(esys_pcr_provider, read_uses_four_byte_selection_for_high_pcr_index)
     ASSERT_TRUE(context.has_value());
     auto provider_owner = require_pcr_provider(context.value());
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
+    tpmkit::pcr::provider& provider = *provider_owner;
 
     const auto result = provider.read(
-        tpmkit::pcr_selection{tpmkit::hash_algorithm::sha256, {tpmkit::pcr_index{31U}}});
+        tpmkit::pcr::selection{tpmkit::hash_algorithm::sha256, {tpmkit::pcr::index{31U}}});
 
     ASSERT_TRUE(result.has_value());
     const auto commands = fake.transmitted_commands();
@@ -471,10 +471,10 @@ TEST(esys_pcr_provider, read_returns_resource_error_for_transport_failure)
     ASSERT_TRUE(context.has_value());
     auto provider_owner = require_pcr_provider(context.value());
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
+    tpmkit::pcr::provider& provider = *provider_owner;
 
     const auto result = provider.read(
-        tpmkit::pcr_selection{tpmkit::hash_algorithm::sha256, {tpmkit::pcr_index::debug}});
+        tpmkit::pcr::selection{tpmkit::hash_algorithm::sha256, {tpmkit::pcr::index::debug}});
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().category, tpmkit::error_category::resource_error);
@@ -490,10 +490,10 @@ TEST(esys_pcr_provider, read_returns_backend_error_for_unexpected_tpm_code)
     ASSERT_TRUE(context.has_value());
     auto provider_owner = require_pcr_provider(context.value());
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
+    tpmkit::pcr::provider& provider = *provider_owner;
 
     const auto result = provider.read(
-        tpmkit::pcr_selection{tpmkit::hash_algorithm::sha256, {tpmkit::pcr_index::debug}});
+        tpmkit::pcr::selection{tpmkit::hash_algorithm::sha256, {tpmkit::pcr::index::debug}});
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().category, tpmkit::error_category::backend_error);
@@ -509,10 +509,10 @@ TEST(esys_pcr_provider, read_rejects_digest_count_mismatch_from_tpm)
     ASSERT_TRUE(context.has_value());
     auto provider_owner = require_pcr_provider(context.value());
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
+    tpmkit::pcr::provider& provider = *provider_owner;
 
-    const auto result = provider.read(tpmkit::pcr_selection{
-        tpmkit::hash_algorithm::sha256, {tpmkit::pcr_index::debug, tpmkit::pcr_index::drtm_17}});
+    const auto result = provider.read(tpmkit::pcr::selection{
+        tpmkit::hash_algorithm::sha256, {tpmkit::pcr::index::debug, tpmkit::pcr::index::drtm_17}});
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().category, tpmkit::error_category::backend_error);
@@ -530,10 +530,10 @@ TEST(esys_pcr_provider, read_emits_success_log_fields)
     log->clear();
     auto provider_owner = require_pcr_provider(context.value());
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
+    tpmkit::pcr::provider& provider = *provider_owner;
 
     const auto result = provider.read(
-        tpmkit::pcr_selection{tpmkit::hash_algorithm::sha256, {tpmkit::pcr_index::debug}});
+        tpmkit::pcr::selection{tpmkit::hash_algorithm::sha256, {tpmkit::pcr::index::debug}});
 
     ASSERT_TRUE(result.has_value());
     const auto records = log->snapshot();
@@ -553,9 +553,9 @@ TEST(esys_pcr_provider, read_accepts_empty_actual_selection)
     ASSERT_TRUE(context.has_value());
     auto provider_owner = require_pcr_provider(context.value());
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
+    tpmkit::pcr::provider& provider = *provider_owner;
 
-    const auto result = provider.read(tpmkit::pcr_selection{tpmkit::hash_algorithm::sha256});
+    const auto result = provider.read(tpmkit::pcr::selection{tpmkit::hash_algorithm::sha256});
 
     ASSERT_TRUE(result.has_value());
     EXPECT_TRUE(result.value().actual_selection.indices().empty());
@@ -572,10 +572,10 @@ TEST(esys_pcr_provider, read_rejects_bad_digest_size_from_tpm)
     ASSERT_TRUE(context.has_value());
     auto provider_owner = require_pcr_provider(context.value());
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
+    tpmkit::pcr::provider& provider = *provider_owner;
 
     const auto result = provider.read(
-        tpmkit::pcr_selection{tpmkit::hash_algorithm::sha256, {tpmkit::pcr_index::debug}});
+        tpmkit::pcr::selection{tpmkit::hash_algorithm::sha256, {tpmkit::pcr::index::debug}});
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().category, tpmkit::error_category::backend_error);
@@ -587,7 +587,7 @@ TEST(esys_pcr_provider, read_rejects_missing_esys_context)
 
     tpmkit::detail::esys::esys_pcr_provider provider{nullptr, default_log(), nullptr};
 
-    const auto result = provider.read(tpmkit::pcr_selection{tpmkit::hash_algorithm::sha256});
+    const auto result = provider.read(tpmkit::pcr::selection{tpmkit::hash_algorithm::sha256});
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().category, tpmkit::error_category::resource_error);
@@ -604,10 +604,10 @@ TEST(esys_pcr_provider, extend_translates_digest_and_calls_observer)
     recording_observer observer;
     auto provider_owner = require_pcr_provider(context.value(), &observer);
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
-    const tpmkit::pcr_digest_value digest = sha256_digest(0x30U);
+    tpmkit::pcr::provider& provider = *provider_owner;
+    const tpmkit::pcr::digest_value digest = sha256_digest(0x30U);
 
-    const auto result = provider.extend(tpmkit::pcr_index::debug, gsl::make_span(&digest, 1U));
+    const auto result = provider.extend(tpmkit::pcr::index::debug, gsl::make_span(&digest, 1U));
 
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(observer.extend_calls, 1U);
@@ -625,9 +625,9 @@ TEST(esys_pcr_provider, extend_rejects_missing_esys_context)
     // Verifies PCR extend requires an ESYS context.
 
     tpmkit::detail::esys::esys_pcr_provider provider{nullptr, default_log(), nullptr};
-    const tpmkit::pcr_digest_value digest = sha256_digest(0x38U);
+    const tpmkit::pcr::digest_value digest = sha256_digest(0x38U);
 
-    const auto result = provider.extend(tpmkit::pcr_index::debug, gsl::make_span(&digest, 1U));
+    const auto result = provider.extend(tpmkit::pcr::index::debug, gsl::make_span(&digest, 1U));
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().category, tpmkit::error_category::resource_error);
@@ -642,14 +642,14 @@ TEST(esys_pcr_provider, extend_rejects_too_many_digests)
     ASSERT_TRUE(context.has_value());
     auto provider_owner = require_pcr_provider(context.value());
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
-    std::vector<tpmkit::pcr_digest_value> digests;
+    tpmkit::pcr::provider& provider = *provider_owner;
+    std::vector<tpmkit::pcr::digest_value> digests;
     digests.reserve(TPM2_NUM_PCR_BANKS + 1U);
     for (std::size_t index = 0U; index < TPM2_NUM_PCR_BANKS + 1U; ++index) {
         digests.push_back(sha256_digest(static_cast<std::uint8_t>(0x39U + index)));
     }
 
-    const auto result = provider.extend(tpmkit::pcr_index::debug, digests);
+    const auto result = provider.extend(tpmkit::pcr::index::debug, digests);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().category, tpmkit::error_category::input_error);
@@ -665,10 +665,10 @@ TEST(esys_pcr_provider, extend_rejects_empty_digest_list_before_dispatch)
     ASSERT_TRUE(context.has_value());
     auto provider_owner = require_pcr_provider(context.value());
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
+    tpmkit::pcr::provider& provider = *provider_owner;
 
-    const auto result = provider.extend(
-        tpmkit::pcr_index::debug, gsl::span<const tpmkit::pcr_digest_value>{});
+    const auto result =
+        provider.extend(tpmkit::pcr::index::debug, gsl::span<const tpmkit::pcr::digest_value>{});
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().category, tpmkit::error_category::input_error);
@@ -684,11 +684,11 @@ TEST(esys_pcr_provider, extend_rejects_duplicate_digest_algorithms_before_dispat
     ASSERT_TRUE(context.has_value());
     auto provider_owner = require_pcr_provider(context.value());
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
-    const std::array<tpmkit::pcr_digest_value, 2U> digests{
+    tpmkit::pcr::provider& provider = *provider_owner;
+    const std::array<tpmkit::pcr::digest_value, 2U> digests{
         {sha256_digest(0x01U), sha256_digest(0x02U)}};
 
-    const auto result = provider.extend(tpmkit::pcr_index::debug, gsl::make_span(digests));
+    const auto result = provider.extend(tpmkit::pcr::index::debug, gsl::make_span(digests));
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().category, tpmkit::error_category::input_error);
@@ -706,10 +706,10 @@ TEST(esys_pcr_provider, extend_does_not_call_observer_on_failure)
     recording_observer observer;
     auto provider_owner = require_pcr_provider(context.value(), &observer);
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
-    const tpmkit::pcr_digest_value digest = sha256_digest(0x40U);
+    tpmkit::pcr::provider& provider = *provider_owner;
+    const tpmkit::pcr::digest_value digest = sha256_digest(0x40U);
 
-    const auto result = provider.extend(tpmkit::pcr_index::debug, gsl::make_span(&digest, 1U));
+    const auto result = provider.extend(tpmkit::pcr::index::debug, gsl::make_span(&digest, 1U));
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(observer.extend_calls, 0U);
@@ -722,7 +722,7 @@ TEST(esys_pcr_provider, event_rejects_missing_esys_context)
     tpmkit::detail::esys::esys_pcr_provider provider{nullptr, default_log(), nullptr};
     const std::vector<std::uint8_t> event_data{0x01U};
 
-    const auto result = provider.event(tpmkit::pcr_index::debug, event_data);
+    const auto result = provider.event(tpmkit::pcr::index::debug, event_data);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().category, tpmkit::error_category::resource_error);
@@ -737,10 +737,10 @@ TEST(esys_pcr_provider, event_rejects_oversized_event_data)
     ASSERT_TRUE(context.has_value());
     auto provider_owner = require_pcr_provider(context.value());
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
+    tpmkit::pcr::provider& provider = *provider_owner;
     const std::vector<std::uint8_t> event_data(sizeof(TPM2B_EVENT::buffer) + 1U, 0xabU);
 
-    const auto result = provider.event(tpmkit::pcr_index::debug, event_data);
+    const auto result = provider.event(tpmkit::pcr::index::debug, event_data);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().category, tpmkit::error_category::input_error);
@@ -758,10 +758,10 @@ TEST(esys_pcr_provider, event_returns_error_without_observer_on_failure)
     recording_observer observer;
     auto provider_owner = require_pcr_provider(context.value(), &observer);
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
+    tpmkit::pcr::provider& provider = *provider_owner;
     const std::vector<std::uint8_t> event_data{0x02U};
 
-    const auto result = provider.event(tpmkit::pcr_index::debug, event_data);
+    const auto result = provider.event(tpmkit::pcr::index::debug, event_data);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(observer.event_calls, 0U);
@@ -778,10 +778,10 @@ TEST(esys_pcr_provider, event_rejects_unknown_digest_algorithm_from_tpm)
     ASSERT_TRUE(context.has_value());
     auto provider_owner = require_pcr_provider(context.value());
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
+    tpmkit::pcr::provider& provider = *provider_owner;
     const std::vector<std::uint8_t> event_data{0x03U};
 
-    const auto result = provider.event(tpmkit::pcr_index::debug, event_data);
+    const auto result = provider.event(tpmkit::pcr::index::debug, event_data);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().category, tpmkit::error_category::backend_error);
@@ -797,10 +797,10 @@ TEST(esys_pcr_provider, extend_succeeds_with_null_observer)
     ASSERT_TRUE(context.has_value());
     auto provider_owner = require_pcr_provider(context.value());
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
-    const tpmkit::pcr_digest_value digest = sha256_digest(0x50U);
+    tpmkit::pcr::provider& provider = *provider_owner;
+    const tpmkit::pcr::digest_value digest = sha256_digest(0x50U);
 
-    const auto result = provider.extend(tpmkit::pcr_index::debug, gsl::make_span(&digest, 1U));
+    const auto result = provider.extend(tpmkit::pcr::index::debug, gsl::make_span(&digest, 1U));
 
     EXPECT_TRUE(result.has_value());
 }
@@ -817,10 +817,10 @@ TEST(esys_pcr_provider, extend_emits_success_log_fields)
     log->clear();
     auto provider_owner = require_pcr_provider(context.value());
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
-    const tpmkit::pcr_digest_value digest = sha256_digest(0x60U);
+    tpmkit::pcr::provider& provider = *provider_owner;
+    const tpmkit::pcr::digest_value digest = sha256_digest(0x60U);
 
-    const auto result = provider.extend(tpmkit::pcr_index::debug, gsl::make_span(&digest, 1U));
+    const auto result = provider.extend(tpmkit::pcr::index::debug, gsl::make_span(&digest, 1U));
 
     ASSERT_TRUE(result.has_value());
     const auto records = log->snapshot();
@@ -841,10 +841,10 @@ TEST(esys_pcr_provider, event_passes_event_data_and_returns_result)
     ASSERT_TRUE(context.has_value());
     auto provider_owner = require_pcr_provider(context.value());
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
+    tpmkit::pcr::provider& provider = *provider_owner;
     const std::vector<std::uint8_t> event_data{0xa0U, 0xa1U, 0xa2U, 0xa3U};
 
-    const auto result = provider.event(tpmkit::pcr_index::debug, event_data);
+    const auto result = provider.event(tpmkit::pcr::index::debug, event_data);
 
     ASSERT_TRUE(result.has_value());
     ASSERT_EQ(result.value().digests.size(), 1U);
@@ -867,10 +867,10 @@ TEST(esys_pcr_provider, event_calls_observer_with_result)
     recording_observer observer;
     auto provider_owner = require_pcr_provider(context.value(), &observer);
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
+    tpmkit::pcr::provider& provider = *provider_owner;
     const std::vector<std::uint8_t> event_data{0xb0U, 0xb1U};
 
-    const auto result = provider.event(tpmkit::pcr_index::debug, event_data);
+    const auto result = provider.event(tpmkit::pcr::index::debug, event_data);
 
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(observer.event_calls, 1U);
@@ -891,10 +891,10 @@ TEST(esys_pcr_provider, event_emits_success_log_fields)
     log->clear();
     auto provider_owner = require_pcr_provider(context.value());
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
+    tpmkit::pcr::provider& provider = *provider_owner;
     const std::vector<std::uint8_t> event_data{0xc0U, 0xc1U, 0xc2U};
 
-    const auto result = provider.event(tpmkit::pcr_index::debug, event_data);
+    const auto result = provider.event(tpmkit::pcr::index::debug, event_data);
 
     ASSERT_TRUE(result.has_value());
     const auto records = log->snapshot();
@@ -916,10 +916,10 @@ TEST(esys_pcr_provider, failure_emits_pcr_tss_error_without_measurement_bytes)
     log->clear();
     auto provider_owner = require_pcr_provider(context.value());
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
-    const tpmkit::pcr_digest_value digest = sha256_digest(0xd0U);
+    tpmkit::pcr::provider& provider = *provider_owner;
+    const tpmkit::pcr::digest_value digest = sha256_digest(0xd0U);
 
-    const auto result = provider.extend(tpmkit::pcr_index::debug, gsl::make_span(&digest, 1U));
+    const auto result = provider.extend(tpmkit::pcr::index::debug, gsl::make_span(&digest, 1U));
 
     ASSERT_FALSE(result.has_value());
     const auto records = log->snapshot();
@@ -941,9 +941,9 @@ TEST(esys_pcr_provider, reset_succeeds_for_resettable_pcr)
     ASSERT_TRUE(context.has_value());
     auto provider_owner = require_pcr_provider(context.value());
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
+    tpmkit::pcr::provider& provider = *provider_owner;
 
-    const auto reset = provider.reset(tpmkit::pcr_index::debug);
+    const auto reset = provider.reset(tpmkit::pcr::index::debug);
 
     ASSERT_TRUE(reset.has_value());
     const auto commands = fake.transmitted_commands();
@@ -961,9 +961,9 @@ TEST(esys_pcr_provider, reset_returns_resource_error_for_non_resettable_pcr)
     ASSERT_TRUE(context.has_value());
     auto provider_owner = require_pcr_provider(context.value());
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
+    tpmkit::pcr::provider& provider = *provider_owner;
 
-    const auto reset = provider.reset(tpmkit::pcr_index::firmware_0);
+    const auto reset = provider.reset(tpmkit::pcr::index::firmware_0);
 
     ASSERT_FALSE(reset.has_value());
     EXPECT_EQ(reset.error().category, tpmkit::error_category::resource_error);
@@ -981,9 +981,9 @@ TEST(esys_pcr_provider, reset_emits_success_log_fields)
     log->clear();
     auto provider_owner = require_pcr_provider(context.value());
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
+    tpmkit::pcr::provider& provider = *provider_owner;
 
-    const auto reset = provider.reset(tpmkit::pcr_index::debug);
+    const auto reset = provider.reset(tpmkit::pcr::index::debug);
 
     ASSERT_TRUE(reset.has_value());
     const auto records = log->snapshot();
@@ -1002,10 +1002,10 @@ TEST(esys_pcr_provider, set_auth_policy_uses_platform_authorization)
     ASSERT_TRUE(context.has_value());
     auto provider_owner = require_pcr_provider(context.value());
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
+    tpmkit::pcr::provider& provider = *provider_owner;
     const auto policy_digest = digest_bytes(0xe0U);
 
-    const auto result = provider.set_auth_policy(tpmkit::pcr_index::debug,
+    const auto result = provider.set_auth_policy(tpmkit::pcr::index::debug,
                                                  tpmkit::hash_algorithm::sha256, policy_digest);
 
     ASSERT_TRUE(result.has_value());
@@ -1026,10 +1026,10 @@ TEST(esys_pcr_provider, set_auth_policy_returns_error_when_platform_auth_unavail
     ASSERT_TRUE(context.has_value());
     auto provider_owner = require_pcr_provider(context.value());
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
+    tpmkit::pcr::provider& provider = *provider_owner;
     const auto policy_digest = digest_bytes(0xe4U);
 
-    const auto result = provider.set_auth_policy(tpmkit::pcr_index::debug,
+    const auto result = provider.set_auth_policy(tpmkit::pcr::index::debug,
                                                  tpmkit::hash_algorithm::sha256, policy_digest);
 
     ASSERT_FALSE(result.has_value());
@@ -1045,11 +1045,11 @@ TEST(esys_pcr_provider, set_auth_policy_rejects_invalid_algorithm_before_dispatc
     ASSERT_TRUE(context.has_value());
     auto provider_owner = require_pcr_provider(context.value());
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
+    tpmkit::pcr::provider& provider = *provider_owner;
     const std::array<std::uint8_t, 1U> policy_digest{{0x01U}};
 
     const auto result =
-        provider.set_auth_policy(tpmkit::pcr_index::debug, static_cast<tpmkit::hash_algorithm>(99),
+        provider.set_auth_policy(tpmkit::pcr::index::debug, static_cast<tpmkit::hash_algorithm>(99),
                                  gsl::make_span(policy_digest));
 
     ASSERT_FALSE(result.has_value());
@@ -1069,10 +1069,10 @@ TEST(esys_pcr_provider, set_auth_policy_emits_success_log_fields)
     log->clear();
     auto provider_owner = require_pcr_provider(context.value());
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
+    tpmkit::pcr::provider& provider = *provider_owner;
     const auto policy_digest = digest_bytes(0xe8U);
 
-    const auto result = provider.set_auth_policy(tpmkit::pcr_index::debug,
+    const auto result = provider.set_auth_policy(tpmkit::pcr::index::debug,
                                                  tpmkit::hash_algorithm::sha256, policy_digest);
 
     ASSERT_TRUE(result.has_value());
@@ -1092,10 +1092,10 @@ TEST(esys_pcr_provider, set_auth_value_rejects_non_empty_auth_without_secure_tra
     ASSERT_TRUE(context.has_value());
     auto provider_owner = require_pcr_provider(context.value());
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
+    tpmkit::pcr::provider& provider = *provider_owner;
     tpmkit::secret_buffer auth{std::vector<std::uint8_t>{0x73U, 0x65U, 0x6bU, 0x72U, 0x69U, 0x74U}};
 
-    const auto result = provider.set_auth_value(tpmkit::pcr_index::debug, std::move(auth));
+    const auto result = provider.set_auth_value(tpmkit::pcr::index::debug, std::move(auth));
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().category, tpmkit::error_category::resource_error);
@@ -1113,11 +1113,11 @@ TEST(esys_pcr_provider, set_auth_value_does_not_dispatch_non_empty_auth_material
     ASSERT_TRUE(context.has_value());
     auto provider_owner = require_pcr_provider(context.value());
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
+    tpmkit::pcr::provider& provider = *provider_owner;
     std::vector<std::uint8_t> owned_secret = secret;
     tpmkit::secret_buffer auth{std::move(owned_secret)};
 
-    const auto result = provider.set_auth_value(tpmkit::pcr_index::debug, std::move(auth));
+    const auto result = provider.set_auth_value(tpmkit::pcr::index::debug, std::move(auth));
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().category, tpmkit::error_category::resource_error);
@@ -1137,10 +1137,10 @@ TEST(esys_pcr_provider, set_auth_value_emits_success_log_without_auth_value)
     log->clear();
     auto provider_owner = require_pcr_provider(context.value());
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
+    tpmkit::pcr::provider& provider = *provider_owner;
     tpmkit::secret_buffer auth;
 
-    const auto result = provider.set_auth_value(tpmkit::pcr_index::debug, std::move(auth));
+    const auto result = provider.set_auth_value(tpmkit::pcr::index::debug, std::move(auth));
 
     ASSERT_TRUE(result.has_value());
     const auto commands = fake.transmitted_commands();
@@ -1166,14 +1166,14 @@ TEST(esys_pcr_provider, auth_operation_logs_do_not_leak_secret_material)
     log->clear();
     auto provider_owner = require_pcr_provider(context.value());
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
+    tpmkit::pcr::provider& provider = *provider_owner;
     std::vector<std::uint8_t> owned_secret = secret;
     tpmkit::secret_buffer auth{std::move(owned_secret)};
     const auto policy_digest = digest_bytes(0xdeU);
 
-    const auto auth_value = provider.set_auth_value(tpmkit::pcr_index::debug, std::move(auth));
+    const auto auth_value = provider.set_auth_value(tpmkit::pcr::index::debug, std::move(auth));
     const auto auth_policy = provider.set_auth_policy(
-        tpmkit::pcr_index::debug, tpmkit::hash_algorithm::sha256, policy_digest);
+        tpmkit::pcr::index::debug, tpmkit::hash_algorithm::sha256, policy_digest);
 
     ASSERT_FALSE(auth_value.has_value());
     ASSERT_TRUE(auth_policy.has_value());
@@ -1192,9 +1192,9 @@ TEST(esys_pcr_provider, allocate_translates_bank_list_to_full_pcr_selections)
     ASSERT_TRUE(context.has_value());
     auto provider_owner = require_pcr_provider(context.value());
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
-    std::array<tpmkit::pcr_bank, 2U> banks{{tpmkit::pcr_bank{tpmkit::hash_algorithm::sha256},
-                                            tpmkit::pcr_bank{tpmkit::hash_algorithm::sha384}}};
+    tpmkit::pcr::provider& provider = *provider_owner;
+    std::array<tpmkit::pcr::bank, 2U> banks{{tpmkit::pcr::bank{tpmkit::hash_algorithm::sha256},
+                                             tpmkit::pcr::bank{tpmkit::hash_algorithm::sha384}}};
 
     const auto allocate = provider.allocate(gsl::make_span(banks));
 
@@ -1218,8 +1218,8 @@ TEST(esys_pcr_provider, allocate_returns_result_fields_on_success)
     ASSERT_TRUE(context.has_value());
     auto provider_owner = require_pcr_provider(context.value());
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
-    std::array<tpmkit::pcr_bank, 1U> banks{{tpmkit::pcr_bank{tpmkit::hash_algorithm::sha256}}};
+    tpmkit::pcr::provider& provider = *provider_owner;
+    std::array<tpmkit::pcr::bank, 1U> banks{{tpmkit::pcr::bank{tpmkit::hash_algorithm::sha256}}};
 
     const auto allocate = provider.allocate(gsl::make_span(banks));
 
@@ -1239,10 +1239,10 @@ TEST(esys_pcr_provider, allocate_rejects_duplicate_banks_before_dispatch)
     ASSERT_TRUE(context.has_value());
     auto provider_owner = require_pcr_provider(context.value());
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
-    const std::array<tpmkit::pcr_bank, 2U> banks{
-        {tpmkit::pcr_bank{tpmkit::hash_algorithm::sha256},
-         tpmkit::pcr_bank{tpmkit::hash_algorithm::sha256}}};
+    tpmkit::pcr::provider& provider = *provider_owner;
+    const std::array<tpmkit::pcr::bank, 2U> banks{
+        {tpmkit::pcr::bank{tpmkit::hash_algorithm::sha256},
+         tpmkit::pcr::bank{tpmkit::hash_algorithm::sha256}}};
 
     const auto allocate = provider.allocate(gsl::make_span(banks));
 
@@ -1260,9 +1260,9 @@ TEST(esys_pcr_provider, allocate_rejects_empty_bank_list_before_dispatch)
     ASSERT_TRUE(context.has_value());
     auto provider_owner = require_pcr_provider(context.value());
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
+    tpmkit::pcr::provider& provider = *provider_owner;
 
-    const auto allocate = provider.allocate(gsl::span<const tpmkit::pcr_bank>{});
+    const auto allocate = provider.allocate(gsl::span<const tpmkit::pcr::bank>{});
 
     ASSERT_FALSE(allocate.has_value());
     EXPECT_EQ(allocate.error().category, tpmkit::error_category::input_error);
@@ -1279,8 +1279,8 @@ TEST(esys_pcr_provider, allocate_returns_security_failure_when_platform_auth_una
     ASSERT_TRUE(context.has_value());
     auto provider_owner = require_pcr_provider(context.value());
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
-    std::array<tpmkit::pcr_bank, 1U> banks{{tpmkit::pcr_bank{tpmkit::hash_algorithm::sha256}}};
+    tpmkit::pcr::provider& provider = *provider_owner;
+    std::array<tpmkit::pcr::bank, 1U> banks{{tpmkit::pcr::bank{tpmkit::hash_algorithm::sha256}}};
 
     const auto allocate = provider.allocate(gsl::make_span(banks));
 
@@ -1298,8 +1298,8 @@ TEST(esys_pcr_provider, allocate_handles_partial_allocation_result)
     ASSERT_TRUE(context.has_value());
     auto provider_owner = require_pcr_provider(context.value());
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
-    std::array<tpmkit::pcr_bank, 1U> banks{{tpmkit::pcr_bank{tpmkit::hash_algorithm::sha512}}};
+    tpmkit::pcr::provider& provider = *provider_owner;
+    std::array<tpmkit::pcr::bank, 1U> banks{{tpmkit::pcr::bank{tpmkit::hash_algorithm::sha512}}};
 
     const auto allocate = provider.allocate(gsl::make_span(banks));
 
@@ -1322,8 +1322,8 @@ TEST(esys_pcr_provider, allocate_emits_success_log_fields)
     log->clear();
     auto provider_owner = require_pcr_provider(context.value());
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
-    std::array<tpmkit::pcr_bank, 1U> banks{{tpmkit::pcr_bank{tpmkit::hash_algorithm::sha384}}};
+    tpmkit::pcr::provider& provider = *provider_owner;
+    std::array<tpmkit::pcr::bank, 1U> banks{{tpmkit::pcr::bank{tpmkit::hash_algorithm::sha384}}};
 
     const auto allocate = provider.allocate(gsl::make_span(banks));
 
@@ -1347,8 +1347,8 @@ TEST(esys_pcr_provider, allocate_emits_pcr_tss_error_on_failure)
     log->clear();
     auto provider_owner = require_pcr_provider(context.value());
     ASSERT_NE(provider_owner, nullptr);
-    tpmkit::pcr_provider& provider = *provider_owner;
-    std::array<tpmkit::pcr_bank, 1U> banks{{tpmkit::pcr_bank{tpmkit::hash_algorithm::sha256}}};
+    tpmkit::pcr::provider& provider = *provider_owner;
+    std::array<tpmkit::pcr::bank, 1U> banks{{tpmkit::pcr::bank{tpmkit::hash_algorithm::sha256}}};
 
     const auto allocate = provider.allocate(gsl::make_span(banks));
 

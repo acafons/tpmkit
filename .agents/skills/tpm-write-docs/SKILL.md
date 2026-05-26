@@ -29,6 +29,12 @@ Apply this skill in order on every documentation change:
 
 - Doxygen comments live with the **declaration**. For anything declared in a header, the comment goes in the header. For things defined only in a `.cpp` (file-local helpers, functions in an anonymous namespace), the comment goes in the `.cpp` next to the definition. Consumers should be able to read the contract without opening the implementation file.
 - Public headers begin with an `@file` Doxygen block — `@file <relative/path/file.h>`, a one-line `@brief`, and a short summary when the file groups several related types. Without it, generated per-file pages are bare filenames and consumers lose the entry point into the documentation.
+- Public component families document the nested namespace and include folder
+  together. A header under `include/tpmkit/pcr/` documents symbols as
+  `tpmkit::pcr::*`; future `nv` and `key` headers should document
+  `tpmkit::nv::*` and `tpmkit::key::*`. Examples and `@see` links use the
+  nested names directly, with no root-level compatibility aliases unless a
+  compatibility plan explicitly added them.
 - Every public class, function, type alias, and enum has a Doxygen comment. For public enums, document the enumeration *and* every enumerator — the values *are* the contract (`algorithm_id::ecdsa_p256`, `error::category::security_failure`, `tpm_startup_mode::clear` each carry meaning a consumer cannot infer from the enum's name alone).
 - Every public function documents:
   - Each parameter — purpose, valid range, ownership.
@@ -55,7 +61,7 @@ Do not use `@author`, `@date`, `@version`, or `@copyright` in source — authors
 
 ## Doxygen templates
 
-Use the templates below as the *shape* of a Doxygen block. Public types include a usage example and a `@see` chain so consumers can navigate from one type to its collaborators; internal types stay slim. All identifiers follow the project's `snake_case` convention (`code-standards.md`); ports do not carry an `I*` or `_interface` suffix (`tpm-write-code` "Naming").
+Use the templates below as the *shape* of a Doxygen block. Public types include a usage example and a `@see` chain so consumers can navigate from one type to its collaborators; internal types stay slim. All identifiers follow the project's `snake_case` convention (`code-standards.md`); ports do not carry an `I*` or `_interface` suffix (`tpm-write-code` "Naming"). For component namespaces, document the unprefixed type inside the namespace, such as `tpmkit::pcr::provider`, not a root-level `pcr_provider`.
 
 ### Public headers
 

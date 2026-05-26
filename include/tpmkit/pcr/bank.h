@@ -10,7 +10,7 @@
 
 #include <cstddef>
 
-namespace tpmkit {
+namespace tpmkit::pcr {
 
 /**
  * @brief Immutable PCR bank descriptor.
@@ -24,7 +24,7 @@ namespace tpmkit {
  * comparisons are noexcept.
  * @since v0.1
  */
-class TPMKIT_API pcr_bank final {
+class TPMKIT_API bank final {
 public:
     /**
      * @brief Construct a bank descriptor for a supported hash algorithm.
@@ -34,7 +34,7 @@ public:
      * @thread_safety Thread-compatible.
      * @exception_safety Strong; invalid input does not create an instance.
      */
-    explicit pcr_bank(hash_algorithm algorithm);
+    explicit bank(hash_algorithm algorithm);
 
     /**
      * @brief Return the bank hash algorithm.
@@ -55,14 +55,14 @@ public:
     [[nodiscard]] std::size_t digest_size() const noexcept;
 
     /** @brief Compare banks by algorithm and digest size. */
-    [[nodiscard]] bool operator!=(const pcr_bank& other) const noexcept;
+    [[nodiscard]] bool operator!=(const bank& other) const noexcept;
 
     /** @brief Compare banks by algorithm and digest size. */
-    [[nodiscard]] bool operator==(const pcr_bank& other) const noexcept;
+    [[nodiscard]] bool operator==(const bank& other) const noexcept;
 
 private:
     hash_algorithm algorithm_;
     std::size_t digest_size_;
 };
 
-} // namespace tpmkit
+} // namespace tpmkit::pcr

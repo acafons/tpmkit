@@ -12,7 +12,7 @@
 #include <initializer_list>
 #include <set>
 
-namespace tpmkit {
+namespace tpmkit::pcr {
 
 /**
  * @brief Immutable PCR selection for one hash algorithm bank.
@@ -26,7 +26,7 @@ namespace tpmkit {
  * noexcept. Comparisons follow `std::set` guarantees.
  * @since v0.1
  */
-class TPMKIT_API pcr_selection final {
+class TPMKIT_API selection final {
 public:
     /**
      * @brief Construct an empty selection for one bank.
@@ -36,7 +36,7 @@ public:
      * @thread_safety Thread-compatible.
      * @exception_safety Strong; invalid input does not create an instance.
      */
-    explicit pcr_selection(hash_algorithm algorithm);
+    explicit selection(hash_algorithm algorithm);
 
     /**
      * @brief Construct a selection from an initializer list of indices.
@@ -47,7 +47,7 @@ public:
      * @thread_safety Thread-compatible.
      * @exception_safety Strong; invalid input does not create an instance.
      */
-    pcr_selection(hash_algorithm algorithm, std::initializer_list<pcr_index> indices);
+    selection(hash_algorithm algorithm, std::initializer_list<index> indices);
 
     /**
      * @brief Construct a selection from a set of indices.
@@ -58,7 +58,7 @@ public:
      * @thread_safety Thread-compatible.
      * @exception_safety Strong; invalid input does not create an instance.
      */
-    pcr_selection(hash_algorithm algorithm, std::set<pcr_index> indices);
+    selection(hash_algorithm algorithm, std::set<index> indices);
 
     /**
      * @brief Return the selection hash algorithm.
@@ -76,17 +76,17 @@ public:
      * @thread_safety Thread-compatible.
      * @exception_safety noexcept.
      */
-    [[nodiscard]] const std::set<pcr_index>& indices() const noexcept;
+    [[nodiscard]] const std::set<index>& indices() const noexcept;
 
     /** @brief Compare selections by algorithm and index set. */
-    [[nodiscard]] bool operator!=(const pcr_selection& other) const;
+    [[nodiscard]] bool operator!=(const selection& other) const;
 
     /** @brief Compare selections by algorithm and index set. */
-    [[nodiscard]] bool operator==(const pcr_selection& other) const;
+    [[nodiscard]] bool operator==(const selection& other) const;
 
 private:
     hash_algorithm algorithm_;
-    std::set<pcr_index> indices_;
+    std::set<index> indices_;
 };
 
-} // namespace tpmkit
+} // namespace tpmkit::pcr

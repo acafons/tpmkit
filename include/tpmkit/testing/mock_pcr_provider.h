@@ -32,10 +32,10 @@ namespace tpmkit::testing {
  * @thread_safety Thread-compatible. Shared instances require external
  * synchronization.
  * @exception_safety Operation methods follow `outcome` copy guarantees.
- * @see pcr_provider
+ * @see pcr::provider
  * @since v0.1
  */
-class TPMKIT_TESTING_API mock_pcr_provider final : public pcr_provider {
+class TPMKIT_TESTING_API mock_pcr_provider final : public pcr::provider {
 public:
     /**
      * @brief Construct a provider whose operations fail with backend_error by default.
@@ -51,7 +51,7 @@ public:
      * @param[in] banks Requested PCR banks.
      * @return Programmed allocation outcome.
      */
-    [[nodiscard]] outcome<pcr_allocate_result> allocate(gsl::span<const pcr_bank> banks) final;
+    [[nodiscard]] outcome<pcr::allocate_result> allocate(gsl::span<const pcr::bank> banks) final;
 
     /**
      * @brief Return how often allocate() has been called.
@@ -77,8 +77,8 @@ public:
      * @param[in] event_data Raw event bytes.
      * @return Programmed event outcome.
      */
-    [[nodiscard]] outcome<pcr_event_result> event(pcr_index index,
-                                                  gsl::span<const std::uint8_t> event_data) final;
+    [[nodiscard]] outcome<pcr::event_result> event(pcr::index index,
+                                                   gsl::span<const std::uint8_t> event_data) final;
 
     /**
      * @brief Return how often event() has been called.
@@ -96,8 +96,8 @@ public:
      * @param[in] digests Digest values for explicit PCR banks.
      * @return Programmed extend outcome.
      */
-    [[nodiscard]] outcome<void> extend(pcr_index index,
-                                       gsl::span<const pcr_digest_value> digests) final;
+    [[nodiscard]] outcome<void> extend(pcr::index index,
+                                       gsl::span<const pcr::digest_value> digests) final;
 
     /**
      * @brief Return how often extend() has been called.
@@ -114,7 +114,7 @@ public:
      * @param[in] selection PCR selection to read.
      * @return Programmed read outcome.
      */
-    [[nodiscard]] outcome<pcr_read_result> read(const pcr_selection& selection) final;
+    [[nodiscard]] outcome<pcr::read_result> read(const pcr::selection& selection) final;
 
     /**
      * @brief Return how often read() has been called.
@@ -131,7 +131,7 @@ public:
      * @param[in] index PCR index to reset.
      * @return Programmed reset outcome.
      */
-    [[nodiscard]] outcome<void> reset(pcr_index index) final;
+    [[nodiscard]] outcome<void> reset(pcr::index index) final;
 
     /**
      * @brief Return how often reset() has been called.
@@ -149,7 +149,7 @@ public:
      * @thread_safety Thread-compatible.
      * @exception_safety Strong.
      */
-    void set_allocate_result(outcome<pcr_allocate_result> result);
+    void set_allocate_result(outcome<pcr::allocate_result> result);
 
     /**
      * @brief Return the programmed SetAuthPolicy outcome and record one call.
@@ -159,7 +159,7 @@ public:
      * @param[in] policy_digest Policy digest bytes.
      * @return Programmed SetAuthPolicy outcome.
      */
-    [[nodiscard]] outcome<void> set_auth_policy(pcr_index index, hash_algorithm policy_alg,
+    [[nodiscard]] outcome<void> set_auth_policy(pcr::index index, hash_algorithm policy_alg,
                                                 gsl::span<const std::uint8_t> policy_digest) final;
 
     /**
@@ -187,7 +187,7 @@ public:
      * @param[in] auth Authorization value to transfer to the backend.
      * @return Programmed SetAuthValue outcome.
      */
-    [[nodiscard]] outcome<void> set_auth_value(pcr_index index, secret_buffer auth) final;
+    [[nodiscard]] outcome<void> set_auth_value(pcr::index index, secret_buffer auth) final;
 
     /**
      * @brief Return how often set_auth_value() has been called.
@@ -214,7 +214,7 @@ public:
      * @thread_safety Thread-compatible.
      * @exception_safety Strong.
      */
-    void set_event_result(outcome<pcr_event_result> result);
+    void set_event_result(outcome<pcr::event_result> result);
 
     /**
      * @brief Program the outcome returned by extend().
@@ -232,7 +232,7 @@ public:
      * @thread_safety Thread-compatible.
      * @exception_safety Strong.
      */
-    void set_read_result(outcome<pcr_read_result> result);
+    void set_read_result(outcome<pcr::read_result> result);
 
     /**
      * @brief Program the outcome returned by reset().
@@ -245,13 +245,13 @@ public:
 
 private:
     std::size_t allocate_call_count_{0U};
-    outcome<pcr_allocate_result> allocate_result_;
+    outcome<pcr::allocate_result> allocate_result_;
     std::size_t event_call_count_{0U};
-    outcome<pcr_event_result> event_result_;
+    outcome<pcr::event_result> event_result_;
     std::size_t extend_call_count_{0U};
     outcome<void> extend_result_;
     std::size_t read_call_count_{0U};
-    outcome<pcr_read_result> read_result_;
+    outcome<pcr::read_result> read_result_;
     std::size_t reset_call_count_{0U};
     outcome<void> reset_result_;
     std::size_t set_auth_policy_call_count_{0U};

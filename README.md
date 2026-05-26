@@ -27,7 +27,9 @@ The example sources live under [examples/](examples/), including:
 [pcr/event_debug.cpp](examples/pcr/event_debug.cpp), and
 [pcr/observer_trace.cpp](examples/pcr/observer_trace.cpp).
 
-PCR headers are grouped under `<tpmkit/pcr/...>`.
+PCR headers are grouped under `<tpmkit/pcr/...>` and PCR types live under
+`tpmkit::pcr`, for example `tpmkit::pcr::provider`,
+`tpmkit::pcr::selection`, and `tpmkit::pcr::index`.
 
 ## TCTI Selection
 

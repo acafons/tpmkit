@@ -27,14 +27,25 @@ Decide before you create files. Three options exist (see `architecture.md`); the
 
 ### A.2 Sketch the port in the domain
 
-Create `src/domain/<port_name>.h`. Domain types only — no `openssl/`, no `tss2/`, no OS headers.
+Choose the component area before creating files. Growing TPM feature families
+use an include folder, source folder, and namespace with the same area name:
+`include/tpmkit/<area>/`, `src/domain/<area>/`, and `tpmkit::<area>`.
 
 ```
-src/domain/key_provider.h       <- the port (option 1: abstract class)
-src/domain/<port_name>.h
+include/tpmkit/pcr/provider.h      <- existing PCR port shape
+src/domain/pcr/selection.cpp       <- PCR domain implementation
+include/tpmkit/<area>/provider.h   <- new component-family port
+src/domain/<area>/*.cpp            <- new component-family domain logic
 ```
 
-Naming: noun describing the capability (`key_provider`, `crypto_primitives`, `logger`). Avoid `_port` and `_interface` suffixes — the abstract base class *is* the port (cross-reference: `tpm-write-code` Naming).
+Domain signatures use domain types only — no `openssl/`, no `tss2/`, no OS
+headers.
+
+Naming: use the unprefixed concept inside the component namespace. Prefer
+`tpmkit::pcr::provider`, `tpmkit::nv::provider`, or
+`tpmkit::key::provider`; avoid `_port` and `_interface` suffixes, root-level
+prefixed types such as `pcr_provider`, and doubled names such as
+`pcr::pcr_provider` (cross-reference: `tpm-write-code` Naming).
 
 For options 2 and 3, the file shape differs:
 
@@ -43,7 +54,12 @@ For options 2 and 3, the file shape differs:
 
 ### A.3 Write the mock adapter first
 
-Create `src/adapters/mock/<port_name>.h` (and `.cpp` if non-trivial). The mock is the first user of the port — if the mock is awkward to write, the port shape is wrong. Iterate on the port before going further.
+Create the mock implementation under `src/adapters/mock/`. If it is a public
+testing helper, place the installed header under `include/tpmkit/testing/` and
+keep the implementation in `src/adapters/mock/`, matching
+`mock_pcr_provider`. The mock is the first user of the port — if the mock is
+awkward to write, the port shape is wrong. Iterate on the port before going
+further.
 
 For option 1, the mock implements the abstract base. For options 2 and 3, the mock satisfies the same shape (concept members or symbol bodies) — GMock cannot mock these mechanically; write hand-rolled stubs.
 
@@ -62,7 +78,9 @@ Cross-reference: `tpm-write-tests` for fixture style, `PrintTo` requirements, an
 
 ### A.5 Wire CMake
 
-Add the new domain header to the appropriate target's `target_sources`. The port belongs to the domain library target; do not link adapter targets to the domain.
+Add the new public header and any `src/domain/<area>/` implementation files to
+the appropriate target's `target_sources`. The port belongs to the domain
+library target; do not link adapter targets to the domain.
 
 For option 3, define a CMake variable (e.g., `LIB_<PORT>_BACKEND`) and select the adapter source file based on it in the domain library's `target_sources`. See `tpm-build-config` for the project's CMake conventions.
 
@@ -104,7 +122,11 @@ src/adapters/<new_backend>/
 └── <new_backend>_<port>.cpp implementation, error translation
 ```
 
-Naming: `<backend>_<port>` shape: `tpm2_fapi_adapter`, `mock_key_provider`, `software_key_provider`. Use the `_adapter` suffix when the backend name does not already disambiguate.
+Naming: `<backend>_<port>` shape: `tpm2_fapi_adapter`,
+`mock_key_provider`, `software_key_provider`. For component-namespaced ports,
+include the component area in the adapter name when it clarifies the backend
+role, as `esys_pcr_provider` does for `tpmkit::pcr::provider`. Use the
+`_adapter` suffix when the backend name does not already disambiguate.
 
 ### B.3 Subclass the port and implement every method
 

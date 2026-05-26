@@ -1,6 +1,9 @@
 # Code skeletons
 
-Illustrative skeletons for the shapes discussed in `SKILL.md`. They use plausible names — `digest_sha256`, `tpm_session`, `key_provider` — to show the *shape*. Real types in the repo may differ; copy the pattern, not the names. Each example is paired with a short note on what is load-bearing about it.
+Illustrative skeletons for the shapes discussed in `SKILL.md`. They use
+plausible names — `digest_sha256`, `tpm_session`, `key::provider` — to show the
+*shape*. Real types in the repo may differ; copy the pattern, not the names.
+Each example is paired with a short note on what is load-bearing about it.
 
 ## 1. Value object — `digest_sha256`
 
@@ -60,12 +63,12 @@ Identity (`handle_`) is explicit and immutable. State (`nonce_`) changes over th
 ```cpp
 // In src/domain/signing_service.h — pure domain. No third-party headers.
 [[nodiscard]] outcome<signature, error>
-sign(key_provider& provider,
+sign(key::provider& provider,
      const key_id& id,
      const message_bytes& message);
 ```
 
-Free function, no state. Takes a port by reference plus value objects, returns an `outcome` (`error-handling.md`). The operation spans a key (entity) and a message (value object); it doesn't naturally belong on either, so it lives on its own. Distinguish from a *port* — `key_provider` describes what the domain needs from outside; `sign` is logic inside the domain that uses the port.
+Free function, no state. Takes a port by reference plus value objects, returns an `outcome` (`error-handling.md`). The operation spans a key (entity) and a message (value object); it doesn't naturally belong on either, so it lives on its own. Distinguish from a *port* — `key::provider` describes what the domain needs from outside; `sign` is logic inside the domain that uses the port.
 
 ## 4. RAII wrapper — `tss2_context`
 
@@ -106,13 +109,15 @@ tss2_context::tss2_context(tss2_context&& other) noexcept : ctx_(other.ctx_) {
 
 Lives in the adapter folder; the domain never includes `<tss2/...>`. Constructor either initializes the resource or throws — no two-phase init. Destructor is the only place `Esys_Finalize` is called; use sites never do manual cleanup. Copy deleted because TSS contexts cannot be duplicated; move transfers ownership and leaves the source null.
 
-## 5. Port + adapter — `key_provider`
+## 5. Port + adapter — `key::provider`
 
 ```cpp
-// In src/domain/key_provider.h — domain port. Domain types only.
-class key_provider {
+// In include/tpmkit/key/provider.h — public domain port. Domain types only.
+namespace tpmkit::key {
+
+class provider {
 public:
-    virtual ~key_provider() = default;
+    virtual ~provider() = default;
 
     [[nodiscard]] virtual outcome<key_id, error>
     create_signing_key(algorithm_id algo) = 0;
@@ -120,11 +125,14 @@ public:
     [[nodiscard]] virtual outcome<signature, error>
     sign(const key_id& id, const message_bytes& message) = 0;
 };
+
+} // namespace tpmkit::key
 ```
 
 ```cpp
-// In src/adapters/mock/mock_key_provider.h
-class mock_key_provider final : public key_provider {
+// Public test-helper header in include/tpmkit/testing/mock_key_provider.h.
+// Implementation in src/adapters/mock/mock_key_provider.cpp.
+class mock_key_provider final : public key::provider {
 public:
     outcome<key_id, error>   create_signing_key(algorithm_id) override;
     outcome<signature, error> sign(const key_id&, const message_bytes&) override;

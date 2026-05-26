@@ -23,7 +23,12 @@ Apply this skill in order when writing or modifying a test:
    If the test seems to fit two tiers, it belongs in the lower one (unit beats integration; integration beats contract). Benchmarks are not tests — they live in `bench/` per `performance.md`.
 2. **Pick the framework block.** Unit/contract → GoogleTest + GMock. Integration/stress/interop → GoogleTest, no mocks. KAT → GoogleTest parameterized over the vector set. Property → rapidcheck. Fuzz → libFuzzer. Benchmarks → Google Benchmark (in `bench/`, not `tests/`). Do not mix frameworks within a tier.
 3. **Apply the test discipline.** Deterministic, no shared mutable state, Arrange/Act/Assert, one behavior per test, `snake_case` names that describe behavior. `StrictMock<T>` is the default for ports — use `NiceMock<T>` only with a written rationale.
-4. **Define `PrintTo` for new domain value objects** so GMock failure output is readable. Secret-bearing types must write `<redacted, N bytes>` only — never raw bytes. Cross-reference `security.md` and `tpm-write-code` value-object rules.
+4. **Define `PrintTo` for new domain value objects** so GMock failure output
+   is readable. Put the overload in the value object's namespace so ADL finds
+   it, for example `namespace tpmkit::pcr` for `tpmkit::pcr::index`.
+   Secret-bearing types must write `<redacted, N bytes>` only — never raw
+   bytes. Cross-reference `security.md` and `tpm-write-code` value-object
+   rules.
 5. **Cover every flow.** Happy path, alternatives, and every error category from `error-handling.md`. Use `EXPECT_THROW`/`ASSERT_THROW` for contract-violation paths, not `EXPECT_DEATH`.
 6. **Run under the sanitizer matrix** (ASan, UBSan, TSan) before opening the PR. A sanitizer failure is a release blocker per `security.md` Build hardening — fix the underlying bug, do not suppress.
 7. **For new adapters or new ports**, run the contract suite against every adapter (including the mock) before merging. Adapters that pass the contract suite are interchangeable; adapters that don't are bugs waiting to happen.
@@ -59,7 +64,12 @@ bench/                         Google Benchmark suites (see performance.md)
 
 ## What gets tested where
 
-- **Public API unit tests** — installed headers, value types, configuration objects, and public API contracts. Header smoke tests live here when they compile public headers directly.
+- **Public API unit tests** — installed headers, value types, configuration
+  objects, and public API contracts. Header smoke tests live here when they
+  compile public headers directly. For component-family APIs, tests use the
+  nested public namespace directly (`tpmkit::pcr::*`, `tpmkit::nv::*`,
+  `tpmkit::key::*`) and should not rely on root compatibility aliases unless a
+  compatibility plan explicitly added them.
 - **Domain unit tests** — every domain function and use case, exercised through ports against mock adapters. No third-party library linked. Full suite runs in under a second.
 - **Testing-helper unit tests** — public `tpmkit::testing::*` helpers. Backend-neutral helpers live under `tests/unit/testing/`; helpers shaped around an adapter or third-party ABI live under `tests/unit/testing/<adapter>/` (for example `tests/unit/testing/tpm2_esys/`).
 - **Adapter-internal unit tests** — pure translation, validation, schema, and ABI-shim logic for a specific adapter. Place these under `tests/unit/<adapter>/` (for example `tests/unit/tpm2_esys/`); grouped adapter families mirror the source layout, as logging does under `tests/unit/logging/<backend>/`. They may compile against the backend SDK when needed for constants or function signatures, but they do not open real backend resources; anything that needs swtpm, hardware, or a real library call belongs in the integration tier.

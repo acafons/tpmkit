@@ -32,7 +32,7 @@ int main(const int argc, char** argv)
         return EXIT_FAILURE;
     }
 
-    const tpmkit::pcr_selection selection{
+    const tpmkit::pcr::selection selection{
         tpmkit::hash_algorithm::sha256,
         tpmkit::examples::make_pcr_range(0U, tpmkit::examples::default_platform_pcr_count)};
     const auto read = provider.value()->read(selection);

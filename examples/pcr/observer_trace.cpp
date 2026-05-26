@@ -28,15 +28,15 @@ struct observed_measurement {
     std::string operation;
 };
 
-class tracing_pcr_observer final : public tpmkit::pcr_observer {
+class tracing_pcr_observer final : public tpmkit::pcr::observer {
 public:
     [[nodiscard]] const std::vector<observed_measurement>& records() const noexcept
     {
         return records_;
     }
 
-    void on_event(tpmkit::pcr_index, gsl::span<const std::uint8_t> event_data,
-                  const tpmkit::pcr_event_result& result) noexcept final
+    void on_event(tpmkit::pcr::index, gsl::span<const std::uint8_t> event_data,
+                  const tpmkit::pcr::event_result& result) noexcept final
     {
         try {
             records_.push_back(
@@ -45,8 +45,8 @@ public:
         }
     }
 
-    void on_extend(tpmkit::pcr_index,
-                   const gsl::span<const tpmkit::pcr_digest_value> digests) noexcept final
+    void on_extend(tpmkit::pcr::index,
+                   const gsl::span<const tpmkit::pcr::digest_value> digests) noexcept final
     {
         try {
             records_.push_back(observed_measurement{digests.size(), 0U, "extend"});
@@ -96,15 +96,16 @@ int main(const int argc, char** argv)
         return EXIT_FAILURE;
     }
 
-    const auto reset = provider.value()->reset(tpmkit::pcr_index::debug);
+    const auto reset = provider.value()->reset(tpmkit::pcr::index::debug);
     if (!reset.has_value()) {
         tpmkit::examples::print_error(reset.error());
         return EXIT_FAILURE;
     }
 
-    std::vector<tpmkit::pcr_digest_value> digests;
+    std::vector<tpmkit::pcr::digest_value> digests;
     digests.emplace_back(tpmkit::hash_algorithm::sha256, std::move(digest_bytes.value()));
-    const auto extend = provider.value()->extend(tpmkit::pcr_index::debug, gsl::make_span(digests));
+    const auto extend =
+        provider.value()->extend(tpmkit::pcr::index::debug, gsl::make_span(digests));
     if (!extend.has_value()) {
         tpmkit::examples::print_error(extend.error());
         return EXIT_FAILURE;
@@ -112,7 +113,7 @@ int main(const int argc, char** argv)
 
     const std::vector<std::uint8_t> event_data = tpmkit::examples::bytes_from_text(event_text);
     const auto event =
-        provider.value()->event(tpmkit::pcr_index::debug, gsl::make_span(event_data));
+        provider.value()->event(tpmkit::pcr::index::debug, gsl::make_span(event_data));
     if (!event.has_value()) {
         tpmkit::examples::print_error(event.error());
         return EXIT_FAILURE;

@@ -6,6 +6,11 @@ This file is the project's opinionated take. For language-level questions not co
 
 - All code (identifiers, comments, commit messages) must be written in English.
 - Use `snake_case` throughout — functions, methods, variables, parameters, `constexpr` constants, classes, structs, enums, and type aliases — aligning with the C++ standard library.
+- Do not repeat a component namespace in a type name. A type in
+  `tpmkit::pcr` is named `provider`, `selection`, or `index`, not
+  `pcr_provider`, `pcr_selection`, or `pcr_index`. Use the namespace to carry
+  the component family (`pcr`, `nv`, `key`, ...), and the type name to carry
+  the concept.
 - Use single uppercase letters (`T`, `U`, `K`, `V`) or `PascalCase` (`Key`, `Allocator`, `RandomIt`) for template parameters only — STL convention for templates.
 - Use `snake_case` for file and folder names (e.g., `order_service.cpp`, `order_service.h`).
 - Suffix non-static class data members with a trailing underscore (e.g., `count_`, `connection_`) to distinguish them from local variables and parameters.

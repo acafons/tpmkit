@@ -11,15 +11,24 @@ Two worked examples illustrating the port options in `.claude/rules/architecture
 
 ## TPM2 TSS — option 1 (runtime adapter selection)
 
-- **Port:** `key_provider` — abstract base class declared in `src/domain/key_provider.h`. Methods like `create_signing_key`, `sign`, `load_persistent_key`. Speaks domain types only — no `TSS2_*` types leak through.
+- **Port:** `pcr::provider` — abstract base class declared in
+  `include/tpmkit/pcr/provider.h`, with PCR domain implementation under
+  `src/domain/pcr/`. It speaks domain types only — no `TSS2_*` types leak
+  through.
 - **Adapters, all behind the same port:**
-  - `tpm2_fapi_adapter` — default, high-level, covers most operations with less code.
-  - `tpm2_esys_adapter` — fine-grained session and policy control for operations FAPI does not expose.
-  - `software_key_provider` — pure software fallback (uses the OpenSSL adapter internally) for hardware-absent environments.
-  - `mock_key_provider` — in-memory, deterministic, used by every domain unit test.
-- **Wiring:** the composition root picks the adapter at runtime based on configuration and hardware presence. Selection is not exposed to the library consumer — the public API speaks `key_provider`.
+  - `esys_pcr_provider` — ESYS-backed PCR implementation.
+  - `mock_pcr_provider` — deterministic public testing helper backed by
+    `src/adapters/mock/`.
+- **Wiring:** `tpm_context::create_pcr_provider()` creates the adapter from the
+  owning context and returns `std::unique_ptr<pcr::provider>`. Selection is not
+  exposed to the library consumer — the public API speaks the domain port.
 - **FAPI vs. ESYS is *not* a port boundary.** It is an internal adapter detail. Do not create separate ports for FAPI and ESYS — that would leak the TSS layering through the domain.
 - **Why option 1:** TPM operations are millisecond-scale (virtual dispatch is free), tests must run without a TPM, and runtime fallback is a real product requirement.
+
+Future TPM component families should reuse the same namespace and folder
+pattern. For example, a key-management port should be shaped as
+`include/tpmkit/key/provider.h` and `tpmkit::key::provider`, not a root-level
+`key_provider` if the key API is expected to grow into a family of types.
 
 ## Reading these as templates
 

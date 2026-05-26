@@ -46,7 +46,7 @@ int main(const int argc, char** argv)
 
     std::size_t active_count = 0U;
     for (const tpmkit::hash_algorithm algorithm : all_hash_algorithms()) {
-        const tpmkit::pcr_selection selection{algorithm, {tpmkit::pcr_index::debug}};
+        const tpmkit::pcr::selection selection{algorithm, {tpmkit::pcr::index::debug}};
         const auto read = provider.value()->read(selection);
         if (!read.has_value() || read.value().values.empty()) {
             std::cout << tpmkit::examples::algorithm_name(algorithm) << " inactive\n";

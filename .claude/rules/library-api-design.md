@@ -9,6 +9,19 @@ These rules govern the public surface of the library. They apply to installed/pu
 - Keep public headers free of third-party includes when possible. Forward declare and move the include into the `.cpp` file.
 - Do not write `using namespace` at namespace scope in any public header.
 - Wrap the entire public API in a single top-level namespace named after the library. Place implementation-only types under a nested `detail` namespace and document that `detail` is not part of the public contract.
+- Cohesive public component families live in nested domain namespaces that
+  match their include folder. For example, PCR headers live under
+  `<tpmkit/pcr/...>` and expose `tpmkit::pcr::*`. Future NV and key-management
+  APIs should use the same shape, such as `<tpmkit/nv/...>` with `tpmkit::nv`
+  and `<tpmkit/key/...>` with `tpmkit::key`.
+- Inside a nested domain namespace, type names are the domain concept without
+  repeating the namespace prefix. Prefer `tpmkit::pcr::provider`,
+  `tpmkit::pcr::selection`, and `tpmkit::pcr::index`; avoid root-level
+  prefixed names such as `tpmkit::pcr_provider`, and avoid doubled names such
+  as `tpmkit::pcr::pcr_selection`.
+- Do not add root aliases for nested component types unless an explicit
+  compatibility plan requires them. New breaking APIs should document the new
+  namespace directly instead of carrying permanent aliases.
 
 ## Context-derived factories
 

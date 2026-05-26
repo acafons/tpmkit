@@ -22,8 +22,10 @@ This project follows **hexagonal architecture** (ports and adapters). The goal i
 ## Folder layout
 
 ```
-include/<library>/        public API (domain types and ports)
-src/domain/               domain logic and port definitions
+include/<library>/        public API entry points and shared domain types
+include/<library>/<area>/ public API for a cohesive domain area (pcr, nv, key, ...)
+src/domain/               shared domain logic
+src/domain/<area>/        domain logic for a cohesive domain area
 src/adapters/openssl/     OpenSSL adapter
 src/adapters/tpm2_fapi/   FAPI adapter
 src/adapters/tpm2_esys/   ESYS adapter
@@ -44,6 +46,15 @@ orchestrator for project setup, cross-cutting CMake modules, and
 `add_subdirectory` calls. Target definitions, source lists, include paths, and
 adapter dependencies live in the closest meaningful module `CMakeLists.txt`
 rather than accumulating in the repository root.
+
+Domain areas that are expected to grow get their own public include subfolder,
+source subfolder, and namespace. For example PCR types live in
+`include/tpmkit/pcr/`, their implementation lives in `src/domain/pcr/`, and
+their public names live under `tpmkit::pcr`. Future areas such as NV or key
+management should follow the same shape (`tpmkit::nv`, `tpmkit::key`, ...).
+Inside the area namespace, type names do not repeat the area prefix: prefer
+`tpmkit::pcr::provider` and `tpmkit::pcr::selection`, not
+`tpmkit::pcr_provider` or `tpmkit::pcr::pcr_selection`.
 
 ## How to implement a port
 
@@ -68,7 +79,12 @@ When in doubt, use option 1. Virtual dispatch is rarely the bottleneck, and the 
 The two main backends are settled:
 
 - **OpenSSL** uses option 3 (build-time selection). CMake picks one crypto backend per build via `LIB_CRYPTO_BACKEND`.
-- **TPM2 TSS** uses option 1 (runtime adapter selection). All TPM adapters — FAPI, ESYS, software fallback, mock — sit behind a single `key_provider` port and are picked by the composition root at runtime. The **FAPI/ESYS split is an internal adapter detail, not a port boundary** — never declare separate ports for them.
+- **TPM2 TSS** uses option 1 (runtime adapter selection) for TPM-backed
+  component ports. PCR is the reference shape: `tpmkit::pcr::provider` is the
+  public port, and ESYS/mock implementations sit behind it. Future TPM-backed
+  areas such as NV or key management should follow the same component namespace
+  pattern. The **FAPI/ESYS split is an internal adapter detail, not a port
+  boundary** — never declare separate public ports solely for FAPI and ESYS.
 - ESYS/FAPI details do not appear in public factory names, public context
   accessors, or public headers unless the project deliberately introduces a
   separate low-level API. Prefer `tpm_context::create_*` factories that return

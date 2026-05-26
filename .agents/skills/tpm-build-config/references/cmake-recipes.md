@@ -10,6 +10,14 @@ Build manifests mirror the architecture. Each module that consumers of the build
 
 The boundary is "per meaningful module," not "per folder." A `src/adapters/openssl/utils/` directory whose `.cpp` files belong to the OpenSSL adapter target does not get its own `CMakeLists.txt` — the parent adds those sources via relative paths or `target_sources`. A thin aggregator such as `src/CMakeLists.txt` is acceptable when it keeps the repository root orchestration-only, but it should only dispatch to meaningful module manifests. A chain of one-line pass-through manifests below that point is noise; flatten it.
 
+Component-family folders under the domain are meaningful for code ownership but
+do not automatically require their own CMake target or manifest. PCR is the
+reference shape: public headers are listed from `include/tpmkit/pcr/`, domain
+sources from `src/domain/pcr/`, and the owning target keeps those paths grouped
+together in `target_sources`. Future areas such as NV or key management should
+follow the same path grouping unless they grow enough to justify a separate
+domain target.
+
 **Top-level `CMakeLists.txt` owns:** `project()`, `CMAKE_MODULE_PATH`, includes of `cmake/Tpmkit*.cmake`, top-level `add_subdirectory` calls, `enable_testing()`, and the conditional examples/tests/docs/install orchestration.
 
 **`cmake/Tpmkit*.cmake` owns:** cache option validation, dependency discovery, reusable target option helpers, docs wiring, and install/export/package config wiring. These files should not list adapter sources or define test executables.
@@ -60,7 +68,12 @@ add_library(tpmkit)
 add_library(tpmkit::tpmkit ALIAS tpmkit)
 
 target_sources(tpmkit
+    PUBLIC
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/pcr/provider.h>
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/pcr/selection.h>
     PRIVATE
+        ../../domain/pcr/index.cpp
+        ../../domain/pcr/selection.cpp
         error_translation.cpp
         tcti_loader.cpp
         tpm_context.cpp

@@ -15,25 +15,25 @@ class logger;
 
 namespace detail::esys {
 
-class esys_pcr_provider final : public pcr_provider {
+class esys_pcr_provider final : public pcr::provider {
 public:
-    esys_pcr_provider(ESYS_CONTEXT* esys, logger& log, pcr_observer* observer) noexcept;
+    esys_pcr_provider(ESYS_CONTEXT* esys, logger& log, pcr::observer* observer) noexcept;
 
-    [[nodiscard]] outcome<pcr_allocate_result> allocate(gsl::span<const pcr_bank> banks) final;
-    [[nodiscard]] outcome<pcr_event_result> event(pcr_index index,
-                                                  gsl::span<const std::uint8_t> event_data) final;
-    [[nodiscard]] outcome<void> extend(pcr_index index,
-                                       gsl::span<const pcr_digest_value> digests) final;
-    [[nodiscard]] outcome<pcr_read_result> read(const pcr_selection& selection) final;
-    [[nodiscard]] outcome<void> reset(pcr_index index) final;
-    [[nodiscard]] outcome<void> set_auth_policy(pcr_index index, hash_algorithm policy_alg,
+    [[nodiscard]] outcome<pcr::allocate_result> allocate(gsl::span<const pcr::bank> banks) final;
+    [[nodiscard]] outcome<pcr::event_result> event(pcr::index index,
+                                                   gsl::span<const std::uint8_t> event_data) final;
+    [[nodiscard]] outcome<void> extend(pcr::index index,
+                                       gsl::span<const pcr::digest_value> digests) final;
+    [[nodiscard]] outcome<pcr::read_result> read(const pcr::selection& selection) final;
+    [[nodiscard]] outcome<void> reset(pcr::index index) final;
+    [[nodiscard]] outcome<void> set_auth_policy(pcr::index index, hash_algorithm policy_alg,
                                                 gsl::span<const std::uint8_t> policy_digest) final;
-    [[nodiscard]] outcome<void> set_auth_value(pcr_index index, secret_buffer auth) final;
+    [[nodiscard]] outcome<void> set_auth_value(pcr::index index, secret_buffer auth) final;
 
 private:
     ESYS_CONTEXT* esys_;
     logger& log_;
-    pcr_observer* observer_;
+    pcr::observer* observer_;
 };
 
 } // namespace detail::esys

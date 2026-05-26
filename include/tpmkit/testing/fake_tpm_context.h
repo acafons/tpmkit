@@ -118,8 +118,8 @@ public:
      * @exception_safety Strong; no state is modified.
      * @since v0.1
      */
-    [[nodiscard]] outcome<std::unique_ptr<pcr_provider>>
-    create_pcr_provider(pcr_observer* observer = nullptr);
+    [[nodiscard]] outcome<std::unique_ptr<pcr::provider>>
+    create_pcr_provider(pcr::observer* observer = nullptr);
 
 private:
     explicit fake_tpm_context(tpm_context_config config) noexcept;

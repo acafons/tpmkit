@@ -338,15 +338,15 @@ outcome<tpm_context> tpm_context::create(tpm_context_config config)
     return tpm_context{std::move(implementation)};
 }
 
-outcome<std::unique_ptr<pcr_provider>> tpm_context::create_pcr_provider(pcr_observer* const observer)
+outcome<std::unique_ptr<pcr::provider>>
+tpm_context::create_pcr_provider(pcr::observer* const observer)
 {
     if (impl_ == nullptr || impl_->esys() == nullptr) {
         return tl::unexpected(
             error{error_category::resource_error, "TPM context does not contain a usable backend"});
     }
 
-    return std::make_unique<detail::esys::esys_pcr_provider>(impl_->esys(), impl_->log(),
-                                                             observer);
+    return std::make_unique<detail::esys::esys_pcr_provider>(impl_->esys(), impl_->log(), observer);
 }
 
 } // namespace tpmkit

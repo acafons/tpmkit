@@ -19,7 +19,7 @@
 
 #include <cstdint>
 
-namespace tpmkit {
+namespace tpmkit::pcr {
 
 /**
  * @brief Abstract port for TPM PCR operations.
@@ -33,7 +33,7 @@ namespace tpmkit {
  * `outcome<T>` values; implementations document any stronger guarantees.
  * @since v0.1
  */
-class TPMKIT_API pcr_provider {
+class TPMKIT_API provider {
 public:
     /**
      * @brief Destroy the PCR provider adapter.
@@ -42,7 +42,7 @@ public:
      * adapter documents stronger behavior.
      * @exception_safety noexcept.
      */
-    virtual ~pcr_provider() noexcept = default;
+    virtual ~provider() noexcept = default;
 
     /**
      * @brief Read PCR values for one selection.
@@ -50,7 +50,7 @@ public:
      * @param[in] selection PCR bank and indices to read.
      * @return Read result on success, or a domain error on expected failure.
      */
-    [[nodiscard]] virtual outcome<pcr_read_result> read(const pcr_selection& selection) = 0;
+    [[nodiscard]] virtual outcome<read_result> read(const selection& selection) = 0;
 
     /**
      * @brief Extend one PCR with caller-provided digest values.
@@ -59,8 +59,8 @@ public:
      * @param[in] digests Digest values for explicit PCR banks.
      * @return Empty success, or a domain error on expected failure.
      */
-    [[nodiscard]] virtual outcome<void> extend(pcr_index index,
-                                               gsl::span<const pcr_digest_value> digests) = 0;
+    [[nodiscard]] virtual outcome<void> extend(index index,
+                                               gsl::span<const digest_value> digests) = 0;
 
     /**
      * @brief Extend one PCR with raw event data digested by the TPM.
@@ -69,8 +69,8 @@ public:
      * @param[in] event_data Raw event bytes.
      * @return Event result on success, or a domain error on expected failure.
      */
-    [[nodiscard]] virtual outcome<pcr_event_result>
-    event(pcr_index index, gsl::span<const std::uint8_t> event_data) = 0;
+    [[nodiscard]] virtual outcome<event_result> event(index index,
+                                                      gsl::span<const std::uint8_t> event_data) = 0;
 
     /**
      * @brief Reset one PCR to its TPM-defined initial value.
@@ -78,7 +78,7 @@ public:
      * @param[in] index PCR index to reset.
      * @return Empty success, or a domain error on expected failure.
      */
-    [[nodiscard]] virtual outcome<void> reset(pcr_index index) = 0;
+    [[nodiscard]] virtual outcome<void> reset(index index) = 0;
 
     /**
      * @brief Allocate active PCR banks.
@@ -86,8 +86,7 @@ public:
      * @param[in] banks Requested PCR banks.
      * @return Allocation result on success, or a domain error on expected failure.
      */
-    [[nodiscard]] virtual outcome<pcr_allocate_result>
-    allocate(gsl::span<const pcr_bank> banks) = 0;
+    [[nodiscard]] virtual outcome<allocate_result> allocate(gsl::span<const bank> banks) = 0;
 
     /**
      * @brief Set an authorization value on one PCR.
@@ -96,7 +95,7 @@ public:
      * @param[in] auth Authorization value to transfer to the backend.
      * @return Empty success, or a domain error on expected failure.
      */
-    [[nodiscard]] virtual outcome<void> set_auth_value(pcr_index index, secret_buffer auth) = 0;
+    [[nodiscard]] virtual outcome<void> set_auth_value(index index, secret_buffer auth) = 0;
 
     /**
      * @brief Set an authorization policy on one PCR.
@@ -107,8 +106,8 @@ public:
      * @return Empty success, or a domain error on expected failure.
      */
     [[nodiscard]] virtual outcome<void>
-    set_auth_policy(pcr_index index, hash_algorithm policy_alg,
+    set_auth_policy(index index, hash_algorithm policy_alg,
                     gsl::span<const std::uint8_t> policy_digest) = 0;
 };
 
-} // namespace tpmkit
+} // namespace tpmkit::pcr

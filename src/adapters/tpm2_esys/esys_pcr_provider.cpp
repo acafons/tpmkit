@@ -112,7 +112,7 @@ template <class Element, std::size_t Size>
     return {};
 }
 
-[[nodiscard]] outcome<void> ensure_digest_count(const gsl::span<const pcr_digest_value> digests)
+[[nodiscard]] outcome<void> ensure_digest_count(const gsl::span<const pcr::digest_value> digests)
 {
     if (digests.empty()) {
         return tl::unexpected(
@@ -134,7 +134,7 @@ template <class Element, std::size_t Size>
     return {};
 }
 
-[[nodiscard]] outcome<void> ensure_bank_count(const gsl::span<const pcr_bank> banks)
+[[nodiscard]] outcome<void> ensure_bank_count(const gsl::span<const pcr::bank> banks)
 {
     if (banks.empty()) {
         return tl::unexpected(
@@ -193,7 +193,7 @@ ensure_secure_auth_value_transport(const gsl::span<const std::uint8_t> auth)
     return ensure_sized_buffer_fits(digest.size(), "PCR auth policy digest is too large");
 }
 
-[[nodiscard]] outcome<pcr_digest_value>
+[[nodiscard]] outcome<pcr::digest_value>
 make_digest_value(const hash_algorithm algorithm, const BYTE* const data, const std::size_t size)
 {
     if (data == nullptr && size > 0U) {
@@ -206,10 +206,10 @@ make_digest_value(const hash_algorithm algorithm, const BYTE* const data, const 
             error{error_category::backend_error, "TPM returned PCR digest with unexpected size"});
     }
 
-    return pcr_digest_value{algorithm, std::vector<std::uint8_t>{data, data + size}};
+    return pcr::digest_value{algorithm, std::vector<std::uint8_t>{data, data + size}};
 }
 
-[[nodiscard]] outcome<pcr_digest_value> make_digest_value(const TPMT_HA& digest)
+[[nodiscard]] outcome<pcr::digest_value> make_digest_value(const TPMT_HA& digest)
 {
     auto algorithm = algorithm_from_tpm(digest.hashAlg);
     if (!algorithm.has_value()) {
@@ -231,7 +231,7 @@ make_digest_value(const hash_algorithm algorithm, const BYTE* const data, const 
         error{error_category::backend_error, "TPM returned unsupported PCR hash algorithm"});
 }
 
-void set_digest_bytes(TPMT_HA& destination, const pcr_digest_value& source) noexcept
+void set_digest_bytes(TPMT_HA& destination, const pcr::digest_value& source) noexcept
 {
     destination.hashAlg = algorithm_to_tpm(source.algorithm());
     const auto& bytes = source.digest();
@@ -253,7 +253,7 @@ void set_digest_bytes(TPMT_HA& destination, const pcr_digest_value& source) noex
 }
 
 [[nodiscard]] TPML_DIGEST_VALUES
-to_tpm_digest_values(const gsl::span<const pcr_digest_value> digests)
+to_tpm_digest_values(const gsl::span<const pcr::digest_value> digests)
 {
     TPML_DIGEST_VALUES result{};
     result.count = static_cast<UINT32>(digests.size());
@@ -265,7 +265,7 @@ to_tpm_digest_values(const gsl::span<const pcr_digest_value> digests)
     return result;
 }
 
-[[nodiscard]] TPML_PCR_SELECTION to_tpm_selection(const pcr_selection& selection) noexcept
+[[nodiscard]] TPML_PCR_SELECTION to_tpm_selection(const pcr::selection& selection) noexcept
 {
     TPML_PCR_SELECTION result{};
     result.count = 1U;
@@ -273,7 +273,7 @@ to_tpm_digest_values(const gsl::span<const pcr_digest_value> digests)
     tpm_selection.hash = algorithm_to_tpm(selection.algorithm());
     tpm_selection.sizeofSelect = pcr_select_min_size;
 
-    for (const pcr_index index : selection.indices()) {
+    for (const pcr::index index : selection.indices()) {
         const std::uint8_t value = index.value();
         tpm_selection.sizeofSelect =
             std::max(tpm_selection.sizeofSelect, selection_size_for_pcr(value));
@@ -292,7 +292,7 @@ void select_all_pcrs(TPMS_PCR_SELECTION& selection) noexcept
     }
 }
 
-[[nodiscard]] TPML_PCR_SELECTION to_tpm_allocation(const gsl::span<const pcr_bank> banks) noexcept
+[[nodiscard]] TPML_PCR_SELECTION to_tpm_allocation(const gsl::span<const pcr::bank> banks) noexcept
 {
     TPML_PCR_SELECTION result{};
     result.count = static_cast<UINT32>(banks.size());
@@ -306,11 +306,11 @@ void select_all_pcrs(TPMS_PCR_SELECTION& selection) noexcept
     return result;
 }
 
-[[nodiscard]] outcome<pcr_selection> to_domain_selection(const TPML_PCR_SELECTION& selection,
-                                                         const hash_algorithm fallback_algorithm)
+[[nodiscard]] outcome<pcr::selection> to_domain_selection(const TPML_PCR_SELECTION& selection,
+                                                          const hash_algorithm fallback_algorithm)
 {
     if (selection.count == 0U) {
-        return pcr_selection{fallback_algorithm};
+        return pcr::selection{fallback_algorithm};
     }
 
     if (selection.count != 1U) {
@@ -324,7 +324,7 @@ void select_all_pcrs(TPMS_PCR_SELECTION& selection) noexcept
         return tl::unexpected(algorithm.error());
     }
 
-    std::set<pcr_index> indices;
+    std::set<pcr::index> indices;
     if (tpm_selection.sizeofSelect > TPM2_PCR_SELECT_MAX) {
         return tl::unexpected(
             error{error_category::backend_error, "TPM returned malformed PCR selection size"});
@@ -337,20 +337,20 @@ void select_all_pcrs(TPMS_PCR_SELECTION& selection) noexcept
                 continue;
             }
 
-            const std::size_t pcr = (byte_index * 8U) + bit;
-            if (pcr > pcr_index::max_value) {
+            const std::size_t pcr_number = (byte_index * 8U) + bit;
+            if (pcr_number > pcr::index::max_value) {
                 return tl::unexpected(
                     error{error_category::backend_error, "TPM returned invalid PCR index"});
             }
 
-            indices.insert(pcr_index{static_cast<std::uint32_t>(pcr)});
+            indices.insert(pcr::index{static_cast<std::uint32_t>(pcr_number)});
         }
     }
 
-    return pcr_selection{algorithm.value(), std::move(indices)};
+    return pcr::selection{algorithm.value(), std::move(indices)};
 }
 
-[[nodiscard]] outcome<std::vector<pcr_digest_value>>
+[[nodiscard]] outcome<std::vector<pcr::digest_value>>
 to_domain_digests(const TPML_DIGEST_VALUES& digests)
 {
     if (digests.count > array_size(digests.digests)) {
@@ -358,7 +358,7 @@ to_domain_digests(const TPML_DIGEST_VALUES& digests)
             error{error_category::backend_error, "TPM returned too many PCR event digests"});
     }
 
-    std::vector<pcr_digest_value> result;
+    std::vector<pcr::digest_value> result;
     result.reserve(digests.count);
 
     for (UINT32 index = 0U; index < digests.count; ++index) {
@@ -373,8 +373,8 @@ to_domain_digests(const TPML_DIGEST_VALUES& digests)
     return result;
 }
 
-[[nodiscard]] outcome<std::vector<pcr_value>> to_domain_read_values(const TPML_DIGEST& values,
-                                                                    const pcr_selection& selection)
+[[nodiscard]] outcome<std::vector<pcr::value>>
+to_domain_read_values(const TPML_DIGEST& values, const pcr::selection& selection)
 {
     if (values.count > array_size(values.digests)) {
         return tl::unexpected(
@@ -386,7 +386,7 @@ to_domain_digests(const TPML_DIGEST_VALUES& digests)
             error{error_category::backend_error, "TPM returned PCR digest count mismatch"});
     }
 
-    std::vector<pcr_value> result;
+    std::vector<pcr::value> result;
     result.reserve(values.count);
 
     auto selected_index = selection.indices().begin();
@@ -397,14 +397,14 @@ to_domain_digests(const TPML_DIGEST_VALUES& digests)
             return tl::unexpected(value.error());
         }
 
-        result.push_back(pcr_value{*selected_index, std::move(value.value())});
+        result.push_back(pcr::value{*selected_index, std::move(value.value())});
         ++selected_index;
     }
 
     return result;
 }
 
-[[nodiscard]] ESYS_TR pcr_handle(const pcr_index index) noexcept
+[[nodiscard]] ESYS_TR pcr_handle(const pcr::index index) noexcept
 {
     return ESYS_TR_PCR0 + index.value();
 }
@@ -431,8 +431,7 @@ to_domain_digests(const TPML_DIGEST_VALUES& digests)
     return result;
 }
 
-void log_read_completed(logger& log, const pcr_selection& selection,
-                        const std::size_t value_count)
+void log_read_completed(logger& log, const pcr::selection& selection, const std::size_t value_count)
 {
     const std::string pcr_count = std::to_string(value_count);
     const std::string bank = algorithm_name(selection.algorithm());
@@ -444,7 +443,7 @@ void log_read_completed(logger& log, const pcr_selection& selection,
     log.log(log_level::info, events::pcr_read_completed, gsl::span<const log_field>(fields));
 }
 
-void log_extend_completed(logger& log, const pcr_index index, const std::size_t bank_count)
+void log_extend_completed(logger& log, const pcr::index index, const std::size_t bank_count)
 {
     const std::string index_value = std::to_string(index.value());
     const std::string bank_count_value = std::to_string(bank_count);
@@ -456,7 +455,7 @@ void log_extend_completed(logger& log, const pcr_index index, const std::size_t 
     log.log(log_level::info, events::pcr_extend_completed, gsl::span<const log_field>(fields));
 }
 
-void log_event_completed(logger& log, const pcr_index index, const std::size_t event_size)
+void log_event_completed(logger& log, const pcr::index index, const std::size_t event_size)
 {
     const std::string index_value = std::to_string(index.value());
     const std::string event_size_value = std::to_string(event_size);
@@ -481,7 +480,7 @@ void log_allocate_completed(logger& log, const bool allocation_success,
     log.log(log_level::info, events::pcr_allocate_completed, gsl::span<const log_field>(fields));
 }
 
-void log_auth_policy_set(logger& log, const pcr_index index, const hash_algorithm algorithm)
+void log_auth_policy_set(logger& log, const pcr::index index, const hash_algorithm algorithm)
 {
     const std::string index_value = std::to_string(index.value());
     const std::string algorithm_value = algorithm_name(algorithm);
@@ -493,7 +492,7 @@ void log_auth_policy_set(logger& log, const pcr_index index, const hash_algorith
     log.log(log_level::info, events::pcr_auth_policy_set, gsl::span<const log_field>(fields));
 }
 
-void log_auth_value_set(logger& log, const pcr_index index)
+void log_auth_value_set(logger& log, const pcr::index index)
 {
     const std::string index_value = std::to_string(index.value());
     const std::array<log_field, 1U> fields{{
@@ -503,7 +502,7 @@ void log_auth_value_set(logger& log, const pcr_index index)
     log.log(log_level::info, events::pcr_auth_value_set, gsl::span<const log_field>(fields));
 }
 
-void log_reset_completed(logger& log, const pcr_index index)
+void log_reset_completed(logger& log, const pcr::index index)
 {
     const std::string index_value = std::to_string(index.value());
     const std::array<log_field, 1U> fields{{
@@ -516,11 +515,11 @@ void log_reset_completed(logger& log, const pcr_index index)
 } // namespace
 
 esys_pcr_provider::esys_pcr_provider(ESYS_CONTEXT* const esys, logger& log,
-                                     pcr_observer* const observer) noexcept
+                                     pcr::observer* const observer) noexcept
     : esys_{esys}, log_{log}, observer_{observer}
 {}
 
-outcome<pcr_allocate_result> esys_pcr_provider::allocate(const gsl::span<const pcr_bank> banks)
+outcome<pcr::allocate_result> esys_pcr_provider::allocate(const gsl::span<const pcr::bank> banks)
 {
     const auto available = ensure_esys_available(esys_);
     if (!available.has_value()) {
@@ -545,13 +544,14 @@ outcome<pcr_allocate_result> esys_pcr_provider::allocate(const gsl::span<const p
         return tl::unexpected(translated.error());
     }
 
-    pcr_allocate_result result{allocation_success != TPM2_NO, max_pcr, size_needed, size_available};
+    pcr::allocate_result result{allocation_success != TPM2_NO, max_pcr, size_needed,
+                                size_available};
     log_allocate_completed(log_, result.allocation_success, banks.size());
     return result;
 }
 
-outcome<pcr_event_result> esys_pcr_provider::event(const pcr_index index,
-                                                   const gsl::span<const std::uint8_t> event_data)
+outcome<pcr::event_result> esys_pcr_provider::event(const pcr::index index,
+                                                    const gsl::span<const std::uint8_t> event_data)
 {
     const auto available = ensure_esys_available(esys_);
     if (!available.has_value()) {
@@ -583,7 +583,7 @@ outcome<pcr_event_result> esys_pcr_provider::event(const pcr_index index,
         return tl::unexpected(domain_digests.error());
     }
 
-    pcr_event_result result{std::move(domain_digests.value())};
+    pcr::event_result result{std::move(domain_digests.value())};
     log_event_completed(log_, index, event_data.size());
     if (observer_ != nullptr) {
         observer_->on_event(index, event_data, result);
@@ -592,8 +592,8 @@ outcome<pcr_event_result> esys_pcr_provider::event(const pcr_index index,
     return result;
 }
 
-outcome<void> esys_pcr_provider::extend(const pcr_index index,
-                                        const gsl::span<const pcr_digest_value> digests)
+outcome<void> esys_pcr_provider::extend(const pcr::index index,
+                                        const gsl::span<const pcr::digest_value> digests)
 {
     const auto available = ensure_esys_available(esys_);
     if (!available.has_value()) {
@@ -621,7 +621,7 @@ outcome<void> esys_pcr_provider::extend(const pcr_index index,
     return {};
 }
 
-outcome<pcr_read_result> esys_pcr_provider::read(const pcr_selection& selection)
+outcome<pcr::read_result> esys_pcr_provider::read(const pcr::selection& selection)
 {
     const auto available = ensure_esys_available(esys_);
     if (!available.has_value()) {
@@ -656,13 +656,13 @@ outcome<pcr_read_result> esys_pcr_provider::read(const pcr_selection& selection)
         return tl::unexpected(domain_values.error());
     }
 
-    pcr_read_result result{domain_selection.value(), update_counter,
-                           std::move(domain_values.value())};
+    pcr::read_result result{domain_selection.value(), update_counter,
+                            std::move(domain_values.value())};
     log_read_completed(log_, result.actual_selection, result.values.size());
     return result;
 }
 
-outcome<void> esys_pcr_provider::reset(const pcr_index index)
+outcome<void> esys_pcr_provider::reset(const pcr::index index)
 {
     const auto available = ensure_esys_available(esys_);
     if (!available.has_value()) {
@@ -680,7 +680,7 @@ outcome<void> esys_pcr_provider::reset(const pcr_index index)
     return {};
 }
 
-outcome<void> esys_pcr_provider::set_auth_policy(const pcr_index index,
+outcome<void> esys_pcr_provider::set_auth_policy(const pcr::index index,
                                                  const hash_algorithm policy_alg,
                                                  const gsl::span<const std::uint8_t> policy_digest)
 {
@@ -707,7 +707,7 @@ outcome<void> esys_pcr_provider::set_auth_policy(const pcr_index index,
     return {};
 }
 
-outcome<void> esys_pcr_provider::set_auth_value(const pcr_index index, secret_buffer auth)
+outcome<void> esys_pcr_provider::set_auth_value(const pcr::index index, secret_buffer auth)
 {
     const auto available = ensure_esys_available(esys_);
     if (!available.has_value()) {
@@ -729,8 +729,8 @@ outcome<void> esys_pcr_provider::set_auth_value(const pcr_index index, secret_bu
     const TPM2B_AUTH current_auth{};
     const TSS2_RC set_auth_rc = Esys_TR_SetAuth(esys_, pcr_handle(index), &current_auth);
     if (set_auth_rc != TSS2_RC_SUCCESS) {
-        auto translated = translate_tss_rc(set_auth_rc, "pcr_set_auth_value_set_current_auth", &log_,
-                                           events::pcr_tss_error);
+        auto translated = translate_tss_rc(set_auth_rc, "pcr_set_auth_value_set_current_auth",
+                                           &log_, events::pcr_tss_error);
         return tl::unexpected(translated.error());
     }
 

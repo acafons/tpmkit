@@ -20,11 +20,11 @@ target_sources(tpmkit
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/tpm_context.h>
     PRIVATE
         ../../domain/hash_algorithm.cpp
-        ../../domain/pcr_bank.cpp
-        ../../domain/pcr_digest_value.cpp
-        ../../domain/pcr_index.cpp
-        ../../domain/pcr_result_types.cpp
-        ../../domain/pcr_selection.cpp
+        ../../domain/pcr/bank.cpp
+        ../../domain/pcr/digest_value.cpp
+        ../../domain/pcr/index.cpp
+        ../../domain/pcr/result_types.cpp
+        ../../domain/pcr/selection.cpp
         ../../domain/secret_buffer.cpp
         ../../domain/secret_buffer_testing.h
         error_translation.cpp

@@ -11,7 +11,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace tpmkit {
+namespace tpmkit::pcr {
 
 /**
  * @brief Immutable digest value for a PCR bank.
@@ -25,7 +25,7 @@ namespace tpmkit {
  * noexcept. Comparisons follow `std::vector` guarantees.
  * @since v0.1
  */
-class TPMKIT_API pcr_digest_value final {
+class TPMKIT_API digest_value final {
 public:
     /**
      * @brief Construct a PCR digest value.
@@ -37,7 +37,7 @@ public:
      * @thread_safety Thread-compatible.
      * @exception_safety Strong; invalid input does not create an instance.
      */
-    pcr_digest_value(hash_algorithm algorithm, std::vector<std::uint8_t> digest);
+    digest_value(hash_algorithm algorithm, std::vector<std::uint8_t> digest);
 
     /**
      * @brief Return the digest hash algorithm.
@@ -58,14 +58,14 @@ public:
     [[nodiscard]] const std::vector<std::uint8_t>& digest() const noexcept;
 
     /** @brief Compare digest values by algorithm and bytes. */
-    [[nodiscard]] bool operator!=(const pcr_digest_value& other) const;
+    [[nodiscard]] bool operator!=(const digest_value& other) const;
 
     /** @brief Compare digest values by algorithm and bytes. */
-    [[nodiscard]] bool operator==(const pcr_digest_value& other) const;
+    [[nodiscard]] bool operator==(const digest_value& other) const;
 
 private:
     hash_algorithm algorithm_;
     std::vector<std::uint8_t> digest_;
 };
 
-} // namespace tpmkit
+} // namespace tpmkit::pcr

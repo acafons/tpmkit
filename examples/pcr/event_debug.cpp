@@ -18,7 +18,7 @@ namespace {
 
 constexpr std::string_view default_event_text = "tpmkit PCR event example";
 
-class counting_pcr_observer final : public tpmkit::pcr_observer {
+class counting_pcr_observer final : public tpmkit::pcr::observer {
 public:
     [[nodiscard]] std::size_t event_count() const noexcept
     {
@@ -30,13 +30,13 @@ public:
         return extend_count_;
     }
 
-    void on_event(tpmkit::pcr_index, gsl::span<const std::uint8_t>,
-                  const tpmkit::pcr_event_result&) noexcept final
+    void on_event(tpmkit::pcr::index, gsl::span<const std::uint8_t>,
+                  const tpmkit::pcr::event_result&) noexcept final
     {
         ++event_count_;
     }
 
-    void on_extend(tpmkit::pcr_index, gsl::span<const tpmkit::pcr_digest_value>) noexcept final
+    void on_extend(tpmkit::pcr::index, gsl::span<const tpmkit::pcr::digest_value>) noexcept final
     {
         ++extend_count_;
     }
@@ -78,7 +78,7 @@ int main(const int argc, char** argv)
         return EXIT_FAILURE;
     }
 
-    const auto reset = provider.value()->reset(tpmkit::pcr_index::debug);
+    const auto reset = provider.value()->reset(tpmkit::pcr::index::debug);
     if (!reset.has_value()) {
         tpmkit::examples::print_error(reset.error());
         return EXIT_FAILURE;
@@ -86,7 +86,7 @@ int main(const int argc, char** argv)
 
     const std::vector<std::uint8_t> event_data = tpmkit::examples::bytes_from_text(event_text);
     const auto event =
-        provider.value()->event(tpmkit::pcr_index::debug, gsl::make_span(event_data));
+        provider.value()->event(tpmkit::pcr::index::debug, gsl::make_span(event_data));
     if (!event.has_value()) {
         tpmkit::examples::print_error(event.error());
         return EXIT_FAILURE;
@@ -99,8 +99,8 @@ int main(const int argc, char** argv)
         }
     }
 
-    const tpmkit::pcr_selection selection{tpmkit::hash_algorithm::sha256,
-                                          {tpmkit::pcr_index::debug}};
+    const tpmkit::pcr::selection selection{tpmkit::hash_algorithm::sha256,
+                                           {tpmkit::pcr::index::debug}};
     const auto read = provider.value()->read(selection);
     if (!read.has_value()) {
         tpmkit::examples::print_error(read.error());

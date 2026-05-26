@@ -14,7 +14,7 @@
 
 #include <cstdint>
 
-namespace tpmkit {
+namespace tpmkit::pcr {
 
 /**
  * @brief Observer notified after successful PCR measurement operations.
@@ -27,7 +27,7 @@ namespace tpmkit {
  * @exception_safety Destructor and observer callbacks are noexcept.
  * @since v0.1
  */
-class TPMKIT_API pcr_observer {
+class TPMKIT_API observer {
 public:
     /**
      * @brief Destroy the PCR observer adapter.
@@ -36,7 +36,7 @@ public:
      * adapter documents stronger behavior.
      * @exception_safety noexcept.
      */
-    virtual ~pcr_observer() noexcept = default;
+    virtual ~observer() noexcept = default;
 
     /**
      * @brief Observe a successful PCR extend operation.
@@ -46,7 +46,7 @@ public:
      * @thread_safety Thread-compatible.
      * @exception_safety noexcept; implementations swallow observer failures.
      */
-    virtual void on_extend(pcr_index index, gsl::span<const pcr_digest_value> digests) noexcept = 0;
+    virtual void on_extend(index index, gsl::span<const digest_value> digests) noexcept = 0;
 
     /**
      * @brief Observe a successful PCR event operation.
@@ -57,8 +57,8 @@ public:
      * @thread_safety Thread-compatible.
      * @exception_safety noexcept; implementations swallow observer failures.
      */
-    virtual void on_event(pcr_index index, gsl::span<const std::uint8_t> event_data,
-                          const pcr_event_result& result) noexcept = 0;
+    virtual void on_event(index index, gsl::span<const std::uint8_t> event_data,
+                          const event_result& result) noexcept = 0;
 };
 
-} // namespace tpmkit
+} // namespace tpmkit::pcr

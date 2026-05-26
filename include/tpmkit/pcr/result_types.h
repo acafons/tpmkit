@@ -13,7 +13,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace tpmkit {
+namespace tpmkit::pcr {
 
 /**
  * @brief One PCR value returned by a PCR read operation.
@@ -22,22 +22,22 @@ namespace tpmkit {
  * @exception_safety Follows member type guarantees.
  * @since v0.1
  */
-struct pcr_value {
+struct value {
     /** @brief PCR register that produced this value. */
-    pcr_index index;
+    ::tpmkit::pcr::index index;
     /** @brief Digest value read from the selected PCR bank. */
-    pcr_digest_value digest;
+    digest_value digest;
 };
 
 /**
  * @brief Compare PCR values by index and digest.
  */
-[[nodiscard]] TPMKIT_API bool operator==(const pcr_value& lhs, const pcr_value& rhs);
+[[nodiscard]] TPMKIT_API bool operator==(const value& lhs, const value& rhs);
 
 /**
  * @brief Compare PCR values by index and digest.
  */
-[[nodiscard]] TPMKIT_API bool operator!=(const pcr_value& lhs, const pcr_value& rhs);
+[[nodiscard]] TPMKIT_API bool operator!=(const value& lhs, const value& rhs);
 
 /**
  * @brief Result returned by a PCR read operation.
@@ -46,24 +46,24 @@ struct pcr_value {
  * @exception_safety Follows member type guarantees.
  * @since v0.1
  */
-struct pcr_read_result {
+struct read_result {
     /** @brief Selection the TPM actually read, which may differ from the request. */
-    pcr_selection actual_selection;
+    selection actual_selection;
     /** @brief TPM PCR generation counter reported with the read. */
     std::uint32_t update_counter;
     /** @brief PCR values returned for the selected PCRs. */
-    std::vector<pcr_value> values;
+    std::vector<value> values;
 };
 
 /**
  * @brief Compare PCR read results by all fields.
  */
-[[nodiscard]] TPMKIT_API bool operator==(const pcr_read_result& lhs, const pcr_read_result& rhs);
+[[nodiscard]] TPMKIT_API bool operator==(const read_result& lhs, const read_result& rhs);
 
 /**
  * @brief Compare PCR read results by all fields.
  */
-[[nodiscard]] TPMKIT_API bool operator!=(const pcr_read_result& lhs, const pcr_read_result& rhs);
+[[nodiscard]] TPMKIT_API bool operator!=(const read_result& lhs, const read_result& rhs);
 
 /**
  * @brief Result returned by a PCR event operation.
@@ -72,20 +72,20 @@ struct pcr_read_result {
  * @exception_safety Follows member type guarantees.
  * @since v0.1
  */
-struct pcr_event_result {
+struct event_result {
     /** @brief Resulting digest values across active PCR banks. */
-    std::vector<pcr_digest_value> digests;
+    std::vector<digest_value> digests;
 };
 
 /**
  * @brief Compare PCR event results by digest values.
  */
-[[nodiscard]] TPMKIT_API bool operator==(const pcr_event_result& lhs, const pcr_event_result& rhs);
+[[nodiscard]] TPMKIT_API bool operator==(const event_result& lhs, const event_result& rhs);
 
 /**
  * @brief Compare PCR event results by digest values.
  */
-[[nodiscard]] TPMKIT_API bool operator!=(const pcr_event_result& lhs, const pcr_event_result& rhs);
+[[nodiscard]] TPMKIT_API bool operator!=(const event_result& lhs, const event_result& rhs);
 
 /**
  * @brief Result returned by a PCR allocation operation.
@@ -95,7 +95,7 @@ struct pcr_event_result {
  * initialization guarantees.
  * @since v0.1
  */
-struct pcr_allocate_result {
+struct allocate_result {
     /** @brief Whether the TPM accepted the requested allocation. */
     bool allocation_success;
     /** @brief Maximum number of PCRs supported by the TPM. */
@@ -109,13 +109,13 @@ struct pcr_allocate_result {
 /**
  * @brief Compare PCR allocation results by all fields.
  */
-[[nodiscard]] TPMKIT_API bool operator==(const pcr_allocate_result& lhs,
-                                         const pcr_allocate_result& rhs) noexcept;
+[[nodiscard]] TPMKIT_API bool operator==(const allocate_result& lhs,
+                                         const allocate_result& rhs) noexcept;
 
 /**
  * @brief Compare PCR allocation results by all fields.
  */
-[[nodiscard]] TPMKIT_API bool operator!=(const pcr_allocate_result& lhs,
-                                         const pcr_allocate_result& rhs) noexcept;
+[[nodiscard]] TPMKIT_API bool operator!=(const allocate_result& lhs,
+                                         const allocate_result& rhs) noexcept;
 
-} // namespace tpmkit
+} // namespace tpmkit::pcr
