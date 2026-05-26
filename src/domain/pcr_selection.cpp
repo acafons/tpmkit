@@ -1,4 +1,4 @@
-#include <tpmkit/pcr_selection.h>
+#include <tpmkit/pcr/selection.h>
 
 #include <tpmkit/exception.h>
 

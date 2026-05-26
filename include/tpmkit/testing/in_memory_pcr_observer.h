@@ -7,7 +7,7 @@
  * Declares the PCR measurement observer shipped by the `tpmkit_testing` target.
  */
 
-#include <tpmkit/pcr_observer.h>
+#include <tpmkit/pcr/observer.h>
 #include <tpmkit/testing/testing_api.h>
 
 #include <cstddef>

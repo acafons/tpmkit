@@ -7,7 +7,7 @@
  * Declares the PCR provider mock shipped by the `tpmkit_testing` target.
  */
 
-#include <tpmkit/pcr_provider.h>
+#include <tpmkit/pcr/provider.h>
 #include <tpmkit/testing/testing_api.h>
 
 #include <cstddef>

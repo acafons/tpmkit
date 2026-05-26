@@ -1,4 +1,4 @@
-#include <tpmkit/pcr_digest_value.h>
+#include <tpmkit/pcr/digest_value.h>
 
 #include <tpmkit/exception.h>
 

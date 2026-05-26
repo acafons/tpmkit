@@ -1,14 +1,14 @@
 #pragma once
 
 /**
- * @file tpmkit/pcr_observer.h
+ * @file tpmkit/pcr/observer.h
  * @brief Optional no-throw observer port for PCR measurement events.
  */
 
 #include <tpmkit/api.h>
-#include <tpmkit/pcr_digest_value.h>
-#include <tpmkit/pcr_index.h>
-#include <tpmkit/pcr_result_types.h>
+#include <tpmkit/pcr/digest_value.h>
+#include <tpmkit/pcr/index.h>
+#include <tpmkit/pcr/result_types.h>
 
 #include <gsl/span>
 

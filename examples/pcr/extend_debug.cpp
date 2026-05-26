@@ -1,8 +1,8 @@
 #include "example_common.h"
 
 #include <tpmkit/hash_algorithm.h>
-#include <tpmkit/pcr_digest_value.h>
-#include <tpmkit/pcr_index.h>
+#include <tpmkit/pcr/digest_value.h>
+#include <tpmkit/pcr/index.h>
 
 #include <gsl/span>
 

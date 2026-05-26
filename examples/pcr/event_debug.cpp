@@ -1,8 +1,8 @@
 #include "example_common.h"
 
-#include <tpmkit/pcr_index.h>
-#include <tpmkit/pcr_observer.h>
-#include <tpmkit/pcr_selection.h>
+#include <tpmkit/pcr/index.h>
+#include <tpmkit/pcr/observer.h>
+#include <tpmkit/pcr/selection.h>
 
 #include <gsl/span>
 

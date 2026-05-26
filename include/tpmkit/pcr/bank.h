@@ -1,7 +1,7 @@
 #pragma once
 
 /**
- * @file tpmkit/pcr_bank.h
+ * @file tpmkit/pcr/bank.h
  * @brief PCR bank value object pairing a hash algorithm with digest length.
  */
 

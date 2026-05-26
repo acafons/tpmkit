@@ -1,4 +1,4 @@
-#include <tpmkit/pcr_observer.h>
+#include <tpmkit/pcr/observer.h>
 #include <tpmkit/testing/fake_tcti.h>
 #include <tpmkit/testing/recording_logger.h>
 #include <tpmkit/tpm_context.h>
@@ -126,8 +126,8 @@ std::string field_value(const tpmkit::testing::log_record& record, const std::st
     return {};
 }
 
-tpmkit::tpm_context_config
-owned_config(tpmkit::testing::fake_tcti& fake, std::shared_ptr<tpmkit::logger> log = nullptr)
+tpmkit::tpm_context_config owned_config(tpmkit::testing::fake_tcti& fake,
+                                        std::shared_ptr<tpmkit::logger> log = nullptr)
 {
     tpmkit::tpm_context_config config;
     config.tcti =

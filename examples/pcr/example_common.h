@@ -1,9 +1,9 @@
 #pragma once
 
 #include <tpmkit/hash_algorithm.h>
-#include <tpmkit/pcr_index.h>
-#include <tpmkit/pcr_provider.h>
-#include <tpmkit/pcr_selection.h>
+#include <tpmkit/pcr/index.h>
+#include <tpmkit/pcr/provider.h>
+#include <tpmkit/pcr/selection.h>
 #include <tpmkit/result.h>
 #include <tpmkit/tpm_context.h>
 

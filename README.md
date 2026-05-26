@@ -27,6 +27,8 @@ The example sources live under [examples/](examples/), including:
 [pcr/event_debug.cpp](examples/pcr/event_debug.cpp), and
 [pcr/observer_trace.cpp](examples/pcr/observer_trace.cpp).
 
+PCR headers are grouped under `<tpmkit/pcr/...>`.
+
 ## TCTI Selection
 
 tpmkit requires callers to pass an explicit TCTI string or an owned TCTI handle. It does not guess from environment or platform defaults. The rationale is documented in [ADR-002](.compozy/tasks/esys-context/adrs/adr-002.md).

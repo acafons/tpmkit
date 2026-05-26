@@ -1,4 +1,4 @@
-#include <tpmkit/pcr_index.h>
+#include <tpmkit/pcr/index.h>
 
 int tpmkit_pcr_index_header_self_contained()
 {

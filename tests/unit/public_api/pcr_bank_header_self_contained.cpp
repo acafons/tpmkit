@@ -1,4 +1,4 @@
-#include <tpmkit/pcr_bank.h>
+#include <tpmkit/pcr/bank.h>
 
 int tpmkit_pcr_bank_header_self_contained()
 {

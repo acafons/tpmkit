@@ -1,4 +1,4 @@
-#include <tpmkit/pcr_bank.h>
+#include <tpmkit/pcr/bank.h>
 
 #include <tpmkit/exception.h>
 

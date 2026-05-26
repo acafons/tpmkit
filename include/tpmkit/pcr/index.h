@@ -1,7 +1,7 @@
 #pragma once
 
 /**
- * @file tpmkit/pcr_index.h
+ * @file tpmkit/pcr/index.h
  * @brief PCR register index value object and well-known PCR constants.
  */
 

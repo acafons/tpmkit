@@ -1,7 +1,7 @@
 #pragma once
 
 /**
- * @file tpmkit/pcr_digest_value.h
+ * @file tpmkit/pcr/digest_value.h
  * @brief PCR digest value object with algorithm-aware size validation.
  */
 

@@ -8,13 +8,13 @@ target_sources(tpmkit
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/hash_algorithm.h>
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/logging/logger.h>
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/logging/noop_logger.h>
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/pcr_bank.h>
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/pcr_digest_value.h>
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/pcr_index.h>
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/pcr_observer.h>
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/pcr_provider.h>
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/pcr_result_types.h>
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/pcr_selection.h>
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/pcr/bank.h>
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/pcr/digest_value.h>
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/pcr/index.h>
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/pcr/observer.h>
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/pcr/provider.h>
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/pcr/result_types.h>
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/pcr/selection.h>
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/result.h>
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/secret_buffer.h>
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/tpm_context.h>

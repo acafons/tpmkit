@@ -1,4 +1,4 @@
-#include <tpmkit/pcr_index.h>
+#include <tpmkit/pcr/index.h>
 
 #include <tpmkit/exception.h>
 

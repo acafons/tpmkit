@@ -10,7 +10,7 @@
 
 #include <tpmkit/api.h>
 #include <tpmkit/logging/logger.h>
-#include <tpmkit/pcr_provider.h>
+#include <tpmkit/pcr/provider.h>
 #include <tpmkit/result.h>
 
 #include <memory>

@@ -1,17 +1,17 @@
 #pragma once
 
 /**
- * @file tpmkit/pcr_provider.h
+ * @file tpmkit/pcr/provider.h
  * @brief Domain port for TPM PCR operations.
  */
 
 #include <tpmkit/api.h>
 #include <tpmkit/hash_algorithm.h>
-#include <tpmkit/pcr_bank.h>
-#include <tpmkit/pcr_digest_value.h>
-#include <tpmkit/pcr_index.h>
-#include <tpmkit/pcr_result_types.h>
-#include <tpmkit/pcr_selection.h>
+#include <tpmkit/pcr/bank.h>
+#include <tpmkit/pcr/digest_value.h>
+#include <tpmkit/pcr/index.h>
+#include <tpmkit/pcr/result_types.h>
+#include <tpmkit/pcr/selection.h>
 #include <tpmkit/result.h>
 #include <tpmkit/secret_buffer.h>
 

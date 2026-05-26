@@ -1,8 +1,8 @@
 #include <tpmkit/hash_algorithm.h>
-#include <tpmkit/pcr_bank.h>
-#include <tpmkit/pcr_digest_value.h>
-#include <tpmkit/pcr_index.h>
-#include <tpmkit/pcr_selection.h>
+#include <tpmkit/pcr/bank.h>
+#include <tpmkit/pcr/digest_value.h>
+#include <tpmkit/pcr/index.h>
+#include <tpmkit/pcr/selection.h>
 #include <tpmkit/secret_buffer.h>
 #include <tpmkit/testing/in_memory_pcr_observer.h>
 #include <tpmkit/testing/recording_logger.h>

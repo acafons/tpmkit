@@ -1,9 +1,9 @@
 #include <tpmkit/exception.h>
-#include <tpmkit/pcr_bank.h>
-#include <tpmkit/pcr_digest_value.h>
-#include <tpmkit/pcr_index.h>
-#include <tpmkit/pcr_result_types.h>
-#include <tpmkit/pcr_selection.h>
+#include <tpmkit/pcr/bank.h>
+#include <tpmkit/pcr/digest_value.h>
+#include <tpmkit/pcr/index.h>
+#include <tpmkit/pcr/result_types.h>
+#include <tpmkit/pcr/selection.h>
 
 #include <gtest/gtest.h>
 

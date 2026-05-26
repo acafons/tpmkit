@@ -1,13 +1,13 @@
 #pragma once
 
 /**
- * @file tpmkit/pcr_selection.h
+ * @file tpmkit/pcr/selection.h
  * @brief PCR selection value object for selecting indices within one bank.
  */
 
 #include <tpmkit/api.h>
 #include <tpmkit/hash_algorithm.h>
-#include <tpmkit/pcr_index.h>
+#include <tpmkit/pcr/index.h>
 
 #include <initializer_list>
 #include <set>

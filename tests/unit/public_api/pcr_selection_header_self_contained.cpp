@@ -1,4 +1,4 @@
-#include <tpmkit/pcr_selection.h>
+#include <tpmkit/pcr/selection.h>
 
 int tpmkit_pcr_selection_header_self_contained()
 {

@@ -1,4 +1,4 @@
-#include <tpmkit/pcr_result_types.h>
+#include <tpmkit/pcr/result_types.h>
 
 #include <cstdint>
 #include <vector>

@@ -1,5 +1,5 @@
-#include <tpmkit/pcr_observer.h>
-#include <tpmkit/pcr_provider.h>
+#include <tpmkit/pcr/observer.h>
+#include <tpmkit/pcr/provider.h>
 
 #include <gtest/gtest.h>
 
