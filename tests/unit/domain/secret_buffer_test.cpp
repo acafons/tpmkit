@@ -23,15 +23,12 @@ struct observer_state {
     bool unlocked = false;
     std::size_t lock_size = 0U;
     std::vector<std::uint8_t> after_cleanse;
-    std::vector<std::uint8_t> before_cleanse;
 };
 
 observer_state* active_state = nullptr;
 
-void observe_cleanse(const std::uint8_t* const before, const std::uint8_t* const after,
-                     const std::size_t size) noexcept
+void observe_cleanse(const std::uint8_t* const after, const std::size_t size) noexcept
 {
-    active_state->before_cleanse.assign(before, before + size);
     active_state->after_cleanse.assign(after, after + size);
 }
 
@@ -147,7 +144,6 @@ TEST(secret_buffer, move_assignment_transfers_ownership_and_clears_previous_cont
 
     target = std::move(source);
 
-    EXPECT_EQ(state.before_cleanse, previous);
     ASSERT_EQ(state.after_cleanse.size(), previous.size());
     EXPECT_TRUE(std::all_of(state.after_cleanse.begin(), state.after_cleanse.end(),
                             [](const std::uint8_t value) { return value == 0U; }));
@@ -181,9 +177,10 @@ TEST(secret_buffer, destructor_zeroes_memory_before_release)
     {
         const tpmkit::secret_buffer buffer{std::move(owned)};
         ASSERT_EQ(buffer.size(), secret.size());
+        EXPECT_TRUE(
+            std::equal(buffer.view().begin(), buffer.view().end(), secret.begin(), secret.end()));
     }
 
-    EXPECT_EQ(state.before_cleanse, secret);
     ASSERT_EQ(state.after_cleanse.size(), secret.size());
     EXPECT_TRUE(std::all_of(state.after_cleanse.begin(), state.after_cleanse.end(),
                             [](const std::uint8_t value) { return value == 0U; }));
@@ -209,7 +206,9 @@ TEST(secret_buffer, attempts_memory_locking_and_unlocks_before_cleanse)
         EXPECT_TRUE(state.locked);
         EXPECT_TRUE(state.unlocked);
     }
-    EXPECT_FALSE(state.before_cleanse.empty());
+    ASSERT_EQ(state.after_cleanse.size(), secret.size());
+    EXPECT_TRUE(std::all_of(state.after_cleanse.begin(), state.after_cleanse.end(),
+                            [](const std::uint8_t value) { return value == 0U; }));
 }
 
 } // namespace

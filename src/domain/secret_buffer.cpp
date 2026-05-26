@@ -27,15 +27,12 @@ void cleanse(std::vector<std::uint8_t>& data) noexcept
         return;
     }
 
+    OPENSSL_cleanse(data.data(), data.size());
+
     const auto* const observer = active_observer.load(std::memory_order_acquire);
     if (observer != nullptr && observer->on_cleanse != nullptr) {
-        const std::vector<std::uint8_t> before = data;
-        OPENSSL_cleanse(data.data(), data.size());
-        observer->on_cleanse(before.data(), data.data(), data.size());
-        return;
+        observer->on_cleanse(data.data(), data.size());
     }
-
-    OPENSSL_cleanse(data.data(), data.size());
 }
 
 [[nodiscard]] bool lock_memory(void* const data, const std::size_t size) noexcept
