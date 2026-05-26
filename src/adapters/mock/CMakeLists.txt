@@ -27,5 +27,7 @@ target_link_libraries(tpmkit_testing
     PUBLIC
         Microsoft.GSL::GSL
         tl::expected
+    INTERFACE
+        tpmkit::tpmkit
 )
 tpmkit_configure_library_target(tpmkit_testing)
