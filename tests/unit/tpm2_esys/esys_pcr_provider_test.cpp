@@ -624,6 +624,24 @@ TEST(esys_pcr_provider, extend_rejects_too_many_digests)
     EXPECT_EQ(fake.transmits_observed(), 0U);
 }
 
+TEST(esys_pcr_provider, extend_rejects_empty_digest_list_before_dispatch)
+{
+    // Verifies PCR extend requires at least one digest and sends no TPM command on empty input.
+
+    tpmkit::testing::fake_tcti fake;
+    auto context = tpmkit::tpm_context::create(owned_config(fake));
+    ASSERT_TRUE(context.has_value());
+    tpmkit::detail::esys::esys_pcr_provider provider{
+        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, nullptr};
+
+    const auto result = provider.extend(
+        tpmkit::pcr_index::debug, gsl::span<const tpmkit::pcr_digest_value>{});
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().category, tpmkit::error_category::input_error);
+    EXPECT_TRUE(fake.transmitted_commands().empty());
+}
+
 TEST(esys_pcr_provider, extend_rejects_duplicate_digest_algorithms_before_dispatch)
 {
     // Verifies PCR extend rejects duplicate bank digests without sending a TPM command.
@@ -1162,6 +1180,23 @@ TEST(esys_pcr_provider, allocate_rejects_duplicate_banks_before_dispatch)
          tpmkit::pcr_bank{tpmkit::hash_algorithm::sha256}}};
 
     const auto allocate = provider.allocate(gsl::make_span(banks));
+
+    ASSERT_FALSE(allocate.has_value());
+    EXPECT_EQ(allocate.error().category, tpmkit::error_category::input_error);
+    EXPECT_TRUE(fake.transmitted_commands().empty());
+}
+
+TEST(esys_pcr_provider, allocate_rejects_empty_bank_list_before_dispatch)
+{
+    // Verifies PCR allocate requires at least one bank and sends no TPM command on empty input.
+
+    tpmkit::testing::fake_tcti fake;
+    auto context = tpmkit::tpm_context::create(owned_config(fake));
+    ASSERT_TRUE(context.has_value());
+    tpmkit::detail::esys::esys_pcr_provider provider{
+        static_cast<ESYS_CONTEXT*>(context.value().esys_handle()), nullptr, nullptr};
+
+    const auto allocate = provider.allocate(gsl::span<const tpmkit::pcr_bank>{});
 
     ASSERT_FALSE(allocate.has_value());
     EXPECT_EQ(allocate.error().category, tpmkit::error_category::input_error);

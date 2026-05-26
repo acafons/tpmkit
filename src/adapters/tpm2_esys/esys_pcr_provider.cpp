@@ -114,6 +114,11 @@ template <class Element, std::size_t Size>
 
 [[nodiscard]] outcome<void> ensure_digest_count(const gsl::span<const pcr_digest_value> digests)
 {
+    if (digests.empty()) {
+        return tl::unexpected(
+            error{error_category::input_error, "PCR extend requires at least one digest"});
+    }
+
     if (digests.size() > TPM2_NUM_PCR_BANKS) {
         return tl::unexpected(error{error_category::input_error, "too many PCR digests"});
     }
@@ -131,6 +136,11 @@ template <class Element, std::size_t Size>
 
 [[nodiscard]] outcome<void> ensure_bank_count(const gsl::span<const pcr_bank> banks)
 {
+    if (banks.empty()) {
+        return tl::unexpected(
+            error{error_category::input_error, "PCR allocate requires at least one bank"});
+    }
+
     if (banks.size() > TPM2_NUM_PCR_BANKS) {
         return tl::unexpected(error{error_category::input_error, "too many PCR banks"});
     }
