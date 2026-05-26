@@ -100,9 +100,24 @@ constexpr std::array<mapping_entry, 50> documented_mappings{{
     return rc & TSS2_RC_LAYER_MASK;
 }
 
-[[nodiscard]] TSS2_RC rc_base(const TSS2_RC rc) noexcept
+[[nodiscard]] TSS2_RC normalize_tpm_base(const TSS2_RC base) noexcept
 {
-    return rc & 0xffffU;
+    if ((base & static_cast<TSS2_RC>(TPM2_RC_FMT1)) == 0U) {
+        return base;
+    }
+
+    constexpr TSS2_RC format_one_base_mask = static_cast<TSS2_RC>(TPM2_RC_FMT1 | 0x3fU);
+    return base & format_one_base_mask;
+}
+
+[[nodiscard]] TSS2_RC rc_base(const TSS2_RC rc, const TSS2_RC layer) noexcept
+{
+    const TSS2_RC base = rc & 0xffffU;
+    if (layer == TSS2_TPM_RC_LAYER) {
+        return normalize_tpm_base(base);
+    }
+
+    return base;
 }
 
 [[nodiscard]] std::string_view layer_name(const TSS2_RC layer) noexcept
@@ -177,7 +192,7 @@ outcome<void> translate_tss_rc(const TSS2_RC rc, const std::string_view operatio
     const TSS2_RC layer = rc_layer(rc);
     log_tss_error(log, rc, layer, operation, error_event);
 
-    const mapped_error mapped = translate_layer_base(layer, rc_base(rc));
+    const mapped_error mapped = translate_layer_base(layer, rc_base(rc, layer));
     return tl::unexpected(error{mapped.category, std::string{mapped.message}});
 }
 

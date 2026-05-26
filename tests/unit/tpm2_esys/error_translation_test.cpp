@@ -236,6 +236,41 @@ TEST(error_translation, maps_pcr_specific_tpm_return_codes)
     }
 }
 
+TEST(error_translation, maps_parameterized_tpm_return_codes_to_base_categories)
+{
+    // Verifies TPM format-one selector bits do not change domain error categories.
+
+#if defined(__GNUC__) || defined(__clang__)
+// TSS return-code constants expand through C-style casts in the system headers.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wold-style-cast"
+#endif
+    const std::vector<mapping_case> cases{
+        {"TPM2_RC_VALUE parameter 3", static_cast<TSS2_RC>(TPM2_RC_VALUE + TPM2_RC_P + TPM2_RC_3),
+         input, "tpm"},
+        {"TPM2_RC_SIZE parameter 1", static_cast<TSS2_RC>(TPM2_RC_SIZE + TPM2_RC_P + TPM2_RC_1),
+         input, "tpm"},
+        {"TPM2_RC_HANDLE handle 1", static_cast<TSS2_RC>(TPM2_RC_HANDLE + TPM2_RC_H + TPM2_RC_1),
+         input, "tpm"},
+        {"TPM2_RC_BAD_AUTH session 1",
+         static_cast<TSS2_RC>(TPM2_RC_BAD_AUTH + TPM2_RC_S + TPM2_RC_1), security, "tpm"},
+        {"TPM2_RC_POLICY_FAIL session 1",
+         static_cast<TSS2_RC>(TPM2_RC_POLICY_FAIL + TPM2_RC_S + TPM2_RC_1), security, "tpm"},
+    };
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+
+    for (const auto& test_case : cases) {
+        const auto result =
+            tpmkit::detail::esys::translate_tss_rc(test_case.rc, "pcr_set_auth_policy", nullptr);
+
+        ASSERT_FALSE(result.has_value()) << test_case.name;
+        EXPECT_EQ(result.error().category, test_case.category) << test_case.name;
+        EXPECT_FALSE(contains_disallowed_message_detail(result.error().message)) << test_case.name;
+    }
+}
+
 TEST(error_translation, logs_non_success_rc_with_schema_fields)
 {
     // Verifies failed TSS return codes emit the documented schema fields.
