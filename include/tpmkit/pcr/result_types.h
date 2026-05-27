@@ -68,12 +68,16 @@ struct read_result {
 /**
  * @brief Result returned by a PCR event operation.
  *
+ * Contains the TPM-computed event digests for the active PCR banks extended by
+ * provider::event(). These digests describe the event data that was extended;
+ * they are not the final PCR register values after the operation.
+ *
  * @thread_safety Thread-compatible. Independent values may be used concurrently.
  * @exception_safety Follows member type guarantees.
  * @since v0.1
  */
 struct event_result {
-    /** @brief Resulting digest values across active PCR banks. */
+    /** @brief TPM-computed event digests across active PCR banks. */
     std::vector<digest_value> digests;
 };
 

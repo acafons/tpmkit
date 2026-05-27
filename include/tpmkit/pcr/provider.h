@@ -55,9 +55,16 @@ public:
     /**
      * @brief Extend one PCR with caller-provided digest values.
      *
+     * Each digest is applied to the PCR bank identified by its hash algorithm.
+     * Passing multiple digest values extends the same PCR index in multiple
+     * explicit banks. Use event() instead when the caller has raw event bytes
+     * and wants the TPM to hash them for every active bank.
+     *
      * @param[in] index PCR index to extend.
-     * @param[in] digests Digest values for explicit PCR banks.
+     * @param[in] digests Digest values for explicit PCR banks. Must contain
+     * at least one digest and no duplicate hash algorithms.
      * @return Empty success, or a domain error on expected failure.
+     * @see event
      */
     [[nodiscard]] virtual outcome<void> extend(index index,
                                                gsl::span<const digest_value> digests) = 0;
@@ -65,9 +72,16 @@ public:
     /**
      * @brief Extend one PCR with raw event data digested by the TPM.
      *
-     * @param[in] index PCR index to extend.
-     * @param[in] event_data Raw event bytes.
-     * @return Event result on success, or a domain error on expected failure.
+     * The TPM hashes `event_data` with each active PCR bank algorithm and
+     * extends the selected PCR index in those active banks. The returned
+     * event_result contains the TPM-computed event digests; it does not contain
+     * the final PCR register values after the extend.
+     *
+     * @param[in] index PCR index to extend in every active bank.
+     * @param[in] event_data Raw event bytes. Must fit in the TPM event buffer.
+     * @return Event result containing one digest per active bank on success, or
+     * a domain error on expected failure.
+     * @see extend
      */
     [[nodiscard]] virtual outcome<event_result> event(index index,
                                                       gsl::span<const std::uint8_t> event_data) = 0;
