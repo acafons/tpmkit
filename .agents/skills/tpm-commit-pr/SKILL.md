@@ -21,7 +21,20 @@ Apply when creating a commit:
 
    **Trailers:** `Refs: #123`
 
-4. **Wrap the body at 72 characters before invoking `git commit`.** Pass each pre-wrapped line as its own `-m` argument so newlines land in the commit message verbatim — `git` does not auto-wrap. Equivalent: a single `-m` with a HEREDOC whose lines are already wrapped.
+4. **Wrap the body at 72 characters before invoking `git commit`** — `git` does not auto-wrap. Pass the whole message through a single `-m` with a HEREDOC whose lines are already wrapped, so line breaks land verbatim:
+
+   ```sh
+   git commit -m "$(cat <<'EOF'
+   feat(scope): subject under 50 chars
+
+   Body paragraph wrapped at 72 characters. Successive lines of the
+   same paragraph stay on consecutive lines; a blank line separates
+   one paragraph from the next.
+   EOF
+   )"
+   ```
+
+   **Do not pass each wrapped line as its own `-m`.** `git` joins multiple `-m` values with a *blank line* between them — one `-m` is one paragraph, not one line. Splitting a single wrapped paragraph across several `-m` flags inserts blank lines mid-paragraph and breaks the prose. Use one `-m` per intended paragraph only (e.g. a separate `-m` for a `BREAKING CHANGE:` footer or a `Refs: #n` trailer), never one per visual line.
 
 ### Autonomous mode
 
