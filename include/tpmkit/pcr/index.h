@@ -2,13 +2,14 @@
 
 /**
  * @file tpmkit/pcr/index.h
- * @brief PCR register index value object and well-known PCR constants.
+ * @brief PCR register index value object, range helper, and well-known PCR constants.
  */
 
 #include <tpmkit/api.h>
 
 #include <cstdint>
 #include <functional>
+#include <set>
 
 namespace tpmkit::pcr {
 
@@ -116,6 +117,25 @@ private:
 
     friend struct std::hash<index>;
 };
+
+/**
+ * @brief Build a sorted set of contiguous PCR indices.
+ *
+ * Creates the half-open range `[first, first + count)`. Passing `count == 0`
+ * returns an empty set and does not validate `first`.
+ *
+ * @param[in] first First PCR index in the range. When `count` is nonzero, it
+ * must be in the valid PCR index range [0, 31].
+ * @param[in] count Number of PCR indices to include. The resulting range must
+ * not exceed `index::max_value`.
+ * @return Sorted unique set of PCR indices in ascending order.
+ * @throws input_validation_error if the non-empty range exceeds the supported
+ * PCR index range.
+ * @thread_safety Thread-safe.
+ * @exception_safety Strong; invalid input does not modify caller state.
+ * @since v0.1
+ */
+[[nodiscard]] TPMKIT_API std::set<index> make_index_range(std::uint32_t first, std::uint32_t count);
 
 } // namespace tpmkit::pcr
 

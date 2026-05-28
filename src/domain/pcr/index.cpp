@@ -2,6 +2,24 @@
 
 #include <tpmkit/exception.h>
 
+#include <set>
+
+namespace {
+
+void validate_index_range(const std::uint32_t first, const std::uint32_t count)
+{
+    if (count == 0U) {
+        return;
+    }
+
+    constexpr std::uint32_t max_index = tpmkit::pcr::index::max_value;
+    if (first > max_index || count > (max_index + 1U - first)) {
+        throw tpmkit::input_validation_error{"PCR index range must be in the range 0-31"};
+    }
+}
+
+} // namespace
+
 namespace tpmkit::pcr {
 
 const index index::application{23U, unchecked_tag{}};
@@ -56,6 +74,18 @@ bool index::operator<(const index& other) const noexcept
 bool index::operator==(const index& other) const noexcept
 {
     return value_ == other.value_;
+}
+
+std::set<index> make_index_range(const std::uint32_t first, const std::uint32_t count)
+{
+    validate_index_range(first, count);
+
+    std::set<index> indices;
+    for (std::uint32_t offset = 0U; offset < count; ++offset) {
+        indices.insert(index{first + offset});
+    }
+
+    return indices;
 }
 
 } // namespace tpmkit::pcr

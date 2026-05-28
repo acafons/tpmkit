@@ -1,6 +1,7 @@
 #include "example_common.h"
 
 #include <tpmkit/hash_algorithm.h>
+#include <tpmkit/pcr/index.h>
 #include <tpmkit/pcr/selection.h>
 
 #include <cstdlib>
@@ -34,7 +35,7 @@ int main(const int argc, char** argv)
 
     const tpmkit::pcr::selection selection{
         tpmkit::hash_algorithm::sha256,
-        tpmkit::examples::make_pcr_range(0U, tpmkit::examples::default_platform_pcr_count)};
+        tpmkit::pcr::make_index_range(0U, tpmkit::examples::default_platform_pcr_count)};
     const auto read = provider.value()->read(selection);
     if (!read.has_value()) {
         tpmkit::examples::print_error(read.error());

@@ -13,7 +13,6 @@
 #include <iomanip>
 #include <iostream>
 #include <optional>
-#include <set>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -124,17 +123,6 @@ constexpr std::string_view default_tcti_config = "tabrmd:bus_type=system";
     }
 
     return bytes;
-}
-
-[[nodiscard]] inline std::set<pcr::index> make_pcr_range(const std::uint32_t first,
-                                                         const std::uint32_t count)
-{
-    std::set<pcr::index> indices;
-    for (std::uint32_t offset = 0U; offset < count; ++offset) {
-        indices.insert(pcr::index{first + offset});
-    }
-
-    return indices;
 }
 
 inline void print_error(const error& error_value)

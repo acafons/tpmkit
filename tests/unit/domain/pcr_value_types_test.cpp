@@ -9,6 +9,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <ostream>
 #include <set>
 #include <type_traits>
@@ -147,6 +148,49 @@ TEST(pcr_index, supports_hash_containers)
 
     EXPECT_EQ(indices.size(), 2U);
     EXPECT_EQ(indices.count(tpmkit::pcr::index::debug), 1U);
+}
+
+TEST(pcr_index, makes_contiguous_index_ranges)
+{
+    // Verifies contiguous PCR index ranges are returned as sorted unique sets.
+
+    const auto indices = tpmkit::pcr::make_index_range(8U, 4U);
+    const std::set<tpmkit::pcr::index> expected{tpmkit::pcr::index{8U}, tpmkit::pcr::index{9U},
+                                                tpmkit::pcr::index{10U}, tpmkit::pcr::index{11U}};
+
+    EXPECT_EQ(indices, expected);
+}
+
+TEST(pcr_index, makes_empty_index_ranges)
+{
+    // Verifies empty PCR index ranges return an empty set without validating the start.
+
+    const auto indices = tpmkit::pcr::make_index_range(32U, 0U);
+
+    EXPECT_TRUE(indices.empty());
+}
+
+TEST(pcr_index, accepts_index_ranges_ending_at_max_index)
+{
+    // Verifies PCR index ranges may include the highest supported index.
+
+    const auto indices = tpmkit::pcr::make_index_range(30U, 2U);
+    const std::set<tpmkit::pcr::index> expected{tpmkit::pcr::index{30U}, tpmkit::pcr::index{31U}};
+
+    EXPECT_EQ(indices, expected);
+}
+
+TEST(pcr_index, rejects_index_ranges_above_supported_range)
+{
+    // Verifies PCR index ranges reject starts and lengths that exceed the supported range.
+
+    EXPECT_THROW(static_cast<void>(tpmkit::pcr::make_index_range(32U, 1U)),
+                 tpmkit::input_validation_error);
+    EXPECT_THROW(static_cast<void>(tpmkit::pcr::make_index_range(30U, 3U)),
+                 tpmkit::input_validation_error);
+    EXPECT_THROW(static_cast<void>(
+                     tpmkit::pcr::make_index_range(0U, std::numeric_limits<std::uint32_t>::max())),
+                 tpmkit::input_validation_error);
 }
 
 TEST(pcr_bank, constructs_from_supported_hash_algorithm)
