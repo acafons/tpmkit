@@ -4,12 +4,9 @@
 
 int tpmkit_fake_tpm_context_header_self_contained()
 {
-    tpmkit::tpm_context_config config;
-    config.tcti = tpmkit::tcti_string_config{"mssim:host=localhost,port=2321"};
-    config.startup = tpmkit::tpm_context_config::startup_mode::skip;
-
     tpmkit::outcome<tpmkit::testing::fake_tpm_context> created =
-        tpmkit::testing::fake_tpm_context::create(std::move(config));
+        tpmkit::testing::fake_tpm_context::create("mssim:host=localhost,port=2321",
+                                                  tpmkit::tpm_context_config::startup_mode::skip);
     if (!created.has_value()) {
         return 1;
     }

@@ -12,6 +12,7 @@
 #include <iostream>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -65,7 +66,7 @@ int main(const int argc, char** argv)
         event_text = argv[2];
     }
 
-    auto context = tpmkit::examples::create_context(std::move(tcti_config));
+    auto context = tpmkit::tpm_context::create(std::move(tcti_config));
     if (!context.has_value()) {
         tpmkit::examples::print_error(context.error());
         return EXIT_FAILURE;

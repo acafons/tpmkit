@@ -184,6 +184,31 @@ public:
     [[nodiscard]] static outcome<tpm_context> create(tpm_context_config config);
 
     /**
+     * @brief Atomically create a TPM context from a string TCTI configuration.
+     *
+     * This overload is a convenience for the common string-TCTI path. It builds
+     * a `tpm_context_config` with `tcti_string_config`, the requested startup
+     * behavior, and an optional logger, then delegates to create(tpm_context_config).
+     *
+     * @param[in] tcti_config Explicit tpm2-tools-compatible TCTI string. It
+     *                        must be non-empty and use the `name:args` shape.
+     * @param[in] startup Requested TPM startup behavior.
+     * @param[in] log Logger port used for lifecycle records; null selects the
+     *                library default.
+     * @return On success, returns the fully initialized context. On failure,
+     *         returns `error` with category in {error_category::input_error,
+     *         error_category::resource_error, error_category::backend_error}.
+     * @thread_safety Thread-safe.
+     * @exception_safety Strong; failed creation does not publish a partially
+     * initialized context.
+     * @since v0.1
+     */
+    [[nodiscard]] static outcome<tpm_context>
+    create(std::string tcti_config,
+           tpm_context_config::startup_mode startup = tpm_context_config::startup_mode::clear,
+           std::shared_ptr<logger> log = nullptr);
+
+    /**
      * @brief Create a PCR provider bound to this TPM context.
      *
      * The returned provider borrows the TPM connection and effective logger

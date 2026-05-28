@@ -16,7 +16,6 @@
 #include <sstream>
 #include <string>
 #include <string_view>
-#include <utility>
 #include <vector>
 
 namespace tpmkit::examples {
@@ -33,16 +32,6 @@ constexpr std::string_view default_tcti_config = "tabrmd:bus_type=system";
     }
 
     return bytes;
-}
-
-[[nodiscard]] inline outcome<tpm_context> create_context(
-    std::string tcti_config,
-    const tpm_context_config::startup_mode startup = tpm_context_config::startup_mode::clear)
-{
-    tpm_context_config config;
-    config.tcti = tcti_string_config{std::move(tcti_config)};
-    config.startup = startup;
-    return tpm_context::create(std::move(config));
 }
 
 [[nodiscard]] inline std::string hex_encode(const std::vector<std::uint8_t>& bytes)

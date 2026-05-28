@@ -338,6 +338,17 @@ outcome<tpm_context> tpm_context::create(tpm_context_config config)
     return tpm_context{std::move(implementation)};
 }
 
+outcome<tpm_context> tpm_context::create(std::string tcti_config,
+                                         const tpm_context_config::startup_mode startup,
+                                         std::shared_ptr<logger> log)
+{
+    tpm_context_config config;
+    config.tcti = tcti_string_config{std::move(tcti_config)};
+    config.startup = startup;
+    config.log = std::move(log);
+    return create(std::move(config));
+}
+
 outcome<std::unique_ptr<pcr::provider>>
 tpm_context::create_pcr_provider(pcr::observer* const observer)
 {

@@ -30,14 +30,14 @@ int main(const int argc, char** argv)
         tcti_config = argv[1];
     }
 
-    tpmkit::tpm_context_config config;
-    config.tcti = tpmkit::tcti_string_config{std::move(tcti_config)};
-    config.startup = tpmkit::tpm_context_config::startup_mode::clear;
 #ifdef TPMKIT_EXAMPLE_HAS_STDIO
-    config.log = std::make_shared<tpmkit::stdio_logger>();
+    auto log = std::make_shared<tpmkit::stdio_logger>();
+#else
+    std::shared_ptr<tpmkit::logger> log;
 #endif
 
-    auto context = tpmkit::tpm_context::create(std::move(config));
+    auto context = tpmkit::tpm_context::create(
+        std::move(tcti_config), tpmkit::tpm_context_config::startup_mode::clear, log);
     if (!context.has_value()) {
         std::cerr << tpmkit::error_category_name(context.error().category) << ": "
                   << context.error().message << "\n";

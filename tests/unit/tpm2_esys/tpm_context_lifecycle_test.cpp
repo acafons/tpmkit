@@ -165,6 +165,16 @@ TEST(tpm_context_lifecycle, invalid_startup_mode_returns_input_error_without_tra
     EXPECT_TRUE(log->snapshot().empty());
 }
 
+TEST(tpm_context_lifecycle, string_tcti_overload_rejects_invalid_config_shape)
+{
+    // Verifies the string TCTI overload forwards validation through the config path.
+
+    const auto result = tpmkit::tpm_context::create(std::string{"swtpm"});
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().category, tpmkit::error_category::input_error);
+}
+
 TEST(tpm_context_lifecycle, startup_initialize_response_is_success)
 {
     // Verifies TPM2_RC_INITIALIZE is treated as successful startup.
@@ -289,11 +299,9 @@ TEST(tpm_context_lifecycle, string_tcti_failure_logs_only_sanitized_module_name)
     // Verifies failing string TCTI logs do not leak config details.
 
     auto log = std::make_shared<tpmkit::testing::recording_logger>();
-    tpmkit::tpm_context_config config;
-    config.tcti = tpmkit::tcti_string_config{"not_a_real_tcti:secret_socket=/tmp/secret"};
-    config.log = log;
 
-    const auto result = tpmkit::tpm_context::create(std::move(config));
+    const auto result = tpmkit::tpm_context::create(
+        std::string{"not_a_real_tcti:secret_socket=/tmp/secret"}, startup_mode::clear, log);
 
     ASSERT_FALSE(result.has_value());
     const auto records = log->snapshot();

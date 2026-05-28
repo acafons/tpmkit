@@ -1,8 +1,11 @@
 #include <tpmkit/testing/fake_tcti.h>
 #include <tpmkit/testing/fake_tpm_context.h>
+#include <tpmkit/testing/recording_logger.h>
 
 #include <gtest/gtest.h>
 
+#include <memory>
+#include <string>
 #include <type_traits>
 #include <utility>
 #include <variant>
@@ -15,8 +18,10 @@ TEST(fake_tpm_context, default_config_with_empty_tcti_string_returns_input_error
 {
     // Verifies the fake rejects the default empty TCTI string.
 
+    tpmkit::tpm_context_config config;
+
     const tpmkit::outcome<tpmkit::testing::fake_tpm_context> created =
-        tpmkit::testing::fake_tpm_context::create({});
+        tpmkit::testing::fake_tpm_context::create(std::move(config));
 
     ASSERT_FALSE(created.has_value());
     EXPECT_EQ(created.error().category, tpmkit::error_category::input_error);
@@ -53,6 +58,25 @@ TEST(fake_tpm_context, valid_string_config_returns_success)
         tpmkit::testing::fake_tpm_context::create(std::move(config));
 
     EXPECT_TRUE(created.has_value());
+}
+
+TEST(fake_tpm_context, string_tcti_overload_stores_equivalent_config)
+{
+    // Verifies the string TCTI overload stores the same config shape as the real context.
+
+    auto log = std::make_shared<tpmkit::testing::recording_logger>();
+
+    tpmkit::outcome<tpmkit::testing::fake_tpm_context> created =
+        tpmkit::testing::fake_tpm_context::create(std::string{"mssim:host=localhost,port=2321"},
+                                                  startup_mode::state, log);
+
+    ASSERT_TRUE(created.has_value());
+    const tpmkit::testing::fake_tpm_context context = *std::move(created);
+    EXPECT_EQ(context.last_config().startup, startup_mode::state);
+    EXPECT_EQ(context.last_config().log, log);
+    ASSERT_TRUE(std::holds_alternative<tpmkit::tcti_string_config>(context.last_config().tcti));
+    EXPECT_EQ(std::get<tpmkit::tcti_string_config>(context.last_config().tcti).config,
+              "mssim:host=localhost,port=2321");
 }
 
 TEST(fake_tpm_context, invalid_startup_mode_returns_input_error)

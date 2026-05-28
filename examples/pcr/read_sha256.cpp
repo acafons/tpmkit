@@ -20,7 +20,7 @@ int main(const int argc, char** argv)
         tcti_config = argv[1];
     }
 
-    auto context = tpmkit::examples::create_context(std::move(tcti_config));
+    auto context = tpmkit::tpm_context::create(std::move(tcti_config));
     if (!context.has_value()) {
         tpmkit::examples::print_error(context.error());
         return EXIT_FAILURE;

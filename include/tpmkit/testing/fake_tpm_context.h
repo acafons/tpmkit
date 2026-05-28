@@ -13,6 +13,7 @@
 #include <tpmkit/tpm_context.h>
 
 #include <memory>
+#include <string>
 
 /**
  * @namespace tpmkit::testing
@@ -98,6 +99,28 @@ public:
      * @exception_safety Strong; failed creation does not publish an instance.
      */
     [[nodiscard]] static outcome<fake_tpm_context> create(tpm_context_config config);
+
+    /**
+     * @brief Create a fake context from a string TCTI configuration.
+     *
+     * This overload mirrors tpmkit::tpm_context::create(std::string,
+     * tpm_context_config::startup_mode, std::shared_ptr<logger>) and stores the
+     * equivalent `tpm_context_config` for introspection.
+     *
+     * @param[in] tcti_config Explicit tpm2-tools-compatible TCTI string. It
+     *                        must be non-empty and use the `name:args` shape.
+     * @param[in] startup Requested TPM startup behavior to record.
+     * @param[in] log Logger port to store in the consumed configuration.
+     * @return On success, returns the constructed fake context. On failure,
+     *         returns `error` with category in {error_category::input_error}.
+     * @thread_safety Thread-safe.
+     * @exception_safety Strong; failed creation does not publish an instance.
+     * @since v0.1
+     */
+    [[nodiscard]] static outcome<fake_tpm_context>
+    create(std::string tcti_config,
+           tpm_context_config::startup_mode startup = tpm_context_config::startup_mode::clear,
+           std::shared_ptr<logger> log = nullptr);
 
     /**
      * @brief Return the configuration consumed by create().

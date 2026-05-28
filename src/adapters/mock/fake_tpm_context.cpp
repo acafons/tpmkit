@@ -109,6 +109,17 @@ outcome<fake_tpm_context> fake_tpm_context::create(tpm_context_config config)
     return fake_tpm_context{*std::move(validated)};
 }
 
+outcome<fake_tpm_context> fake_tpm_context::create(std::string tcti_config,
+                                                   const tpm_context_config::startup_mode startup,
+                                                   std::shared_ptr<logger> log)
+{
+    tpm_context_config config;
+    config.tcti = tcti_string_config{std::move(tcti_config)};
+    config.startup = startup;
+    config.log = std::move(log);
+    return create(std::move(config));
+}
+
 const tpm_context_config& fake_tpm_context::last_config() const noexcept
 {
     return config_;
