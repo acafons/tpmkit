@@ -31,12 +31,13 @@ int main(const int argc, char** argv)
         tpmkit::examples::print_error(provider.error());
         return EXIT_FAILURE;
     }
+    auto& pcr_provider = *provider.value();
 
     const tpmkit::pcr::selection selection{
         tpmkit::hash_algorithm::sha256,
         {tpmkit::pcr::index::firmware_0, tpmkit::pcr::index::firmware_7, tpmkit::pcr::index::debug},
     };
-    const auto result = provider.value()->read(selection);
+    const auto result = pcr_provider.read(selection);
     if (!result.has_value()) {
         tpmkit::examples::print_error(result.error());
         return EXIT_FAILURE;

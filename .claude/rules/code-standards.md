@@ -92,7 +92,9 @@ This file is the project's opinionated take. For language-level questions not co
 - Prefer exceptions for exceptional conditions; prefer `std::optional` or a result type for expected failures.
 - Do not silently swallow exceptions. Catch by `const&`.
 - Validate inputs at API boundaries; trust internal callers.
-- For `outcome<T>`, `std::optional<T>`, and other expected/optional-like wrappers, keep the success check local and access the contained value with `operator->` for member access and `operator*` for whole-value/reference access. After `has_value()` / `ASSERT_TRUE(x.has_value())`, prefer `x->member` or `*x` over `x.value().member` or `x.value()`. When the contained value is itself pointer-like, prefer the clearer checked unwrap form such as `provider.value()->read(...)` or `*provider.value()` over `(*provider)->read(...)` or `**provider`. When intentionally moving a non-pointer-like contained value, prefer `*std::move(x)`. Reserve other `.value()` uses for APIs such as `value_or` alternatives or tests that intentionally exercise checked-access behavior.
+- For `outcome<T>`, `std::optional<T>`, and other expected/optional-like wrappers, keep the success check local and access simple contained values with `operator->` for member access and `operator*` for whole-value/reference access. After `has_value()` / `ASSERT_TRUE(x.has_value())`, prefer `x->member` or `*x` over `x.value().member` or `x.value()`.
+- When the contained value is itself pointer-like and the caller needs object operations, bind a named reference immediately after the success check: `auto& pcr_provider = *provider.value();`, then use `pcr_provider.read(...)`. This keeps the two-stage unwrap visible once, avoids `(*provider)->...` / `**provider`, and avoids repeating `provider.value()`.
+- When intentionally moving an owning pointer out of an engaged wrapper, use `std::move(provider.value())`. When intentionally moving a non-pointer-like contained value, prefer `*std::move(x)`. Reserve other `.value()` uses for APIs such as `value_or` alternatives or tests that intentionally exercise checked-access behavior.
 
 ## Comments
 

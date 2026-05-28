@@ -60,8 +60,9 @@ int main(const int argc, char** argv)
         tpmkit::examples::print_error(provider.error());
         return EXIT_FAILURE;
     }
+    auto& pcr_provider = *provider.value();
 
-    const auto reset = provider.value()->reset(tpmkit::pcr::index::debug);
+    const auto reset = pcr_provider.reset(tpmkit::pcr::index::debug);
     if (!reset.has_value()) {
         tpmkit::examples::print_error(reset.error());
         return EXIT_FAILURE;
@@ -69,15 +70,14 @@ int main(const int argc, char** argv)
 
     std::vector<tpmkit::pcr::digest_value> digests;
     digests.emplace_back(tpmkit::hash_algorithm::sha256, *std::move(digest_bytes));
-    const auto extend =
-        provider.value()->extend(tpmkit::pcr::index::debug, gsl::make_span(digests));
+    const auto extend = pcr_provider.extend(tpmkit::pcr::index::debug, gsl::make_span(digests));
     if (!extend.has_value()) {
         tpmkit::examples::print_error(extend.error());
         return EXIT_FAILURE;
     }
 
     const auto current = tpmkit::examples::read_pcr_digest(
-        *provider.value(), tpmkit::hash_algorithm::sha256, tpmkit::pcr::index::debug);
+        pcr_provider, tpmkit::hash_algorithm::sha256, tpmkit::pcr::index::debug);
     if (!current.has_value()) {
         tpmkit::examples::print_error(current.error());
         return EXIT_FAILURE;

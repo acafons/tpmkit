@@ -53,7 +53,7 @@ TEST(tpm_context_swtpm, constructs_and_tears_down_against_simulator)
     ASSERT_TRUE(result.has_value()) << result.error().message;
     auto provider = result->create_pcr_provider();
     ASSERT_TRUE(provider.has_value()) << provider.error().message;
-    EXPECT_NE(provider.value(), nullptr);
+    EXPECT_NE(*provider, nullptr);
 }
 
 TEST(tpm_context_swtpm, clear_startup_is_idempotent_against_simulator)

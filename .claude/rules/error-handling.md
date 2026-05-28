@@ -38,9 +38,10 @@ If a single operation needs more granular programmatic dispatch than the four ca
 ## Outcome value access
 
 - After checking `has_value()` in the local scope, access `outcome<T>` and `std::optional<T>` values through `operator->` or `operator*`. Use `result->member` for member access and `*result` when passing, comparing, or binding the contained value.
-- For nested pointer-like values, prefer the clearer checked unwrap form. For `outcome<std::unique_ptr<provider>>`, use `provider.value()->read(...)` for member calls, `*provider.value()` when a `provider&` is needed, and `std::move(provider.value())` when moving the owner out.
+- For nested pointer-like values used as objects, bind a named reference immediately after the success check. For `outcome<std::unique_ptr<provider>>`, use `auto& pcr_provider = *provider.value();` followed by `pcr_provider.read(...)`. This is clearer than both `(*provider)->read(...)` and repeated `provider.value()->read(...)`.
+- When a `provider&` is needed, pass the named reference (`pcr_provider`) rather than writing `*provider.value()` at each call site. When moving the owning pointer out, use `std::move(provider.value())`.
 - Prefer `*std::move(result)` when intentionally moving a non-pointer-like contained value out of an engaged wrapper.
-- Avoid `.value()` on the normal success path after a local check except for pointer-like contained values where `.value()->...`, `*value()`, or `std::move(value())` is clearer than nested dereference operators.
+- Avoid `.value()` on the normal success path after a local check except at the one-time pointer-like binding point, when moving an owning pointer out, or in tests that intentionally exercise checked-access behavior.
 
 ## Exception types
 

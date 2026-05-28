@@ -77,16 +77,16 @@ int main(const int argc, char** argv)
         tpmkit::examples::print_error(provider.error());
         return EXIT_FAILURE;
     }
+    auto& pcr_provider = *provider.value();
 
-    const auto reset = provider.value()->reset(tpmkit::pcr::index::debug);
+    const auto reset = pcr_provider.reset(tpmkit::pcr::index::debug);
     if (!reset.has_value()) {
         tpmkit::examples::print_error(reset.error());
         return EXIT_FAILURE;
     }
 
     const std::vector<std::uint8_t> event_data = tpmkit::examples::bytes_from_text(event_text);
-    const auto event =
-        provider.value()->event(tpmkit::pcr::index::debug, gsl::make_span(event_data));
+    const auto event = pcr_provider.event(tpmkit::pcr::index::debug, gsl::make_span(event_data));
     if (!event.has_value()) {
         tpmkit::examples::print_error(event.error());
         return EXIT_FAILURE;
@@ -101,7 +101,7 @@ int main(const int argc, char** argv)
 
     const tpmkit::pcr::selection selection{tpmkit::hash_algorithm::sha256,
                                            {tpmkit::pcr::index::debug}};
-    const auto read = provider.value()->read(selection);
+    const auto read = pcr_provider.read(selection);
     if (!read.has_value()) {
         tpmkit::examples::print_error(read.error());
         return EXIT_FAILURE;

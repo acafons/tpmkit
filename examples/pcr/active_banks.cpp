@@ -43,11 +43,12 @@ int main(const int argc, char** argv)
         tpmkit::examples::print_error(provider.error());
         return EXIT_FAILURE;
     }
+    auto& pcr_provider = *provider.value();
 
     std::size_t active_count = 0U;
     for (const tpmkit::hash_algorithm algorithm : all_hash_algorithms()) {
         const tpmkit::pcr::selection selection{algorithm, {tpmkit::pcr::index::debug}};
-        const auto read = provider.value()->read(selection);
+        const auto read = pcr_provider.read(selection);
         if (!read.has_value() || read->values.empty()) {
             std::cout << tpmkit::examples::algorithm_name(algorithm) << " inactive\n";
             continue;

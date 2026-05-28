@@ -31,22 +31,23 @@ int main(const int argc, char** argv)
         tpmkit::examples::print_error(provider.error());
         return EXIT_FAILURE;
     }
+    auto& pcr_provider = *provider.value();
 
     const auto before = tpmkit::examples::read_pcr_digest(
-        *provider.value(), tpmkit::hash_algorithm::sha256, tpmkit::pcr::index::debug);
+        pcr_provider, tpmkit::hash_algorithm::sha256, tpmkit::pcr::index::debug);
     if (!before.has_value()) {
         tpmkit::examples::print_error(before.error());
         return EXIT_FAILURE;
     }
 
-    const auto reset = provider.value()->reset(tpmkit::pcr::index::debug);
+    const auto reset = pcr_provider.reset(tpmkit::pcr::index::debug);
     if (!reset.has_value()) {
         tpmkit::examples::print_error(reset.error());
         return EXIT_FAILURE;
     }
 
     const auto after = tpmkit::examples::read_pcr_digest(
-        *provider.value(), tpmkit::hash_algorithm::sha256, tpmkit::pcr::index::debug);
+        pcr_provider, tpmkit::hash_algorithm::sha256, tpmkit::pcr::index::debug);
     if (!after.has_value()) {
         tpmkit::examples::print_error(after.error());
         return EXIT_FAILURE;
