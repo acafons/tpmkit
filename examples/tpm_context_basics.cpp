@@ -2,6 +2,7 @@
 #ifdef TPMKIT_EXAMPLE_HAS_STDIO
 #include <tpmkit/logging/stdio_logger.h>
 #endif
+#include <tpmkit/result.h>
 #include <tpmkit/tpm_context.h>
 
 #include <cstdlib>
@@ -14,22 +15,6 @@
 namespace {
 
 constexpr std::string_view default_tcti_config = "tabrmd:bus_type=system";
-
-std::string_view category_name(const tpmkit::error_category category) noexcept
-{
-    switch (category) {
-    case tpmkit::error_category::input_error:
-        return "input_error";
-    case tpmkit::error_category::security_failure:
-        return "security_failure";
-    case tpmkit::error_category::resource_error:
-        return "resource_error";
-    case tpmkit::error_category::backend_error:
-        return "backend_error";
-    }
-
-    return "unknown";
-}
 
 } // namespace
 
@@ -54,8 +39,8 @@ int main(const int argc, char** argv)
 
     auto context = tpmkit::tpm_context::create(std::move(config));
     if (!context.has_value()) {
-        std::cerr << category_name(context.error().category) << ": " << context.error().message
-                  << "\n";
+        std::cerr << tpmkit::error_category_name(context.error().category) << ": "
+                  << context.error().message << "\n";
         return EXIT_FAILURE;
     }
 

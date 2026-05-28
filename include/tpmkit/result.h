@@ -9,9 +9,12 @@
  * throwing exceptions.
  */
 
+#include <tpmkit/api.h>
+
 #include <tl/expected.hpp>
 
 #include <string>
+#include <string_view>
 
 namespace tpmkit {
 
@@ -35,6 +38,18 @@ enum class error_category {
     /** @brief Third-party backend returned an unexpected or opaque failure. */
     backend_error,
 };
+
+/**
+ * @brief Return the stable lowercase name for an error category.
+ *
+ * @param[in] category Error category to name. Any value is accepted;
+ * unsupported enum values return `"unknown"`.
+ * @return Non-owning view of a static, null-terminated category name.
+ * @thread_safety Thread-safe.
+ * @exception_safety noexcept.
+ * @since v0.1
+ */
+[[nodiscard]] TPMKIT_API std::string_view error_category_name(error_category category) noexcept;
 
 /**
  * @brief Domain error returned by `outcome<T>` on expected failure.
@@ -65,7 +80,6 @@ struct error {
  * @exception_safety Matches `tl::expected<T, error>` for the chosen `T`.
  * @since v0.1
  */
-template <class T>
-using outcome = tl::expected<T, error>;
+template <class T> using outcome = tl::expected<T, error>;
 
 } // namespace tpmkit

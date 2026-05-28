@@ -35,22 +35,6 @@ constexpr std::string_view default_tcti_config = "tabrmd:bus_type=system";
     return bytes;
 }
 
-[[nodiscard]] inline std::string_view category_name(const error_category category) noexcept
-{
-    switch (category) {
-    case error_category::input_error:
-        return "input_error";
-    case error_category::security_failure:
-        return "security_failure";
-    case error_category::resource_error:
-        return "resource_error";
-    case error_category::backend_error:
-        return "backend_error";
-    }
-
-    return "unknown";
-}
-
 [[nodiscard]] inline outcome<tpm_context> create_context(
     std::string tcti_config,
     const tpm_context_config::startup_mode startup = tpm_context_config::startup_mode::clear)
@@ -111,7 +95,7 @@ constexpr std::string_view default_tcti_config = "tabrmd:bus_type=system";
 
 inline void print_error(const error& error_value)
 {
-    std::cerr << category_name(error_value.category) << ": " << error_value.message << "\n";
+    std::cerr << error_category_name(error_value.category) << ": " << error_value.message << "\n";
 }
 
 [[nodiscard]] inline outcome<std::vector<std::uint8_t>>

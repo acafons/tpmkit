@@ -25,6 +25,7 @@ target_sources(tpmkit
         ../../domain/pcr/index.cpp
         ../../domain/pcr/result_types.cpp
         ../../domain/pcr/selection.cpp
+        ../../domain/result.cpp
         ../../domain/secret_buffer.cpp
         ../../domain/secret_buffer_testing.h
         error_translation.cpp

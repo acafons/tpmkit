@@ -6,6 +6,7 @@
 
 #include <array>
 #include <string>
+#include <string_view>
 
 namespace {
 
@@ -40,6 +41,28 @@ TEST(foundational_types, errors_with_same_fields_are_observably_equivalent)
 
     EXPECT_EQ(first.category, second.category);
     EXPECT_EQ(first.message, second.message);
+}
+
+TEST(foundational_types, reports_stable_name_for_each_error_category)
+{
+    // Verifies error_category_name maps every public error category to canonical text.
+
+    EXPECT_EQ(tpmkit::error_category_name(tpmkit::error_category::input_error),
+              std::string_view{"input_error"});
+    EXPECT_EQ(tpmkit::error_category_name(tpmkit::error_category::security_failure),
+              std::string_view{"security_failure"});
+    EXPECT_EQ(tpmkit::error_category_name(tpmkit::error_category::resource_error),
+              std::string_view{"resource_error"});
+    EXPECT_EQ(tpmkit::error_category_name(tpmkit::error_category::backend_error),
+              std::string_view{"backend_error"});
+}
+
+TEST(foundational_types, reports_unknown_name_for_unsupported_error_category)
+{
+    // Verifies error_category_name handles unsupported enum values defensively.
+
+    EXPECT_EQ(tpmkit::error_category_name(static_cast<tpmkit::error_category>(99)),
+              std::string_view{"unknown"});
 }
 
 TEST(foundational_types, tpmkit_error_preserves_message)
