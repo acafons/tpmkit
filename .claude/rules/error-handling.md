@@ -35,6 +35,13 @@ If a single operation needs more granular programmatic dispatch than the four ca
 - C++17 has no `std::expected`. Use `tl::expected` (header-only backport) or a small in-house `outcome<T, error>` built on `std::variant`. Pick one and apply it consistently across the project.
 - Never throw across an `extern "C"` boundary or a callback registered with a C library. Catch at the boundary and translate to an error code.
 
+## Outcome value access
+
+- After checking `has_value()` in the local scope, access `outcome<T>` and `std::optional<T>` values through `operator->` or `operator*`. Use `result->member` for member access and `*result` when passing, comparing, or binding the contained value.
+- For nested pointer-like values, prefer the clearer checked unwrap form. For `outcome<std::unique_ptr<provider>>`, use `provider.value()->read(...)` for member calls, `*provider.value()` when a `provider&` is needed, and `std::move(provider.value())` when moving the owner out.
+- Prefer `*std::move(result)` when intentionally moving a non-pointer-like contained value out of an engaged wrapper.
+- Avoid `.value()` on the normal success path after a local check except for pointer-like contained values where `.value()->...`, `*value()`, or `std::move(value())` is clearer than nested dereference operators.
+
 ## Exception types
 
 - All exception types derive from a single base, `tpmkit_error`, which derives from `std::runtime_error`.

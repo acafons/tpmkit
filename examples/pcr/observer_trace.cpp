@@ -90,7 +90,7 @@ int main(const int argc, char** argv)
     }
 
     tracing_pcr_observer observer;
-    auto provider = context.value().create_pcr_provider(&observer);
+    auto provider = context->create_pcr_provider(&observer);
     if (!provider.has_value()) {
         tpmkit::examples::print_error(provider.error());
         return EXIT_FAILURE;
@@ -103,7 +103,7 @@ int main(const int argc, char** argv)
     }
 
     std::vector<tpmkit::pcr::digest_value> digests;
-    digests.emplace_back(tpmkit::hash_algorithm::sha256, std::move(digest_bytes.value()));
+    digests.emplace_back(tpmkit::hash_algorithm::sha256, *std::move(digest_bytes));
     const auto extend =
         provider.value()->extend(tpmkit::pcr::index::debug, gsl::make_span(digests));
     if (!extend.has_value()) {

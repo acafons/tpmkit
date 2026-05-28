@@ -111,7 +111,7 @@ TEST(tpm_context_lifecycle, create_with_owned_tcti_clear_starts_and_finalizes)
         auto result = tpmkit::tpm_context::create(owned_config(fake, startup_mode::clear));
 
         ASSERT_TRUE(result.has_value());
-        auto provider = result.value().create_pcr_provider();
+        auto provider = result->create_pcr_provider();
         ASSERT_TRUE(provider.has_value());
         EXPECT_NE(provider.value(), nullptr);
         EXPECT_EQ(fake.transmits_observed(), 1U);
@@ -156,8 +156,8 @@ TEST(tpm_context_lifecycle, invalid_startup_mode_returns_input_error_without_tra
     auto log = std::make_shared<tpmkit::testing::recording_logger>();
     tpmkit::testing::fake_tcti fake;
 
-    const auto result = tpmkit::tpm_context::create(
-        owned_config(fake, static_cast<startup_mode>(99), log));
+    const auto result =
+        tpmkit::tpm_context::create(owned_config(fake, static_cast<startup_mode>(99), log));
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().category, tpmkit::error_category::input_error);

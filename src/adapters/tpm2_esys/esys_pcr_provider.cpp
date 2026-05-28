@@ -216,15 +216,16 @@ make_digest_value(const hash_algorithm algorithm, const BYTE* const data, const 
         return tl::unexpected(algorithm.error());
     }
 
-    switch (algorithm.value()) {
+    const hash_algorithm selected_algorithm = *algorithm;
+    switch (selected_algorithm) {
     case hash_algorithm::sha1:
-        return make_digest_value(algorithm.value(), digest.digest.sha1, TPM2_SHA1_DIGEST_SIZE);
+        return make_digest_value(selected_algorithm, digest.digest.sha1, TPM2_SHA1_DIGEST_SIZE);
     case hash_algorithm::sha256:
-        return make_digest_value(algorithm.value(), digest.digest.sha256, TPM2_SHA256_DIGEST_SIZE);
+        return make_digest_value(selected_algorithm, digest.digest.sha256, TPM2_SHA256_DIGEST_SIZE);
     case hash_algorithm::sha384:
-        return make_digest_value(algorithm.value(), digest.digest.sha384, TPM2_SHA384_DIGEST_SIZE);
+        return make_digest_value(selected_algorithm, digest.digest.sha384, TPM2_SHA384_DIGEST_SIZE);
     case hash_algorithm::sha512:
-        return make_digest_value(algorithm.value(), digest.digest.sha512, TPM2_SHA512_DIGEST_SIZE);
+        return make_digest_value(selected_algorithm, digest.digest.sha512, TPM2_SHA512_DIGEST_SIZE);
     }
 
     return tl::unexpected(
@@ -347,7 +348,7 @@ void select_all_pcrs(TPMS_PCR_SELECTION& selection) noexcept
         }
     }
 
-    return pcr::selection{algorithm.value(), std::move(indices)};
+    return pcr::selection{*algorithm, std::move(indices)};
 }
 
 [[nodiscard]] outcome<std::vector<pcr::digest_value>>
@@ -367,7 +368,7 @@ to_domain_digests(const TPML_DIGEST_VALUES& digests)
             return tl::unexpected(value.error());
         }
 
-        result.push_back(std::move(value.value()));
+        result.push_back(*std::move(value));
     }
 
     return result;
@@ -397,7 +398,7 @@ to_domain_read_values(const TPML_DIGEST& values, const pcr::selection& selection
             return tl::unexpected(value.error());
         }
 
-        result.push_back(pcr::value{*selected_index, std::move(value.value())});
+        result.push_back(pcr::value{*selected_index, *std::move(value)});
         ++selected_index;
     }
 
@@ -583,7 +584,7 @@ outcome<pcr::event_result> esys_pcr_provider::event(const pcr::index index,
         return tl::unexpected(domain_digests.error());
     }
 
-    pcr::event_result result{std::move(domain_digests.value())};
+    pcr::event_result result{*std::move(domain_digests)};
     log_event_completed(log_, index, event_data.size());
     if (observer_ != nullptr) {
         observer_->on_event(index, event_data, result);
@@ -651,13 +652,12 @@ outcome<pcr::read_result> esys_pcr_provider::read(const pcr::selection& selectio
         return tl::unexpected(domain_selection.error());
     }
 
-    auto domain_values = to_domain_read_values(*values, domain_selection.value());
+    auto domain_values = to_domain_read_values(*values, *domain_selection);
     if (!domain_values.has_value()) {
         return tl::unexpected(domain_values.error());
     }
 
-    pcr::read_result result{domain_selection.value(), update_counter,
-                            std::move(domain_values.value())};
+    pcr::read_result result{*domain_selection, update_counter, *std::move(domain_values)};
     log_read_completed(log_, result.actual_selection, result.values.size());
     return result;
 }

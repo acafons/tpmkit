@@ -31,7 +31,7 @@ TEST(tcti_loader_integration, loads_configured_simulator_tcti)
     auto result = tpmkit::detail::esys::load_tcti(config, nullptr);
 
     ASSERT_TRUE(result.has_value()) << result.error().message;
-    EXPECT_NE(result.value().get(), nullptr);
+    EXPECT_NE(result->get(), nullptr);
 }
 
 TEST(tcti_loader_integration, invalid_device_config_returns_error_without_leaking_loader_context)

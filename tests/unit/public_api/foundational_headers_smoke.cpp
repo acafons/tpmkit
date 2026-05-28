@@ -12,5 +12,5 @@ int tpmkit_foundational_headers_smoke()
 
     log->log(tpmkit::log_level::info, error.what(), gsl::span<const tpmkit::log_field>());
 
-    return result.value();
+    return *result;
 }

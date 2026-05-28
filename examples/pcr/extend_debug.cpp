@@ -43,7 +43,7 @@ int main(const int argc, char** argv)
         return EXIT_FAILURE;
     }
 
-    if (digest_bytes.value().size() != tpmkit::digest_size(tpmkit::hash_algorithm::sha256)) {
+    if (digest_bytes->size() != tpmkit::digest_size(tpmkit::hash_algorithm::sha256)) {
         tpmkit::examples::print_error(tpmkit::error{
             tpmkit::error_category::input_error, "sha256 digest input must be exactly 32 bytes"});
         return EXIT_FAILURE;
@@ -55,7 +55,7 @@ int main(const int argc, char** argv)
         return EXIT_FAILURE;
     }
 
-    auto provider = context.value().create_pcr_provider();
+    auto provider = context->create_pcr_provider();
     if (!provider.has_value()) {
         tpmkit::examples::print_error(provider.error());
         return EXIT_FAILURE;
@@ -68,7 +68,7 @@ int main(const int argc, char** argv)
     }
 
     std::vector<tpmkit::pcr::digest_value> digests;
-    digests.emplace_back(tpmkit::hash_algorithm::sha256, std::move(digest_bytes.value()));
+    digests.emplace_back(tpmkit::hash_algorithm::sha256, *std::move(digest_bytes));
     const auto extend =
         provider.value()->extend(tpmkit::pcr::index::debug, gsl::make_span(digests));
     if (!extend.has_value()) {
@@ -84,6 +84,6 @@ int main(const int argc, char** argv)
     }
 
     std::cout << "pcr16 extended with sha256 " << digest_hex << "\n";
-    std::cout << "pcr16 current " << tpmkit::examples::hex_encode(current.value()) << "\n";
+    std::cout << "pcr16 current " << tpmkit::examples::hex_encode(*current) << "\n";
     return EXIT_SUCCESS;
 }

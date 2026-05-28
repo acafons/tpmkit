@@ -70,7 +70,7 @@ context_config(const tpmkit::tpm_context_config::startup_mode startup)
         throw std::runtime_error{context.error().message};
     }
 
-    auto owned_context = std::make_unique<tpmkit::tpm_context>(std::move(context.value()));
+    auto owned_context = std::make_unique<tpmkit::tpm_context>(*std::move(context));
     auto provider = owned_context->create_pcr_provider(observer);
     if (!provider.has_value()) {
         throw std::runtime_error{provider.error().message};
@@ -136,12 +136,12 @@ read_debug_digest(tpmkit::pcr::provider& provider, const tpmkit::hash_algorithm 
         return tl::unexpected(read.error());
     }
 
-    if (read.value().values.empty()) {
+    if (read->values.empty()) {
         return tl::unexpected(tpmkit::error{tpmkit::error_category::resource_error,
                                             "PCR bank is not active in swtpm"});
     }
 
-    return read.value().values.front().digest.digest();
+    return read->values.front().digest.digest();
 }
 
 [[nodiscard]] std::vector<tpmkit::hash_algorithm> active_algorithms(tpmkit::pcr::provider& provider)
@@ -284,8 +284,8 @@ TEST(pcr_provider_swtpm, reads_default_sha256_debug_pcr_as_zero)
         tpmkit::pcr::selection{tpmkit::hash_algorithm::sha256, {tpmkit::pcr::index::debug}});
 
     ASSERT_TRUE(read.has_value()) << read.error().message;
-    ASSERT_EQ(read.value().values.size(), 1U);
-    const auto& value = read.value().values.front();
+    ASSERT_EQ(read->values.size(), 1U);
+    const auto& value = read->values.front();
     EXPECT_EQ(value.index, tpmkit::pcr::index::debug);
     EXPECT_EQ(value.digest.algorithm(), tpmkit::hash_algorithm::sha256);
     EXPECT_EQ(value.digest.digest(),
@@ -303,8 +303,8 @@ TEST(pcr_provider_swtpm, reads_sha256_and_sha1_debug_banks)
 
     ASSERT_TRUE(sha256.has_value()) << sha256.error().message;
     ASSERT_TRUE(sha1.has_value()) << sha1.error().message;
-    EXPECT_EQ(sha256.value().size(), tpmkit::digest_size(tpmkit::hash_algorithm::sha256));
-    EXPECT_EQ(sha1.value().size(), tpmkit::digest_size(tpmkit::hash_algorithm::sha1));
+    EXPECT_EQ(sha256->size(), tpmkit::digest_size(tpmkit::hash_algorithm::sha256));
+    EXPECT_EQ(sha1->size(), tpmkit::digest_size(tpmkit::hash_algorithm::sha1));
 }
 
 TEST(pcr_provider_swtpm, extends_debug_pcr_and_reads_chained_sha256_value)
@@ -326,7 +326,7 @@ TEST(pcr_provider_swtpm, extends_debug_pcr_and_reads_chained_sha256_value)
     ASSERT_TRUE(first_read.has_value()) << first_read.error().message;
     const auto first_expected =
         hash_pcr_extend(tpmkit::hash_algorithm::sha256, zero, first_digest.digest());
-    EXPECT_EQ(first_read.value(), first_expected);
+    EXPECT_EQ(*first_read, first_expected);
 
     const auto second_digest = digest_value(tpmkit::hash_algorithm::sha256, 0x24U);
     const std::array<tpmkit::pcr::digest_value, 1U> second{second_digest};
@@ -338,7 +338,7 @@ TEST(pcr_provider_swtpm, extends_debug_pcr_and_reads_chained_sha256_value)
     ASSERT_TRUE(second_read.has_value()) << second_read.error().message;
     const auto second_expected =
         hash_pcr_extend(tpmkit::hash_algorithm::sha256, first_expected, second_digest.digest());
-    EXPECT_EQ(second_read.value(), second_expected);
+    EXPECT_EQ(*second_read, second_expected);
 }
 
 TEST(pcr_provider_swtpm, events_debug_pcr_and_returns_hashes_for_active_banks)
@@ -356,9 +356,9 @@ TEST(pcr_provider_swtpm, events_debug_pcr_and_returns_hashes_for_active_banks)
         bundle.provider->event(tpmkit::pcr::index::debug, gsl::make_span(event_data));
 
     ASSERT_TRUE(event.has_value()) << event.error().message;
-    ASSERT_GE(event.value().digests.size(), active.size());
+    ASSERT_GE(event->digests.size(), active.size());
     for (const tpmkit::hash_algorithm algorithm : active) {
-        const auto* digest = find_digest(event.value().digests, algorithm);
+        const auto* digest = find_digest(event->digests, algorithm);
         ASSERT_NE(digest, nullptr);
         EXPECT_EQ(digest->digest(), hash_bytes(algorithm, gsl::make_span(event_data)));
     }
@@ -380,7 +380,7 @@ TEST(pcr_provider_swtpm, resets_debug_pcr_to_zero)
 
     ASSERT_TRUE(reset.has_value()) << reset.error().message;
     ASSERT_TRUE(read.has_value()) << read.error().message;
-    EXPECT_EQ(read.value(),
+    EXPECT_EQ(*read,
               std::vector<std::uint8_t>(tpmkit::digest_size(tpmkit::hash_algorithm::sha256), 0U));
 }
 
@@ -418,8 +418,8 @@ TEST(pcr_provider_swtpm, set_auth_policy_enforces_policy_when_supported)
     const auto digest = digest_value(tpmkit::hash_algorithm::sha256, 0x31U);
     const std::array<tpmkit::pcr::digest_value, 1U> digests{digest};
 
-    const auto unauthorized = bundle.provider->extend(
-        policy_index.value(), gsl::span<const tpmkit::pcr::digest_value>(digests));
+    const auto unauthorized =
+        bundle.provider->extend(*policy_index, gsl::span<const tpmkit::pcr::digest_value>(digests));
 
     ASSERT_FALSE(unauthorized.has_value());
     EXPECT_EQ(unauthorized.error().category, tpmkit::error_category::security_failure);
@@ -453,7 +453,7 @@ TEST(pcr_provider_swtpm, observer_records_extend_and_event_measurements)
     EXPECT_EQ(entries[1].operation, tpmkit::testing::pcr_measurement_operation::event);
     EXPECT_EQ(entries[1].index, tpmkit::pcr::index::debug);
     EXPECT_EQ(entries[1].event_data, event_data);
-    EXPECT_EQ(entries[1].digests, event.value().digests);
+    EXPECT_EQ(entries[1].digests, event->digests);
 }
 
 TEST(pcr_provider_swtpm, allocates_sha384_bank_when_available)
@@ -475,7 +475,7 @@ TEST(pcr_provider_swtpm, allocates_sha384_bank_when_available)
     const auto allocation = bundle.provider->allocate(gsl::make_span(banks));
 
     ASSERT_TRUE(allocation.has_value()) << allocation.error().message;
-    EXPECT_TRUE(allocation.value().allocation_success);
-    EXPECT_GE(allocation.value().max_pcr, 24U);
+    EXPECT_TRUE(allocation->allocation_success);
+    EXPECT_GE(allocation->max_pcr, 24U);
     EXPECT_TRUE(contains_algorithm(requested, tpmkit::hash_algorithm::sha384));
 }

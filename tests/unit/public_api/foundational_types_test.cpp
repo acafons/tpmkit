@@ -16,7 +16,7 @@ TEST(foundational_types, outcome_holds_value)
     const tpmkit::outcome<int> result{42};
 
     ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result.value(), 42);
+    EXPECT_EQ(*result, 42);
 }
 
 TEST(foundational_types, outcome_holds_error)

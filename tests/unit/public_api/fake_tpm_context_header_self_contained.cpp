@@ -14,6 +14,6 @@ int tpmkit_fake_tpm_context_header_self_contained()
         return 1;
     }
 
-    const tpmkit::testing::fake_tpm_context context = std::move(created).value();
+    const tpmkit::testing::fake_tpm_context context = *std::move(created);
     return context.last_config().startup == tpmkit::tpm_context_config::startup_mode::skip ? 0 : 1;
 }

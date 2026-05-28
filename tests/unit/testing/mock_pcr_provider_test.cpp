@@ -83,7 +83,7 @@ TEST(mock_pcr_provider, programmed_success_response_is_returned_for_read)
         tpmkit::pcr::selection{tpmkit::hash_algorithm::sha256, {tpmkit::pcr::index::debug}});
 
     ASSERT_TRUE(actual.has_value());
-    EXPECT_EQ(actual.value(), expected);
+    EXPECT_EQ(*actual, expected);
 }
 
 TEST(mock_pcr_provider, programmed_success_response_is_returned_for_extend)

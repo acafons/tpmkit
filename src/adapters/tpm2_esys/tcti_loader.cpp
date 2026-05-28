@@ -139,7 +139,7 @@ outcome<unique_tcti_ptr> load_tcti(const tcti_string_config& config, logger* con
     }
 
     TSS2_TCTI_INFO* info = nullptr;
-    const std::string name{tcti_name(validated.value())};
+    const std::string name{tcti_name(*validated)};
     const TSS2_RC info_rc = Tss2_TctiLdr_GetInfo(name.c_str(), &info);
     free_tcti_info(info);
     if (info_rc != TSS2_RC_SUCCESS) {
@@ -153,9 +153,9 @@ outcome<unique_tcti_ptr> load_tcti(const tcti_string_config& config, logger* con
         return tl::unexpected(allocated.error());
     }
 
-    auto pending_context = std::move(allocated.value());
+    auto pending_context = *std::move(allocated);
     const TSS2_RC rc = Tss2_Tcti_TctiLdr_Init(pending_context.context.get(), &pending_context.size,
-                                              validated.value().c_str());
+                                              validated->c_str());
     if (rc != TSS2_RC_SUCCESS) {
         auto translated = translate_tss_rc(rc, "tcti_init", log);
         return tl::unexpected(translated.error());

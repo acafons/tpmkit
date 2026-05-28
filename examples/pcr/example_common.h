@@ -138,12 +138,12 @@ read_pcr_digest(pcr::provider& provider, const hash_algorithm algorithm, const p
         return tl::unexpected(read.error());
     }
 
-    if (read.value().values.empty()) {
+    if (read->values.empty()) {
         return tl::unexpected(
             error{error_category::resource_error, "requested PCR bank did not return a value"});
     }
 
-    return read.value().values.front().digest.digest();
+    return read->values.front().digest.digest();
 }
 
 } // namespace tpmkit::examples

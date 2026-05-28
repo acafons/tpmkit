@@ -38,7 +38,7 @@ int main(const int argc, char** argv)
         return EXIT_FAILURE;
     }
 
-    auto provider = context.value().create_pcr_provider();
+    auto provider = context->create_pcr_provider();
     if (!provider.has_value()) {
         tpmkit::examples::print_error(provider.error());
         return EXIT_FAILURE;
@@ -48,13 +48,13 @@ int main(const int argc, char** argv)
     for (const tpmkit::hash_algorithm algorithm : all_hash_algorithms()) {
         const tpmkit::pcr::selection selection{algorithm, {tpmkit::pcr::index::debug}};
         const auto read = provider.value()->read(selection);
-        if (!read.has_value() || read.value().values.empty()) {
+        if (!read.has_value() || read->values.empty()) {
             std::cout << tpmkit::examples::algorithm_name(algorithm) << " inactive\n";
             continue;
         }
 
         ++active_count;
-        const auto& digest = read.value().values.front().digest;
+        const auto& digest = read->values.front().digest;
         std::cout << tpmkit::examples::algorithm_name(algorithm) << " active "
                   << digest.digest().size() << " bytes "
                   << tpmkit::examples::hex_encode(digest.digest()) << "\n";

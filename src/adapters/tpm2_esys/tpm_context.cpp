@@ -187,7 +187,7 @@ void finalize_esys_context(ESYS_CONTEXT* context) noexcept
         }
 
         log_tcti_event(log, events::tcti_configured, "string", tcti_name);
-        return resolved_tcti{std::move(loaded.value())};
+        return resolved_tcti{*std::move(loaded)};
     }
 
     auto& owned_config = std::get<tcti_owned_handle>(config.tcti);
@@ -323,18 +323,18 @@ outcome<tpm_context> tpm_context::create(tpm_context_config config)
         return tl::unexpected(tcti.error());
     }
 
-    auto esys = initialize_esys(tcti.value().handle.get(), log.get());
+    auto esys = initialize_esys(tcti->handle.get(), log.get());
     if (!esys.has_value()) {
         return tl::unexpected(esys.error());
     }
 
-    auto startup = start_tpm(esys.value().get(), config.startup, log.get());
+    auto startup = start_tpm(esys->get(), config.startup, log.get());
     if (!startup.has_value()) {
         return tl::unexpected(startup.error());
     }
 
-    auto implementation = std::make_unique<impl>(std::move(tcti.value().handle),
-                                                 std::move(esys.value()), std::move(log));
+    auto implementation =
+        std::make_unique<impl>(std::move(tcti->handle), *std::move(esys), std::move(log));
     return tpm_context{std::move(implementation)};
 }
 

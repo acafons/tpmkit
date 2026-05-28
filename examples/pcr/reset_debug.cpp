@@ -26,7 +26,7 @@ int main(const int argc, char** argv)
         return EXIT_FAILURE;
     }
 
-    auto provider = context.value().create_pcr_provider();
+    auto provider = context->create_pcr_provider();
     if (!provider.has_value()) {
         tpmkit::examples::print_error(provider.error());
         return EXIT_FAILURE;
@@ -52,7 +52,7 @@ int main(const int argc, char** argv)
         return EXIT_FAILURE;
     }
 
-    std::cout << "pcr16 before " << tpmkit::examples::hex_encode(before.value()) << "\n";
-    std::cout << "pcr16 after  " << tpmkit::examples::hex_encode(after.value()) << "\n";
+    std::cout << "pcr16 before " << tpmkit::examples::hex_encode(*before) << "\n";
+    std::cout << "pcr16 after  " << tpmkit::examples::hex_encode(*after) << "\n";
     return EXIT_SUCCESS;
 }

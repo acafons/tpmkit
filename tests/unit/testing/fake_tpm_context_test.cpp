@@ -82,7 +82,7 @@ TEST(fake_tpm_context, successful_context_exposes_last_config_for_introspection)
         tpmkit::testing::fake_tpm_context::create(std::move(config));
 
     ASSERT_TRUE(created.has_value());
-    const tpmkit::testing::fake_tpm_context context = std::move(created).value();
+    const tpmkit::testing::fake_tpm_context context = *std::move(created);
     EXPECT_EQ(context.last_config().startup, startup_mode::skip);
     ASSERT_TRUE(std::holds_alternative<tpmkit::tcti_string_config>(context.last_config().tcti));
     EXPECT_EQ(std::get<tpmkit::tcti_string_config>(context.last_config().tcti).config,
@@ -101,7 +101,7 @@ TEST(fake_tpm_context, create_pcr_provider_returns_resource_error)
         tpmkit::testing::fake_tpm_context::create(std::move(config));
 
     ASSERT_TRUE(created.has_value());
-    tpmkit::testing::fake_tpm_context context = std::move(created).value();
+    tpmkit::testing::fake_tpm_context context = *std::move(created);
     auto provider = context.create_pcr_provider();
 
     ASSERT_FALSE(provider.has_value());
@@ -139,7 +139,7 @@ TEST(fake_tpm_context, move_construction_preserves_moved_to_introspection)
         tpmkit::testing::fake_tpm_context::create(std::move(config));
     ASSERT_TRUE(created.has_value());
 
-    tpmkit::testing::fake_tpm_context original = std::move(created).value();
+    tpmkit::testing::fake_tpm_context original = *std::move(created);
     tpmkit::testing::fake_tpm_context moved{std::move(original)};
 
     EXPECT_EQ(moved.last_config().startup, startup_mode::state);

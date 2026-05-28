@@ -106,7 +106,7 @@ outcome<fake_tpm_context> fake_tpm_context::create(tpm_context_config config)
         return tl::unexpected(std::move(validated.error()));
     }
 
-    return fake_tpm_context{std::move(validated).value()};
+    return fake_tpm_context{*std::move(validated)};
 }
 
 const tpm_context_config& fake_tpm_context::last_config() const noexcept

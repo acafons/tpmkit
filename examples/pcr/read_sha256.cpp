@@ -26,7 +26,7 @@ int main(const int argc, char** argv)
         return EXIT_FAILURE;
     }
 
-    auto provider = context.value().create_pcr_provider();
+    auto provider = context->create_pcr_provider();
     if (!provider.has_value()) {
         tpmkit::examples::print_error(provider.error());
         return EXIT_FAILURE;
@@ -42,8 +42,8 @@ int main(const int argc, char** argv)
         return EXIT_FAILURE;
     }
 
-    std::cout << "sha256 PCR update counter: " << result.value().update_counter << "\n";
-    for (const auto& value : result.value().values) {
+    std::cout << "sha256 PCR update counter: " << result->update_counter << "\n";
+    for (const auto& value : result->values) {
         std::cout << "pcr" << static_cast<unsigned int>(value.index.value()) << " "
                   << tpmkit::examples::hex_encode(value.digest.digest()) << "\n";
     }

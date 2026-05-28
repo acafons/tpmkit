@@ -72,7 +72,7 @@ int main(const int argc, char** argv)
     }
 
     counting_pcr_observer observer;
-    auto provider = context.value().create_pcr_provider(&observer);
+    auto provider = context->create_pcr_provider(&observer);
     if (!provider.has_value()) {
         tpmkit::examples::print_error(provider.error());
         return EXIT_FAILURE;
@@ -93,7 +93,7 @@ int main(const int argc, char** argv)
     }
 
     std::cout << "pcr16 event digests:\n";
-    for (const auto& digest : event.value().digests) {
+    for (const auto& digest : event->digests) {
         if (digest.algorithm() == tpmkit::hash_algorithm::sha256) {
             std::cout << "sha256 " << tpmkit::examples::hex_encode(digest.digest()) << "\n";
         }
@@ -107,7 +107,7 @@ int main(const int argc, char** argv)
         return EXIT_FAILURE;
     }
 
-    for (const auto& value : read.value().values) {
+    for (const auto& value : read->values) {
         std::cout << "pcr16 current " << tpmkit::examples::hex_encode(value.digest.digest())
                   << "\n";
     }
