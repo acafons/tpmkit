@@ -24,22 +24,6 @@ namespace tpmkit::examples {
 constexpr std::uint32_t default_platform_pcr_count = 24U;
 constexpr std::string_view default_tcti_config = "tabrmd:bus_type=system";
 
-[[nodiscard]] inline std::string_view algorithm_name(const hash_algorithm algorithm) noexcept
-{
-    switch (algorithm) {
-    case hash_algorithm::sha1:
-        return "sha1";
-    case hash_algorithm::sha256:
-        return "sha256";
-    case hash_algorithm::sha384:
-        return "sha384";
-    case hash_algorithm::sha512:
-        return "sha512";
-    }
-
-    return "unknown";
-}
-
 [[nodiscard]] inline std::vector<std::uint8_t> bytes_from_text(const std::string_view text)
 {
     std::vector<std::uint8_t> bytes;

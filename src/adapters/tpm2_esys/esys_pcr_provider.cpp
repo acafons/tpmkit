@@ -39,22 +39,6 @@ template <class Element, std::size_t Size>
     return std::max(pcr_select_min_size, required_size);
 }
 
-[[nodiscard]] std::string algorithm_name(const hash_algorithm algorithm)
-{
-    switch (algorithm) {
-    case hash_algorithm::sha1:
-        return "sha1";
-    case hash_algorithm::sha256:
-        return "sha256";
-    case hash_algorithm::sha384:
-        return "sha384";
-    case hash_algorithm::sha512:
-        return "sha512";
-    }
-
-    return "unknown";
-}
-
 [[nodiscard]] TPMI_ALG_HASH algorithm_to_tpm(const hash_algorithm algorithm) noexcept
 {
     switch (algorithm) {
@@ -435,7 +419,7 @@ to_domain_read_values(const TPML_DIGEST& values, const pcr::selection& selection
 void log_read_completed(logger& log, const pcr::selection& selection, const std::size_t value_count)
 {
     const std::string pcr_count = std::to_string(value_count);
-    const std::string bank = algorithm_name(selection.algorithm());
+    const std::string_view bank = hash_algorithm_name(selection.algorithm());
     const std::array<log_field, 2U> fields{{
         {events::fields::bank, bank},
         {events::fields::pcr_count, pcr_count},
@@ -484,7 +468,7 @@ void log_allocate_completed(logger& log, const bool allocation_success,
 void log_auth_policy_set(logger& log, const pcr::index index, const hash_algorithm algorithm)
 {
     const std::string index_value = std::to_string(index.value());
-    const std::string algorithm_value = algorithm_name(algorithm);
+    const std::string_view algorithm_value = hash_algorithm_name(algorithm);
     const std::array<log_field, 2U> fields{{
         {events::fields::pcr_index, index_value},
         {events::fields::policy_algorithm, algorithm_value},

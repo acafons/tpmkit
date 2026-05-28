@@ -8,6 +8,7 @@
 #include <tpmkit/api.h>
 
 #include <cstddef>
+#include <string_view>
 
 namespace tpmkit {
 
@@ -28,6 +29,18 @@ enum class TPMKIT_API hash_algorithm {
     /** @brief SHA-512 digest algorithm. */
     sha512,
 };
+
+/**
+ * @brief Return the stable lowercase name for a hash algorithm.
+ *
+ * @param[in] algorithm Hash algorithm to name. Any value is accepted;
+ * unsupported enum values return `"unknown"`.
+ * @return Non-owning view of a static, null-terminated algorithm name.
+ * @thread_safety Thread-safe.
+ * @exception_safety noexcept.
+ * @since v0.1
+ */
+[[nodiscard]] TPMKIT_API std::string_view hash_algorithm_name(hash_algorithm algorithm) noexcept;
 
 /**
  * @brief Return the digest size in bytes for a hash algorithm.

@@ -1,4 +1,5 @@
 #include <tpmkit/exception.h>
+#include <tpmkit/hash_algorithm.h>
 #include <tpmkit/pcr/bank.h>
 #include <tpmkit/pcr/digest_value.h>
 #include <tpmkit/pcr/index.h>
@@ -24,22 +25,6 @@ namespace {
     return std::vector<std::uint8_t>(size, fill);
 }
 
-[[nodiscard]] const char* algorithm_name(const tpmkit::hash_algorithm algorithm) noexcept
-{
-    switch (algorithm) {
-    case tpmkit::hash_algorithm::sha1:
-        return "sha1";
-    case tpmkit::hash_algorithm::sha256:
-        return "sha256";
-    case tpmkit::hash_algorithm::sha384:
-        return "sha384";
-    case tpmkit::hash_algorithm::sha512:
-        return "sha512";
-    }
-
-    return "unsupported";
-}
-
 } // namespace
 
 namespace tpmkit::pcr {
@@ -51,19 +36,19 @@ void PrintTo(const index& index, std::ostream* const os)
 
 void PrintTo(const bank& bank, std::ostream* const os)
 {
-    *os << "pcr::bank{" << algorithm_name(bank.algorithm()) << ", " << bank.digest_size()
-        << " bytes}";
+    *os << "pcr::bank{" << tpmkit::hash_algorithm_name(bank.algorithm()) << ", "
+        << bank.digest_size() << " bytes}";
 }
 
 void PrintTo(const digest_value& value, std::ostream* const os)
 {
-    *os << "pcr::digest_value{" << algorithm_name(value.algorithm()) << ", <redacted, "
+    *os << "pcr::digest_value{" << tpmkit::hash_algorithm_name(value.algorithm()) << ", <redacted, "
         << value.digest().size() << " bytes>}";
 }
 
 void PrintTo(const selection& selection, std::ostream* const os)
 {
-    *os << "pcr::selection{" << algorithm_name(selection.algorithm()) << ", "
+    *os << "pcr::selection{" << tpmkit::hash_algorithm_name(selection.algorithm()) << ", "
         << selection.indices().size() << " indices}";
 }
 

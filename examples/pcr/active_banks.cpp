@@ -50,15 +50,14 @@ int main(const int argc, char** argv)
         const tpmkit::pcr::selection selection{algorithm, {tpmkit::pcr::index::debug}};
         const auto read = pcr_provider.read(selection);
         if (!read.has_value() || read->values.empty()) {
-            std::cout << tpmkit::examples::algorithm_name(algorithm) << " inactive\n";
+            std::cout << tpmkit::hash_algorithm_name(algorithm) << " inactive\n";
             continue;
         }
 
         ++active_count;
         const auto& digest = read->values.front().digest;
-        std::cout << tpmkit::examples::algorithm_name(algorithm) << " active "
-                  << digest.digest().size() << " bytes "
-                  << tpmkit::examples::hex_encode(digest.digest()) << "\n";
+        std::cout << tpmkit::hash_algorithm_name(algorithm) << " active " << digest.digest().size()
+                  << " bytes " << tpmkit::examples::hex_encode(digest.digest()) << "\n";
     }
 
     return active_count > 0U ? EXIT_SUCCESS : EXIT_FAILURE;

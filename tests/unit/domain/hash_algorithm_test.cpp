@@ -4,6 +4,7 @@
 
 #include <array>
 #include <cstddef>
+#include <string_view>
 #include <type_traits>
 
 namespace {
@@ -35,6 +36,27 @@ TEST(hash_algorithm, reports_digest_size_for_each_supported_algorithm)
     EXPECT_EQ(tpmkit::digest_size(tpmkit::hash_algorithm::sha256), 32U);
     EXPECT_EQ(tpmkit::digest_size(tpmkit::hash_algorithm::sha384), 48U);
     EXPECT_EQ(tpmkit::digest_size(tpmkit::hash_algorithm::sha512), 64U);
+}
+
+TEST(hash_algorithm, reports_stable_name_for_each_supported_algorithm)
+{
+    // Verifies hash_algorithm_name maps every public algorithm to its canonical text.
+
+    EXPECT_EQ(tpmkit::hash_algorithm_name(tpmkit::hash_algorithm::sha1), std::string_view{"sha1"});
+    EXPECT_EQ(tpmkit::hash_algorithm_name(tpmkit::hash_algorithm::sha256),
+              std::string_view{"sha256"});
+    EXPECT_EQ(tpmkit::hash_algorithm_name(tpmkit::hash_algorithm::sha384),
+              std::string_view{"sha384"});
+    EXPECT_EQ(tpmkit::hash_algorithm_name(tpmkit::hash_algorithm::sha512),
+              std::string_view{"sha512"});
+}
+
+TEST(hash_algorithm, reports_unknown_name_for_unsupported_algorithm)
+{
+    // Verifies diagnostics can safely name an invalid enum value.
+
+    EXPECT_EQ(tpmkit::hash_algorithm_name(static_cast<tpmkit::hash_algorithm>(99)),
+              std::string_view{"unknown"});
 }
 
 } // namespace
