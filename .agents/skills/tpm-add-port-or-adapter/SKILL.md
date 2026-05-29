@@ -88,6 +88,30 @@ For option 3, define a CMake variable (e.g., `LIB_<PORT>_BACKEND`) and select th
 
 Only after the mock and contract suite are in place. Each adapter lives in its own folder under `src/adapters/<backend>/`, with private linkage to its third-party dependency. Translate third-party errors at the boundary (cross-reference: `error-handling.md` Translating third-party errors).
 
+If the adapter is expected to grow, create responsibility subfolders inside
+`src/adapters/<backend>/` rather than leaving a flat directory. For the ESYS
+adapter, use `context/` for connection and TCTI lifecycle, a component folder
+such as `pcr/` for the concrete port implementation and backend/domain
+marshalling, and `support/` for adapter-wide helpers such as error translation
+and log event names.
+
+Do not implement a growing component by putting every port method and every
+helper into one provider translation unit. Scaffold the concrete provider as
+command orchestration and add sibling helper files when the first real method
+needs them:
+
+```
+src/adapters/<backend>/<area>/
+├── <backend>_<area>_provider.{h,cpp}  command sequencing and observer callbacks
+├── <area>_marshalling.{h,cpp}         backend/domain type conversion
+├── <area>_validation.{h,cpp}          pre-dispatch checks and input mapping
+└── <area>_logging.{h,cpp}             backend event field construction
+```
+
+Add `<area>_sessions`, `<area>_auth`, or `<area>_handles` when those
+responsibilities appear. The trigger is responsibility mix, not just line
+count; a provider approaching 300 lines is already late.
+
 ### A.7 Wire the composition root
 
 Add the selection logic in `src/composition/`. The composition root is the *only* place that names concrete adapter types; everywhere else uses the port type.
@@ -121,6 +145,22 @@ src/adapters/<new_backend>/
 ├── <new_backend>_<port>.h   adapter class, includes only third-party headers it owns
 └── <new_backend>_<port>.cpp implementation, error translation
 ```
+
+For larger adapters, keep the same ownership but split by responsibility:
+
+```
+src/adapters/<new_backend>/
+├── CMakeLists.txt
+├── context/                 backend connection/lifecycle helpers, if any
+├── <component>/             concrete provider plus marshalling/validation/logging
+└── support/                 backend-wide error/logging helpers
+```
+
+Inside `<component>/`, avoid a single provider file that owns every method and
+helper. Keep the provider file focused on backend command sequencing. Extract
+backend/domain marshalling, pre-dispatch validation, logging field assembly,
+authorization/session setup, and resource-handle helpers into separate
+component-local modules as soon as those responsibilities appear.
 
 Naming: `<backend>_<port>` shape: `tpm2_fapi_adapter`,
 `mock_key_provider`, `software_key_provider`. For component-namespaced ports,
@@ -180,6 +220,10 @@ Is the port new?
 
 - **Implementing the real adapter before the mock.** The mock is the cheapest place to discover that the port shape is wrong. Skipping it costs an order of magnitude more rework when the contract reveals a mismatch.
 - **Skipping the contract suite for "trivial" adapters.** Adapters that look trivial are exactly where mock/real divergence hides. The contract suite is what makes adapters interchangeable.
+- **Growing a provider monolith.** A `*_provider.cpp` that contains every port
+  method plus backend/domain marshalling, validation, logging, sessions, and
+  resource helpers is already past the useful split point. Extract
+  component-local helper modules before adding the next method.
 - **Letting a third-party header into a domain file.** Grep for `openssl/` and `tss2/` under `src/domain/` after the change — there should be zero matches. If there are, extract the port more aggressively.
 - **Adding a "not supported" stub for a method that does not apply to the new backend.** This is a port-segregation problem in disguise. Split the port.
 - **Naming the new adapter after the port shape (`key_provider_v2`, `key_provider_new`).** Name after the backend (`hsm_key_provider`, `pkcs11_key_provider`). The shape lives in the port; the backend lives in the name.

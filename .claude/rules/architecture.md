@@ -29,6 +29,9 @@ src/domain/<area>/        domain logic for a cohesive domain area
 src/adapters/openssl/     OpenSSL adapter
 src/adapters/tpm2_fapi/   FAPI adapter
 src/adapters/tpm2_esys/   ESYS adapter
+src/adapters/tpm2_esys/context/  ESYS context and TCTI lifecycle
+src/adapters/tpm2_esys/pcr/      ESYS PCR provider and PCR TPM/domain translation
+src/adapters/tpm2_esys/support/  ESYS cross-component support such as error/log schemas
 src/adapters/logging/<backend>/  logging adapter backends
 src/adapters/mock/        in-memory adapter for tests
 src/composition/          factories that pick and wire adapters
@@ -46,6 +49,25 @@ orchestrator for project setup, cross-cutting CMake modules, and
 `add_subdirectory` calls. Target definitions, source lists, include paths, and
 adapter dependencies live in the closest meaningful module `CMakeLists.txt`
 rather than accumulating in the repository root.
+
+The umbrella `tpmkit` target is owned by `src/CMakeLists.txt`. Adapter module
+manifests, such as `src/adapters/tpm2_esys/CMakeLists.txt`, contribute their
+own source lists and private third-party links to that target. When an adapter
+grows, split its internal folder by responsibility before it becomes a flat
+dumping ground: `tpm2_esys` uses `context/` for connection lifecycle, `pcr/`
+for the PCR port implementation and TPM/domain marshalling, and `support/` for
+adapter-wide helpers such as error translation and log event names.
+
+Concrete port adapter translation units stay orchestration-focused. A
+`*_provider.cpp` or `*_adapter.cpp` may sequence validation, marshalling,
+third-party calls, error translation, logging, and observer callbacks, but it
+does not own all of those helper responsibilities inline. When a component
+adapter has several port methods, or when the implementation approaches the
+project's 300-line class/file smell threshold, split helpers into sibling files
+named for their responsibility: `<area>_marshalling`, `<area>_validation`,
+`<area>_logging`, `<area>_sessions`, `<area>_handles`, or similar. Future NV
+and key ESYS adapters should start with this shape instead of copying all port
+methods and helpers into one provider file.
 
 Domain areas that are expected to grow get their own public include subfolder,
 source subfolder, and namespace. For example PCR types live in
@@ -90,12 +112,17 @@ The two main backends are settled:
   separate low-level API. Prefer `tpm_context::create_*` factories that return
   domain ports for components borrowing a TPM connection.
 
-For the full walkthrough — file paths, CMake wiring, the per-adapter list, and the reasoning behind each choice — see `.claude/skills/tpm-write-code/references/worked-examples.md`.
+For the full walkthrough — file paths, CMake wiring, the per-adapter list, and the reasoning behind each choice — see `.agents/skills/tpm-write-code/references/worked-examples.md`.
 
 ## Rules for third-party dependencies
 
 - Every new third-party dependency must enter through an adapter. Never include third-party headers from domain code.
-- Each adapter lives in its own folder under `src/adapters/<name>/` and links its third-party dependency privately. Adapter families with multiple implementations of one port may group by port first, as logging does under `src/adapters/logging/<backend>/`. Consumers of the library do not transitively depend on adapter libraries.
+- Each adapter lives in its own folder under `src/adapters/<name>/` and links its third-party dependency privately. Adapter families with multiple implementations of one port may group by port first, as logging does under `src/adapters/logging/<backend>/`. Large adapters may group internally by responsibility, as `tpm2_esys` does with `context/`, `pcr/`, and `support/`. Consumers of the library do not transitively depend on adapter libraries.
+- Keep concrete provider/adapter files as command orchestration. Backend/domain
+  type conversion, pre-dispatch validation, backend-specific logging, session
+  setup, resource-handle wrappers, and authorization helpers are separate
+  adapter-internal modules once they are reused by more than one method or make
+  the provider file hard to scan.
 - If a third-party type must appear in a domain signature (rare), wrap it in a domain type first.
 - Adapters translate third-party errors into domain errors at the boundary. Never let `TSS2_RC`, `unsigned long` OpenSSL error codes, or library-specific exceptions cross into the domain.
 

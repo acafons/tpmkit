@@ -1,63 +1,25 @@
-add_library(tpmkit)
-add_library(tpmkit::tpmkit ALIAS tpmkit)
-
 target_sources(tpmkit
-    PUBLIC
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/api.h>
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/encoding/hex.h>
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/exception.h>
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/hash_algorithm.h>
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/logging/logger.h>
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/logging/noop_logger.h>
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/pcr/bank.h>
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/pcr/digest_value.h>
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/pcr/index.h>
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/pcr/observer.h>
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/pcr/provider.h>
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/pcr/result_types.h>
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/pcr/selection.h>
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/result.h>
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/secret_buffer.h>
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/tpm_context.h>
     PRIVATE
-        ../../domain/encoding/hex.cpp
-        ../../domain/hash_algorithm.cpp
-        ../../domain/pcr/bank.cpp
-        ../../domain/pcr/digest_value.cpp
-        ../../domain/pcr/index.cpp
-        ../../domain/pcr/result_types.cpp
-        ../../domain/pcr/selection.cpp
-        ../../domain/result.cpp
-        ../../domain/secret_buffer.cpp
-        ../../domain/secret_buffer_testing.h
-        error_translation.cpp
-        error_translation.h
-        esys_pcr_provider.cpp
-        esys_pcr_provider.h
-        impl.h
-        log_events.h
-        tcti_loader.cpp
-        tcti_loader.h
-        tpm_context.cpp
-)
-target_include_directories(tpmkit
-    PUBLIC
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
-        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+        context/impl.h
+        context/tcti_loader.cpp
+        context/tcti_loader.h
+        context/tpm_context.cpp
+        pcr/esys_pcr_provider.cpp
+        pcr/esys_pcr_provider.h
+        pcr/pcr_logging.cpp
+        pcr/pcr_logging.h
+        pcr/pcr_marshalling.cpp
+        pcr/pcr_marshalling.h
+        pcr/pcr_validation.cpp
+        pcr/pcr_validation.h
+        support/error_translation.cpp
+        support/error_translation.h
+        support/log_events.h
 )
 target_link_libraries(tpmkit
-    PUBLIC
-        Microsoft.GSL::GSL
-        tl::expected
     PRIVATE
-        OpenSSL::Crypto
         PkgConfig::TSS2_ESYS
         PkgConfig::TSS2_TCTILDR
-)
-tpmkit_configure_library_target(tpmkit)
-set_target_properties(tpmkit PROPERTIES
-    VERSION ${PROJECT_VERSION}
-    SOVERSION ${PROJECT_VERSION_MAJOR}
 )
 
 # TPM2 TSS libraries stay PRIVATE implementation dependencies. Static-library

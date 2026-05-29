@@ -1,6 +1,6 @@
 #include "tcti_loader.h"
 
-#include "error_translation.h"
+#include "../support/error_translation.h"
 
 #include <tpmkit/logging/logger.h>
 

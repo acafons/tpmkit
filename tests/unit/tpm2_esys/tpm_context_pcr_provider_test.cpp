@@ -3,7 +3,7 @@
 #include <tpmkit/testing/recording_logger.h>
 #include <tpmkit/tpm_context.h>
 
-#include "src/adapters/tpm2_esys/log_events.h"
+#include "src/adapters/tpm2_esys/support/log_events.h"
 
 #include <gsl/span>
 #include <gtest/gtest.h>

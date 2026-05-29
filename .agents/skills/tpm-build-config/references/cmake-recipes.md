@@ -52,18 +52,6 @@ endif()
 
 ```cmake
 # src/CMakeLists.txt
-add_subdirectory(adapters/tpm2_esys)
-add_subdirectory(adapters/mock)
-
-if(TPMKIT_LOG_ADAPTER STREQUAL "spdlog")
-    add_subdirectory(adapters/logging/spdlog)
-endif()
-```
-
-Per-adapter `CMakeLists.txt` owns the target:
-
-```cmake
-# src/adapters/tpm2_esys/CMakeLists.txt
 add_library(tpmkit)
 add_library(tpmkit::tpmkit ALIAS tpmkit)
 
@@ -72,26 +60,49 @@ target_sources(tpmkit
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/pcr/provider.h>
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/pcr/selection.h>
     PRIVATE
-        ../../domain/pcr/index.cpp
-        ../../domain/pcr/selection.cpp
-        error_translation.cpp
-        tcti_loader.cpp
-        tpm_context.cpp
+        domain/pcr/index.cpp
+        domain/pcr/selection.cpp
 )
 target_link_libraries(tpmkit
     PUBLIC
         Microsoft.GSL::GSL
         tl::expected
+)
+
+add_subdirectory(adapters/tpm2_esys)
+
+tpmkit_configure_library_target(tpmkit)
+add_subdirectory(adapters/mock)
+
+if(TPMKIT_LOG_ADAPTER STREQUAL "spdlog")
+    add_subdirectory(adapters/logging/spdlog)
+endif()
+```
+
+Per-adapter `CMakeLists.txt` contributes only the adapter-owned sources and
+private third-party links:
+
+```cmake
+# src/adapters/tpm2_esys/CMakeLists.txt
+target_sources(tpmkit
+    PRIVATE
+        context/tcti_loader.cpp
+        context/tpm_context.cpp
+        pcr/esys_pcr_provider.cpp
+        pcr/pcr_marshalling.cpp
+        pcr/pcr_validation.cpp
+        support/error_translation.cpp
+)
+target_link_libraries(tpmkit
     PRIVATE
         PkgConfig::TSS2_ESYS
         PkgConfig::TSS2_TCTILDR
 )
-tpmkit_configure_library_target(tpmkit)
 ```
 
 The key invariant: third-party libraries are **`PRIVATE`** dependencies of the adapter that uses them. Consumers of `tpmkit::tpmkit` never see `OpenSSL::Crypto` or `tss2::*` in their link line. If a consumer's compile fails because it can't find an `openssl/` header, the leak is in your `target_link_libraries` — promote the dependency back to `PRIVATE`.
 
-As the project grows into separate domain/composition targets, preserve the same ownership rule: declare each target in its nearest meaningful module, then link the exported `tpmkit::tpmkit` target to the internal implementation targets without moving their source lists back to the root.
+As the project grows into separate domain/composition targets, preserve the same ownership rule: declare each target in its nearest meaningful module, then link the exported `tpmkit::tpmkit` target to the internal implementation targets without moving their source lists back to the repository root.
 
 ## Shared vs. static, and `BUILD_SHARED_LIBS`
 

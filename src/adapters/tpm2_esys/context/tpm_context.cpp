@@ -1,8 +1,8 @@
 #include "impl.h"
 
-#include "error_translation.h"
-#include "esys_pcr_provider.h"
-#include "log_events.h"
+#include "../pcr/esys_pcr_provider.h"
+#include "../support/error_translation.h"
+#include "../support/log_events.h"
 
 #include <tpmkit/logging/noop_logger.h>
 

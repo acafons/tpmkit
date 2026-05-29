@@ -1,6 +1,6 @@
-#include "src/adapters/tpm2_esys/error_translation.h"
+#include "src/adapters/tpm2_esys/support/error_translation.h"
 
-#include "src/adapters/tpm2_esys/log_events.h"
+#include "src/adapters/tpm2_esys/support/log_events.h"
 
 #include <tpmkit/logging/logger.h>
 

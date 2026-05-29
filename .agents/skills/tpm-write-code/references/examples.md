@@ -73,7 +73,7 @@ Free function, no state. Takes a port by reference plus value objects, returns a
 ## 4. RAII wrapper — `tss2_context`
 
 ```cpp
-// In src/adapters/tpm2_esys/tss2_context.h
+// In src/adapters/tpm2_esys/context/tss2_context.h
 class tss2_context final {
 public:
     tss2_context();
@@ -92,7 +92,7 @@ private:
 ```
 
 ```cpp
-// In src/adapters/tpm2_esys/tss2_context.cpp
+// In src/adapters/tpm2_esys/context/tss2_context.cpp
 tss2_context::tss2_context() {
     if (Esys_Initialize(&ctx_, nullptr, nullptr) != TSS2_RC_SUCCESS) {
         throw resource_error{"failed to initialize ESYS context"};

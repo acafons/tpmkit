@@ -3,8 +3,8 @@
 #include <tpmkit/testing/recording_logger.h>
 #include <tpmkit/tpm_context.h>
 
-#include "src/adapters/tpm2_esys/esys_pcr_provider.h"
-#include "src/adapters/tpm2_esys/log_events.h"
+#include "src/adapters/tpm2_esys/pcr/esys_pcr_provider.h"
+#include "src/adapters/tpm2_esys/support/log_events.h"
 
 #include <gtest/gtest.h>
 

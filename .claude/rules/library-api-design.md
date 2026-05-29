@@ -44,7 +44,7 @@ These rules govern the public surface of the library. They apply to installed/pu
 - Pimpl classes are move-only by default. Provide copy only when value semantics genuinely make sense, and implement it as a deep copy.
 - Do not apply Pimpl to internal types or to small value types — the heap allocation and indirection are not justified.
 
-For the C++17 mechanics (forward declaration, where the destructor must be defined, deep-copy implementation, common mistakes, and migrating an existing class), see `.claude/skills/tpm-write-code/references/pimpl-mechanics.md`.
+For the C++17 mechanics (forward declaration, where the destructor must be defined, deep-copy implementation, common mistakes, and migrating an existing class), see `.agents/skills/tpm-write-code/references/pimpl-mechanics.md`.
 
 ## ABI and symbol visibility
 

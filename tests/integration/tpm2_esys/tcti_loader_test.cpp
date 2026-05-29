@@ -1,5 +1,5 @@
-#include "src/adapters/tpm2_esys/log_events.h"
-#include "src/adapters/tpm2_esys/tcti_loader.h"
+#include "src/adapters/tpm2_esys/context/tcti_loader.h"
+#include "src/adapters/tpm2_esys/support/log_events.h"
 
 #include <tpmkit/testing/recording_logger.h>
 

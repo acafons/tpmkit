@@ -16,9 +16,22 @@ Two worked examples illustrating the port options in `.claude/rules/architecture
   `src/domain/pcr/`. It speaks domain types only — no `TSS2_*` types leak
   through.
 - **Adapters, all behind the same port:**
-  - `esys_pcr_provider` — ESYS-backed PCR implementation.
+  - `src/adapters/tpm2_esys/pcr/esys_pcr_provider.{h,cpp}` —
+    ESYS-backed PCR command orchestration. Keep ESYS PCR marshalling,
+    validation, and PCR log helpers under `src/adapters/tpm2_esys/pcr/`
+    instead of growing the provider translation unit.
   - `mock_pcr_provider` — deterministic public testing helper backed by
     `src/adapters/mock/`.
+- **ESYS adapter folder shape:** `src/adapters/tpm2_esys/context/` owns
+  `tpm_context` implementation details and TCTI lifecycle, `pcr/` owns the
+  `pcr::provider` adapter and PCR-specific translation helpers, and `support/`
+  owns shared adapter support such as `TSS2_RC` error translation and log event
+  names.
+- **Growth rule:** future TPM-backed component adapters such as NV or key
+  providers should start from the same split. A concrete provider file should
+  sequence backend calls; backend/domain conversion, validation, logging,
+  session/auth setup, and resource handle helpers belong in sibling modules
+  before the provider approaches 300 lines.
 - **Wiring:** `tpm_context::create_pcr_provider()` creates the adapter from the
   owning context and returns `std::unique_ptr<pcr::provider>`. Selection is not
   exposed to the library consumer — the public API speaks the domain port.

@@ -1,4 +1,4 @@
-#include "src/adapters/tpm2_esys/log_events.h"
+#include "src/adapters/tpm2_esys/support/log_events.h"
 
 #include <gtest/gtest.h>
 

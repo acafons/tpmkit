@@ -74,6 +74,11 @@ This file is the project's opinionated take. For language-level questions not co
 ## Headers and modules
 
 - Use `.h` for header files (not `.hpp`) and `.cpp` for translation units. Pick one and apply project-wide.
+- Keep translation units focused on one module responsibility. A concrete
+  provider/adapter `.cpp` should orchestrate backend calls, not also own every
+  marshalling table, validation helper, logging field builder, session/auth
+  helper, and resource wrapper. When those responsibilities appear, split them
+  into sibling files before the provider becomes a 300-line catch-all.
 - Use `#pragma once` at the top of every header.
 - Forward declare in headers when possible; include in implementation files.
 - Never write `using namespace` at namespace scope in a header.

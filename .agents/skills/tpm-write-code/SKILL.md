@@ -25,6 +25,17 @@ implementation files go under `src/domain/<area>/`, and public names live under
 `tpmkit::pcr::provider`. Future NV and key APIs should follow the same pattern,
 for example `tpmkit::nv::index` or `tpmkit::key::provider`.
 
+When an adapter implements a growing component port, keep the concrete provider
+file as an orchestration layer. It should validate, marshal, call the backend,
+translate errors, log, and notify observers by composing focused helper modules;
+it should not define all conversion, validation, logging, authorization, and
+resource helper logic inline. For TPM2 ESYS, follow the PCR shape:
+`src/adapters/tpm2_esys/<area>/<area>_marshalling.{h,cpp}`,
+`<area>_validation.{h,cpp}`, and `<area>_logging.{h,cpp}` as needed, with
+shared context lifecycle under `context/` and shared TSS support under
+`support/`. Start this split before the provider crosses roughly 300 lines or
+mixes three responsibilities beyond command orchestration.
+
 If you find yourself wanting to include an `openssl/` or `tss2/` header from a domain file, stop and extract a port instead. The dependency must point inward (`architecture.md`).
 
 When wiring a new backend, look up the closest precedent before inventing one: `references/worked-examples.md` walks through how OpenSSL (build-time selection) and TPM2 TSS (runtime adapter selection) are laid out — file paths, CMake wiring, and the FAPI/ESYS-as-internal-detail rule.
@@ -199,6 +210,9 @@ Recipes for the most frequent kinds of change. Each is sequenced so the contract
 2. Add the matching method to the **mock adapter** (`src/adapters/mock/`). The mock is the cheapest place to think through the contract.
 3. Extend the **contract test suite** with a test for the new method. It should pass against the mock first.
 4. Implement the method in every **real adapter**. Run the contract suite against each.
+   If a real provider file now contains backend/domain marshalling, validation,
+   logging, and command dispatch in the same translation unit, split those
+   helpers before adding more methods.
 5. Update callers in the domain.
 6. If the method takes a new domain type, follow "Promoting a primitive to a value object" first.
 
@@ -253,8 +267,8 @@ readers are likely to ask why.
 
 ### Adding a new backend adapter for an existing port
 
-1. Create `src/adapters/<backend>/`. Match the naming pattern from "Naming" above.
-2. Subclass the port, implement every method, translate third-party errors at the boundary.
+1. Create `src/adapters/<backend>/`. Match the naming pattern from "Naming" above. If the adapter has multiple port methods or is likely to grow, create responsibility subfolders and helper files up front instead of starting with one large provider translation unit.
+2. Subclass the port, implement every method, translate third-party errors at the boundary. Keep the concrete provider focused on command sequencing; put marshalling, validation, logging, session setup, and resource helpers in adapter-internal modules.
 3. Run the **contract suite** against the new adapter *before* wiring it into the composition root. Adapters that pass the contract suite are interchangeable; adapters that don't are bugs waiting to happen.
 4. Wire into the composition root with an explicit selection rule (configuration flag, hardware-presence check). The selection logic is the only place that names the concrete type.
 
@@ -263,6 +277,9 @@ readers are likely to ask why.
 These signals usually mean a design change, not a tweak to a function:
 
 - A class file crosses 300 lines with no obvious split — start by extracting a value object or a helper service.
+- A concrete provider file is becoming a catalog of all port methods plus all
+  marshalling, validation, and logging helpers — keep provider methods as
+  command orchestration and extract helper modules by responsibility.
 - A `switch` or `if` ladder over a type tag — replace with polymorphism (port + adapters) or `std::visit`.
 - A function's parameter list grows to four or more — group related parameters into a value object first; if that doesn't help, the function is doing too much.
 - A primitive (`uint32_t`, `std::vector<uint8_t>`, `std::string`) recurs everywhere with the same validation — promote to a value object once, validate once.
@@ -293,6 +310,7 @@ These recur in C++ crypto and TPM code:
 
 * **A domain file needs to include `openssl/` or `tss2/`.** Stop. The dependency must point inward (`architecture.md`). Either extract a port the domain depends on and put the include in the appropriate adapter folder (`src/adapters/<name>/`, or a grouped family such as `src/adapters/logging/<backend>/`), or replace the third-party type in the signature with a domain type. Do not relax the grep gate documented in `tpm-build-config` Invariant checks.
 * **A class crosses 300 lines without an obvious split.** Refactoring trigger. Look for a value object hiding inside the data, a domain service hiding inside the methods, or a port hiding inside a `switch` over a type tag. Adding "helper" private methods to absorb the growth makes the file longer without addressing the single-responsibility violation.
+* **A provider or adapter translation unit crosses 300 lines or mixes command dispatch with conversion tables, validation, logging, and resource helpers.** Split it before adding the next method. For TPM2 ESYS component adapters, use the PCR precedent: `<area>_marshalling`, `<area>_validation`, and `<area>_logging` in the component folder, with cross-component TSS support in `support/`.
 * **A helper looks reusable but the public contract is not stable.** Do not promote it yet. Keep it domain-internal, adapter-internal, or example/test-local according to the candidate check, and record the reason if duplication is likely to tempt a future promotion.
 * **An example-local helper is about to be copied into an adapter, test, or second example.** Stop and run the public API candidate check. Promote it when it is stable caller-facing behavior; otherwise keep the duplicate intentionally local and narrow.
 * **A new method fits some adapters but not others.** Interface segregation problem — split the port. Do not add a "throw not_supported" stub; routing it through `tpm-add-port-or-adapter` Workflow A for the split is the right path.
