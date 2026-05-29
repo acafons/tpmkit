@@ -32,7 +32,8 @@ Apply this skill in order when writing or modifying a test:
 5. **Cover every flow.** Happy path, alternatives, and every error category from `error-handling.md`. Use `EXPECT_THROW`/`ASSERT_THROW` for contract-violation paths, not `EXPECT_DEATH`.
 6. **Run under the sanitizer matrix** (ASan, UBSan, TSan) before opening the PR. A sanitizer failure is a release blocker per `security.md` Build hardening — fix the underlying bug, do not suppress.
 7. **For new adapters or new ports**, run the contract suite against every adapter (including the mock) before merging. Adapters that pass the contract suite are interchangeable; adapters that don't are bugs waiting to happen.
-8. **Keep the policy guard green.** Every test change must pass the `test_policy_guard` CTest entry. The guard fails missing top-of-test behavior comments, non-parameterized contract tests, `GTEST_SKIP()` in unit/contract/integration tests, deferred skip placeholders, and compile-only header smoke tests placed under `tests/integration/`.
+8. **For newly promoted public APIs**, add public API behavior tests and header smoke coverage in the same change. A helper/class moved out of examples, tests, adapters, or domain internals is not covered enough until its installed contract is tested through `include/tpmkit/...`.
+9. **Keep the policy guard green.** Every test change must pass the `test_policy_guard` CTest entry. The guard fails missing top-of-test behavior comments, non-parameterized contract tests, `GTEST_SKIP()` in unit/contract/integration tests, deferred skip placeholders, and compile-only header smoke tests placed under `tests/integration/`.
 
 ## Frameworks and tools
 
@@ -70,6 +71,15 @@ bench/                         Google Benchmark suites (see performance.md)
   nested public namespace directly (`tpmkit::pcr::*`, `tpmkit::nv::*`,
   `tpmkit::key::*`) and should not rely on root compatibility aliases unless a
   compatibility plan explicitly added them.
+- **Promoted-helper public API tests** — when production work promotes a helper
+  or class from examples, tests, adapter-local code, or domain internals to
+  public API, add `tests/unit/public_api/` coverage for the installed contract
+  in the same change. Cover happy path, malformed input, boundary values,
+  returned error categories or thrown exception types, and any documented
+  secret-handling restrictions. Add or update a public-header smoke test so the
+  installed header compiles standalone. Add property, fuzz, or interop coverage
+  when the promoted behavior naturally fits those tiers; do not hide public API
+  behavior only in examples.
 - **Domain unit tests** — every domain function and use case, exercised through ports against mock adapters. No third-party library linked. Full suite runs in under a second.
 - **Testing-helper unit tests** — public `tpmkit::testing::*` helpers. Backend-neutral helpers live under `tests/unit/testing/`; helpers shaped around an adapter or third-party ABI live under `tests/unit/testing/<adapter>/` (for example `tests/unit/testing/tpm2_esys/`).
 - **Adapter-internal unit tests** — pure translation, validation, schema, and ABI-shim logic for a specific adapter. Place these under `tests/unit/<adapter>/` (for example `tests/unit/tpm2_esys/`); grouped adapter families mirror the source layout, as logging does under `tests/unit/logging/<backend>/`. They may compile against the backend SDK when needed for constants or function signatures, but they do not open real backend resources; anything that needs swtpm, hardware, or a real library call belongs in the integration tier.
@@ -221,85 +231,11 @@ Security testing is **cross-cutting, not a tier of its own.** Each kind of secur
 
 ### Running security tests locally
 
-CI is not the only place these run. Every security test described above is invokable locally with the project's CMake presets — useful when reproducing a CI failure, gating a commit before push, or iterating on a new security test. The presets and their bundled runtime options are defined in `tpm-build-config` Sanitizers; this section describes which preset to use for which class of security test.
-
-**Sanitizer-based tests (leak detection, race detection, UB).** Configure once, run as many times as needed; the presets bake in `ASAN_OPTIONS=detect_leaks=1:abort_on_error=1:halt_on_error=1` and the matching TSan/UBSan options from `tpm-build-config`.
-
-```bash
-cmake --preset asan
-cmake --build --preset asan
-ctest --preset asan --output-on-failure
-```
-
-The same shape works for `ubsan` and `tsan`. ASan and TSan cannot link together — pick one preset per build.
-
-**Filtering to security-marked tests.** Each test in the table above carries the `Security` CTest label, plus a sub-label (`Mlock`, `Zeroization`, `Oracle`, `Allowlist`, `RngSanity`, `SizeValidation`, `SessionEnc`, `TpmAuth`). Filter to a subset:
-
-```bash
-ctest --preset asan --label-regex Security --output-on-failure
-ctest --preset asan --label-regex 'Zeroization|Oracle' --output-on-failure
-ctest --preset asan --tests-regex secret_buffer --verbose
-```
-
-**The secret-zeroization test must run at `-O2` or higher** to be honest. The Debug preset's `-O0` hides the dead-store-elimination class of bug the test exists to catch. Run with the `asan-release` preset (`-O2` with ASan instrumentation) when iterating on a zeroization test that passes under `asan` but is suspected to drift under optimization:
-
-```bash
-cmake --preset asan-release
-cmake --build --preset asan-release
-ctest --preset asan-release --tests-regex zeroization --output-on-failure
-```
-
-**Integration security tests (TPM auth failures, session encryption).** Require swtpm running. Start it in another terminal — the socket paths are the same ones the test fixtures expect:
-
-```bash
-swtpm socket --tpm2 \
-  --server type=unixio,path=/tmp/tpmkit-swtpm-socket \
-  --ctrl type=unixio,path=/tmp/tpmkit-swtpm-ctrl \
-  --tpmstate dir=/tmp/tpmkit-swtpm-state \
-  --flags startup-clear
-```
-
-Then run the integration tier:
-
-```bash
-ctest --preset asan --label-regex 'Integration_tpm2_esys|TpmAuth|SessionEnc' --output-on-failure
-```
-
-The integration fixtures assert the local swtpm `--version` matches the pinned major.minor before running, and skip with a clear message on mismatch — local version drift does not produce confusing failures.
-
-**Stress tier (nightly in CI, manual locally).** Stress harnesses are not part of `ctest --preset asan` by default — they take too long. Run them under the dedicated stress preset and budget:
-
-```bash
-cmake --preset tsan-stress
-cmake --build --preset tsan-stress
-TPMKIT_STRESS_DURATION=10m ctest --preset tsan-stress --label-regex Stress --output-on-failure
-```
-
-Use a shorter `TPMKIT_STRESS_DURATION` (e.g., `1m`) while iterating; restore the default before pushing. The CI nightly uses the documented per-harness budget.
-
-**Interop tier (skip when tools absent).** Tests auto-skip when their tool isn't on `$PATH`. Confirm what is available:
-
-```bash
-openssl version    # required for Interop_openssl
-tpm2 --version     # required for Interop_tpm2_tools
-```
-
-Run with:
-
-```bash
-ctest --preset asan --label-regex Interop --output-on-failure
-```
-
-A `[ SKIPPED ]` line is the expected outcome on a host without the matching tool — that is not a failure. To actually exercise an interop test, install the tool at the pinned version (see the CI container images for canonical versions).
-
-**Pre-push gate (recommended).** The minimum local check before pushing a security-relevant change:
-
-```bash
-cmake --preset asan && cmake --build --preset asan && \
-  ctest --preset asan --label-regex 'Security|Contract' --output-on-failure
-```
-
-This runs every `Security`-labelled test plus the full Contract tier (including the secret-leak sweep and the oracle-uniformity test) under ASan. It catches the failure modes most likely to bite in CI without paying for the full sanitizer matrix. Run UBSan and TSan separately when the change touches arithmetic on caller sizes (UBSan) or anything threaded (TSan).
+Read `references/security-local-runs.md` when reproducing security-test
+failures, gating a security-relevant change before push, iterating on a new
+security test, or deciding which preset/label filter to run locally. The
+reference contains sanitizer presets, label filters, swtpm setup, stress/interop
+commands, and pre-push gate guidance.
 
 ### What is NOT tested at runtime
 
@@ -314,72 +250,11 @@ If a security property feels test-shaped but is in this list, the static/CI enfo
 
 ## Periodic offline audit
 
-Some tests cost too much to run per PR but matter enough to run before every release. They are not part of the CI matrix; they are scheduled work — release-time at minimum, plus a quarterly cadence between releases — and the results live in `audit/<YYYY-MM-DD>/` under the repo for the same audit-trail discipline as a security review.
-
-Cross-reference `tpm-release` Step 3 (security sweep) — the release procedure pulls from this section.
-
-### Valgrind Memcheck sweep
-
-**Cadence:** every release tag, plus quarterly between releases.
-
-**Purpose:** catch uninitialized-memory reads that ASan does not, and exercise the *release* binary rather than an instrumented build. Complementary to ASan, not a replacement — Valgrind runs ~10–50× slower so it cannot live in the per-PR matrix. Run on Linux only; Valgrind has no working macOS support and no Windows support.
-
-**Procedure:**
-
-```bash
-cmake --preset release
-cmake --build --preset release
-valgrind --tool=memcheck \
-  --leak-check=full --show-leak-kinds=all \
-  --track-origins=yes --error-exitcode=1 \
-  --suppressions=audit/valgrind/tpmkit.supp \
-  --gen-suppressions=all \
-  ./build/release/tests/<test-binary>
-```
-
-Run against the unit, integration, and contract test binaries plus each stress harness. Capture stdout and stderr to `audit/<date>/valgrind-<test>.log`. The `--gen-suppressions=all` output goes into a scratch file for review — never copied into `tpmkit.supp` without the discipline below.
-
-**Suppression-file discipline.** `audit/valgrind/tpmkit.supp` is a security-relevant artifact and is reviewed like a dependency manifest:
-
-- Every suppression names the upstream component (e.g., `openssl-3.2`, `tss2-fapi-4.0`, `glibc-2.38`), the version it was added against, a one-line reason the warning is benign, and the reviewer who approved it.
-- A new suppression follows the same review path as adding a third-party dependency (`tpm-build-config` Dependency management). The reviewer's name is recorded in the entry.
-- After every dependency bump, every suppression against that dependency is re-validated: run Valgrind unsuppressed and confirm the warning still appears in the new version's code paths. Stale suppressions are deleted in the same PR as the bump.
-- **Entropy, RNG, and uninitialized-memory warnings in cryptographic code are never suppressed without an upstream vendor reference explaining why the read is intentional.** This rule is the lesson of CVE-2008-0166 — for two years Debian's OpenSSL had a crippled RNG because a maintainer suppressed Valgrind warnings on entropy mixing that looked spurious but were load-bearing. No vendor reference, no suppression; if in doubt, file with the upstream and wait.
-
-**Reading the output.** A clean run produces no error records and a leak summary with zero "definitely lost" and zero "possibly lost". "Still reachable" is informational on a short-lived test binary; on a long-running stress harness it is a signal worth investigating.
-
-### Full RNG statistical suite
-
-**Cadence:** every release tag.
-
-**Purpose:** the unit-tier RNG sanity test catches constant-output regressions in 1 MiB. The full statistical battery catches subtle bias — a working-but-degraded RNG that passes the unit test but produces detectably non-uniform output at scale.
-
-**Procedure:** generate ≥1 GiB from each documented RNG source (`RAND_bytes`, `Esys_GetRandom`, host RNG) into `audit/<date>/rng/<source>.bin`. Run **NIST SP 800-22** and **dieharder** against each file.
-
-**Reading the output.** Statistical tests *are* statistical — an isolated low p-value over many sub-tests is expected. The threshold is the documented multi-test pass criterion in the SP 800-22 reference; do not invent ad-hoc thresholds. A genuine suite-level failure is a release blocker — capture the failing sample and the seed before filing.
-
-### Extended fuzz campaign
-
-**Cadence:** every release tag.
-
-**Purpose:** the per-PR fuzz job runs each harness for ~10 minutes. An overnight campaign explores deeper input space and surfaces inputs the short job cannot reach.
-
-**Procedure:** run each harness in `tests/fuzz/` for ≥8 hours under ASan + UBSan. New crashes pin in `tests/fuzz/corpus/<harness>/regressions/` per the fuzz-tier rule. The release does not ship until each new crash is fixed or has a documented deferral with a security-impact review.
-
-### Stress harness full-cadence run
-
-**Cadence:** every release tag.
-
-**Purpose:** the nightly stress job runs each harness for 10–30 minutes. The release run extends each to its documented multi-hour ceiling, catching slow-growth leaks, fragmentation patterns, and DA-lockout edge cases that only appear at scale.
-
-**Procedure:** `TPMKIT_STRESS_DURATION=8h ctest --preset tsan-stress --label-regex Stress`. Capture per-harness wall-clock and resident-set growth to `audit/<date>/stress-<harness>.csv`. Unbounded growth in either dimension is a release blocker.
-
-### Audit-result lifecycle
-
-- Audit results live in the repo under `audit/<YYYY-MM-DD>/` as plain text and committed alongside the release tag commit (not as a separate branch or out-of-tree store).
-- A failed audit is a release blocker. There is no quarantine tier — fix the cause or defer the release.
-- Audit results from previous releases are kept indefinitely for trend analysis. Do not prune. A quarterly between-release audit lands in the same `audit/<date>/` shape, with a one-line README naming it as a between-release audit.
-- The release-time security sweep (`tpm-release` Step 3) references the latest audit directory by date so reviewers can compare release to release.
+Read `references/offline-audit.md` when preparing a release, running a
+quarterly audit, executing Valgrind/RNG/fuzz/stress extended checks, or
+interpreting audit failures. These checks are not part of the per-PR CI matrix;
+they are release-blocking scheduled work. Cross-reference `tpm-release` Step 3
+(security sweep), which pulls from this reference.
 
 ## Coverage expectations
 

@@ -1,11 +1,11 @@
 ---
 name: tpm-write-code
-description: Implementation guidance for the tpmkit C++17 library — applying SOLID and hexagonal architecture in practice, modeling the domain with value objects, entities, and domain services from DDD, and a curated catalog of design patterns (Strategy, Factory, RAII wrapper, Pimpl, Adapter, Visitor, Null Object, Template Method) tied to the codebase. Use when writing or refactoring production source code under `src/` or `include/<library>/`, deciding where new code belongs (domain vs. adapter vs. composition root), introducing a new port, modeling a new domain concept, picking a design pattern, or tackling a refactor. Do not use for writing tests, build/CMake/CI configuration, documentation, or commits/PRs.
+description: Implementation guidance for the tpmkit C++17 library — applying SOLID and hexagonal architecture, modeling the domain with value objects/entities/services, choosing local vs. public API placement, and using established design patterns. Use when writing/refactoring production source under `src/` or `include/<library>/`, deciding where code belongs, evaluating whether helpers/classes from examples/tests/adapters should become public API or stay local, introducing a port, modeling a domain concept, picking a pattern, or tackling a refactor. Do not use for writing tests, build/CMake/CI configuration, documentation, or commits/PRs.
 ---
 
 # Writing Code — tpmkit
 
-This skill guides production code under `src/` and `include/<library>/`. The always-on rules — `.claude/rules/code-standards.md`, `architecture.md`, `library-api-design.md`, `security.md`, `error-handling.md` — are authoritative on baseline rules. This skill focuses on the *judgment calls* those rules don't make for you: where new code goes, how to model it, and which pattern fits.
+This skill guides production code under `src/` and `include/<library>/`, and the public-API candidacy check for reusable helpers discovered in examples, tests, adapters, or domain internals. The always-on rules — `.claude/rules/code-standards.md`, `architecture.md`, `library-api-design.md`, `security.md`, `error-handling.md` — are authoritative on baseline rules. This skill focuses on the *judgment calls* those rules don't make for you: where new code goes, how to model it, when it deserves public surface, and which pattern fits.
 
 ## Where does new code belong?
 
@@ -28,6 +28,56 @@ for example `tpmkit::nv::index` or `tpmkit::key::provider`.
 If you find yourself wanting to include an `openssl/` or `tss2/` header from a domain file, stop and extract a port instead. The dependency must point inward (`architecture.md`).
 
 When wiring a new backend, look up the closest precedent before inventing one: `references/worked-examples.md` walks through how OpenSSL (build-time selection) and TPM2 TSS (runtime adapter selection) are laid out — file paths, CMake wiring, and the FAPI/ESYS-as-internal-detail rule.
+
+## Public API candidate check
+
+Run this check before adding or keeping a helper/class in `examples/`, `tests/`,
+adapter-local code, an anonymous namespace, or `src/domain/` when the symbol has
+domain meaning. Also run it during refactors that discover duplicated helper
+logic. Public API is a compatibility promise, so the default is analysis first,
+not automatic promotion.
+
+Classify the symbol as one of four outcomes:
+
+- **Public API** — stable domain vocabulary or caller workflow support that a
+  consumer would reasonably need to use the library correctly, safely, or
+  without reimplementing library-owned rules.
+- **Domain-internal** — reusable inside the library, backend-neutral, and owned
+  by the domain, but not stable enough or useful enough to install as API.
+- **Adapter-internal** — translation, ABI glue, lifecycle handling, or formatting
+  that belongs to one backend or third-party library boundary.
+- **Example/test-local** — demo input preparation, CLI scaffolding, fixture
+  setup, or assertions that should not become a consumer contract.
+
+Ask these questions before choosing:
+
+- Is equivalent logic duplicated in examples, tests, adapters, or
+  downstream-like smoke code?
+- Would a consumer otherwise need to copy the logic to call the public API
+  correctly or interpret its results?
+- Does the symbol name a stable domain concept, representation, or workflow,
+  rather than demo/test glue?
+- Can it live under a backend-neutral header and namespace that match
+  `library-api-design.md`?
+- Can the contract be documented precisely: inputs, ownership, validation,
+  returned error categories, exceptions, thread safety, lifetime, and secret
+  handling?
+- Is the behavior stable enough for SemVer compatibility, ABI/export rules, and
+  future deprecation discipline?
+- Does promotion remove meaningful reimplementation without bloating the public
+  surface?
+
+Promote only when the answers are coherent. Keep the symbol local when the value
+is convenience inside one example, one test fixture, or one backend. Examples:
+`hash_algorithm_name`, `error_category_name`, `encoding::encode_hex`,
+`encoding::decode_hex`, `pcr::make_index_range`, and the string TCTI
+`tpm_context::create` overload are public-API candidates because they represent
+stable caller-facing vocabulary or workflows. `examples::make_event_bytes` stays
+example-local because it is demo input construction, not library behavior.
+
+When the decision is not obvious, leave a short rationale in the implementation
+notes, commit message, or PR: "promoted because consumers would otherwise
+reimplement X" or "kept example-local because it only prepares demo input."
 
 ## Naming
 
@@ -175,6 +225,32 @@ When a primitive (`uint32_t`, `std::vector<uint8_t>`, `std::string`) recurs ever
 3. Delete the redundant validation that used to live at each call site — the type now carries the invariant.
 4. Tests should be unchanged in spirit but tighter in spelling.
 
+### Promoting a helper or class to public API
+
+Use this workflow only after the public API candidate check says promotion is
+right. If the check points to domain-internal, adapter-internal, or
+example/test-local, keep the symbol there and record the rationale if future
+readers are likely to ask why.
+
+1. Choose the public home first: root `include/tpmkit/` for shared foundational
+   vocabulary, or `include/tpmkit/<area>/` and `tpmkit::<area>` for a cohesive
+   component family. Do not expose backend names, example names, test names, or
+   generic `util`/`helper` buckets.
+2. Design the contract before moving code: name, parameter ownership, valid
+   ranges, error categories or exception types, exception-safety guarantee,
+   thread-safety contract, lifetime rules, and any secret-handling restrictions.
+3. Put non-trivial implementation in `src/domain/` or `src/domain/<area>/`.
+   Keep public headers free of third-party includes and avoid inline bodies
+   unless the function is genuinely trivial and ABI-safe.
+4. Add the matching public API tests and header smoke coverage per
+   `tpm-write-tests`. For parsers, encoders, and boundary-sensitive helpers,
+   include malformed input and size/overflow cases.
+5. Add Doxygen on the public declaration per `tpm-write-docs`: parameters,
+   return value, errors, exceptions, thread safety, and `@since`.
+6. Replace duplicate example/test/adapter implementations with the public API
+   and delete the old helper. The examples should teach the library API, not
+   carry a second private version of it.
+
 ### Adding a new backend adapter for an existing port
 
 1. Create `src/adapters/<backend>/`. Match the naming pattern from "Naming" above.
@@ -190,6 +266,9 @@ These signals usually mean a design change, not a tweak to a function:
 - A `switch` or `if` ladder over a type tag — replace with polymorphism (port + adapters) or `std::visit`.
 - A function's parameter list grows to four or more — group related parameters into a value object first; if that doesn't help, the function is doing too much.
 - A primitive (`uint32_t`, `std::vector<uint8_t>`, `std::string`) recurs everywhere with the same validation — promote to a value object once, validate once.
+- An example/test/helper implementation is copied into a second place, or an
+  adapter duplicates a domain-facing mapping already visible to callers — run
+  the public API candidate check before adding another copy.
 - A second adapter is being copy-pasted from the first — the duplication is your port; extract it.
 
 ## Anti-patterns to flag
@@ -202,12 +281,20 @@ These recur in C++ crypto and TPM code:
 - A constructor that internally `new`s an adapter (or grabs a global) instead of taking a port as a parameter. Welds the class to one backend, kills testability, and breaks dependency inversion. Inject the port; let the composition root choose the concrete type.
 - A domain header transitively pulling in `openssl/` or `tss2/`. Break the chain with a forward declaration or by moving the include into the `.cpp`.
 - "Util" or "helper" classes that accumulate unrelated free functions. Find their real homes — usually as value-object methods or domain services.
+- Leaving a domain-shaped helper in `tpmkit::examples` after examples, tests,
+  or adapter code start depending on the same behavior. Either promote it with a
+  public contract or keep each local copy deliberately scoped to demo/test glue.
+- Promoting demo scaffolding or test fixture setup just to remove a small amount
+  of duplication. Public API carries SemVer, ABI, docs, tests, and security
+  commitments; convenience alone is not enough.
 - Re-validating internal-call inputs. Trust internal callers (`code-standards.md`); validate only at the public API boundary.
 
 ## Error Handling
 
 * **A domain file needs to include `openssl/` or `tss2/`.** Stop. The dependency must point inward (`architecture.md`). Either extract a port the domain depends on and put the include in the appropriate adapter folder (`src/adapters/<name>/`, or a grouped family such as `src/adapters/logging/<backend>/`), or replace the third-party type in the signature with a domain type. Do not relax the grep gate documented in `tpm-build-config` Invariant checks.
 * **A class crosses 300 lines without an obvious split.** Refactoring trigger. Look for a value object hiding inside the data, a domain service hiding inside the methods, or a port hiding inside a `switch` over a type tag. Adding "helper" private methods to absorb the growth makes the file longer without addressing the single-responsibility violation.
+* **A helper looks reusable but the public contract is not stable.** Do not promote it yet. Keep it domain-internal, adapter-internal, or example/test-local according to the candidate check, and record the reason if duplication is likely to tempt a future promotion.
+* **An example-local helper is about to be copied into an adapter, test, or second example.** Stop and run the public API candidate check. Promote it when it is stable caller-facing behavior; otherwise keep the duplicate intentionally local and narrow.
 * **A new method fits some adapters but not others.** Interface segregation problem — split the port. Do not add a "throw not_supported" stub; routing it through `tpm-add-port-or-adapter` Workflow A for the split is the right path.
 * **Contract suite passes against the mock but fails against a real adapter.** The mock under-specifies the contract. Tighten the mock so the contract matches observed real-adapter behavior (error categories, lifecycle constraints, threading), then re-run against every adapter, including the mock.
 * **A `secret_buffer` was copied accidentally** (compile error: deleted copy constructor). That is the design working as intended. Move instead, or extract a non-secret view if the consumer only needs a span over the bytes for the duration of the call.
