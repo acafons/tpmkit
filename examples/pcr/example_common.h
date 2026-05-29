@@ -20,7 +20,7 @@ namespace tpmkit::examples {
 constexpr std::uint32_t default_platform_pcr_count = 24U;
 constexpr std::string_view default_tcti_config = "tabrmd:bus_type=system";
 
-[[nodiscard]] inline std::vector<std::uint8_t> bytes_from_text(const std::string_view text)
+[[nodiscard]] inline std::vector<std::uint8_t> make_event_bytes(const std::string_view text)
 {
     std::vector<std::uint8_t> bytes;
     bytes.reserve(text.size());

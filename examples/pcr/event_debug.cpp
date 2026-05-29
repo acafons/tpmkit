@@ -86,7 +86,7 @@ int main(const int argc, char** argv)
         return EXIT_FAILURE;
     }
 
-    const std::vector<std::uint8_t> event_data = tpmkit::examples::bytes_from_text(event_text);
+    const std::vector<std::uint8_t> event_data = tpmkit::examples::make_event_bytes(event_text);
     const auto event = pcr_provider.event(tpmkit::pcr::index::debug, gsl::make_span(event_data));
     if (!event.has_value()) {
         tpmkit::examples::print_error(event.error());
