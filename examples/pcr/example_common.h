@@ -8,6 +8,7 @@
 #include <tpmkit/result.h>
 #include <tpmkit/tpm_context.h>
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
@@ -19,6 +20,12 @@ namespace tpmkit::examples {
 
 constexpr std::uint32_t default_platform_pcr_count = 24U;
 constexpr std::string_view default_tcti_config = "tabrmd:bus_type=system";
+
+[[nodiscard]] inline std::array<hash_algorithm, 4U> all_hash_algorithms() noexcept
+{
+    return {hash_algorithm::sha1, hash_algorithm::sha256, hash_algorithm::sha384,
+            hash_algorithm::sha512};
+}
 
 [[nodiscard]] inline std::vector<std::uint8_t> make_event_bytes(const std::string_view text)
 {
@@ -50,6 +57,19 @@ read_pcr_digest(pcr::provider& provider, const hash_algorithm algorithm, const p
     }
 
     return read->values.front().digest.digest();
+}
+
+[[nodiscard]] inline std::vector<hash_algorithm> active_pcr_algorithms(pcr::provider& provider)
+{
+    std::vector<hash_algorithm> active;
+    for (const hash_algorithm algorithm : all_hash_algorithms()) {
+        const auto digest = read_pcr_digest(provider, algorithm, pcr::index::debug);
+        if (digest.has_value()) {
+            active.push_back(algorithm);
+        }
+    }
+
+    return active;
 }
 
 } // namespace tpmkit::examples

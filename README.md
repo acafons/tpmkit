@@ -20,11 +20,15 @@ Build the debug preset and run the example inside the dev container. The helper 
 The example sources live under [examples/](examples/), including:
 [tpm_context_basics.cpp](examples/tpm_context_basics.cpp),
 [pcr/active_banks.cpp](examples/pcr/active_banks.cpp),
+[pcr/allocate_banks.cpp](examples/pcr/allocate_banks.cpp),
+[pcr/auth_value_rejected.cpp](examples/pcr/auth_value_rejected.cpp),
+[pcr/event_all_banks.cpp](examples/pcr/event_all_banks.cpp),
 [pcr/read_sha256.cpp](examples/pcr/read_sha256.cpp),
 [pcr/read_all_sha256.cpp](examples/pcr/read_all_sha256.cpp),
 [pcr/reset_debug.cpp](examples/pcr/reset_debug.cpp),
 [pcr/extend_debug.cpp](examples/pcr/extend_debug.cpp),
-[pcr/event_debug.cpp](examples/pcr/event_debug.cpp), and
+[pcr/event_debug.cpp](examples/pcr/event_debug.cpp),
+[pcr/multi_bank_extend_debug.cpp](examples/pcr/multi_bank_extend_debug.cpp), and
 [pcr/observer_trace.cpp](examples/pcr/observer_trace.cpp).
 
 PCR headers are grouped under `<tpmkit/pcr/...>` and PCR types live under
