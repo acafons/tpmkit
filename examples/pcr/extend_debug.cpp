@@ -37,7 +37,7 @@ int main(const int argc, char** argv)
         digest_hex = argv[2];
     }
 
-    auto digest_bytes = tpmkit::examples::hex_decode(digest_hex);
+    auto digest_bytes = tpmkit::encoding::decode_hex(digest_hex);
     if (!digest_bytes.has_value()) {
         tpmkit::examples::print_error(digest_bytes.error());
         return EXIT_FAILURE;
@@ -84,6 +84,6 @@ int main(const int argc, char** argv)
     }
 
     std::cout << "pcr16 extended with sha256 " << digest_hex << "\n";
-    std::cout << "pcr16 current " << tpmkit::examples::hex_encode(*current) << "\n";
+    std::cout << "pcr16 current " << tpmkit::encoding::encode_hex(*current) << "\n";
     return EXIT_SUCCESS;
 }

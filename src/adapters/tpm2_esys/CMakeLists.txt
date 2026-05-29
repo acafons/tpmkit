@@ -4,6 +4,7 @@ add_library(tpmkit::tpmkit ALIAS tpmkit)
 target_sources(tpmkit
     PUBLIC
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/api.h>
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/encoding/hex.h>
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/exception.h>
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/hash_algorithm.h>
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/logging/logger.h>
@@ -19,6 +20,7 @@ target_sources(tpmkit
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/secret_buffer.h>
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/tpm_context.h>
     PRIVATE
+        ../../domain/encoding/hex.cpp
         ../../domain/hash_algorithm.cpp
         ../../domain/pcr/bank.cpp
         ../../domain/pcr/digest_value.cpp

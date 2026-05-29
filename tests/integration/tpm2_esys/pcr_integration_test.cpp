@@ -1,3 +1,4 @@
+#include <tpmkit/encoding/hex.h>
 #include <tpmkit/hash_algorithm.h>
 #include <tpmkit/pcr/bank.h>
 #include <tpmkit/pcr/digest_value.h>
@@ -20,7 +21,6 @@
 #include <cstdlib>
 #include <iterator>
 #include <memory>
-#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -189,19 +189,6 @@ find_digest(const std::vector<tpmkit::pcr::digest_value>& values,
     return std::find(algorithms.begin(), algorithms.end(), algorithm) != algorithms.end();
 }
 
-[[nodiscard]] std::string hex_encode(const std::vector<std::uint8_t>& bytes)
-{
-    std::ostringstream out;
-    out << std::hex;
-    for (const std::uint8_t byte : bytes) {
-        out.width(2);
-        out.fill('0');
-        out << static_cast<unsigned int>(byte);
-    }
-
-    return out.str();
-}
-
 [[nodiscard]] std::string uppercase(std::string text)
 {
     std::transform(text.begin(), text.end(), text.begin(),
@@ -261,7 +248,7 @@ void expect_no_secret_leaks(const tpmkit::testing::recording_logger& log,
                             const std::vector<std::uint8_t>& secret)
 {
     const std::string raw{secret.begin(), secret.end()};
-    const std::string hex = hex_encode(secret);
+    const std::string hex = tpmkit::encoding::encode_hex(secret);
     const std::vector<std::string> secret_patterns{raw, hex, uppercase(hex)};
     for (const auto& record : log.snapshot()) {
         EXPECT_FALSE(contains_any_secret_pattern(record.message, secret_patterns));

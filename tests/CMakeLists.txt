@@ -12,6 +12,8 @@ function(tpmkit_discover_gtests target)
 endfunction()
 
 set(tpmkit_unit_public_api_sources
+    unit/public_api/encoding_hex_header_self_contained.cpp
+    unit/public_api/encoding_hex_test.cpp
     unit/public_api/exception_header_smoke.cpp
     unit/public_api/foundational_headers_smoke.cpp
     unit/public_api/foundational_types_test.cpp

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <tpmkit/encoding/hex.h>
 #include <tpmkit/hash_algorithm.h>
 #include <tpmkit/pcr/index.h>
 #include <tpmkit/pcr/provider.h>
@@ -7,13 +8,9 @@
 #include <tpmkit/result.h>
 #include <tpmkit/tpm_context.h>
 
-#include <cctype>
 #include <cstddef>
 #include <cstdint>
-#include <iomanip>
 #include <iostream>
-#include <optional>
-#include <sstream>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -29,54 +26,6 @@ constexpr std::string_view default_tcti_config = "tabrmd:bus_type=system";
     bytes.reserve(text.size());
     for (const char ch : text) {
         bytes.push_back(static_cast<std::uint8_t>(ch));
-    }
-
-    return bytes;
-}
-
-[[nodiscard]] inline std::string hex_encode(const std::vector<std::uint8_t>& bytes)
-{
-    std::ostringstream out;
-    out << std::hex << std::setfill('0');
-    for (const std::uint8_t byte : bytes) {
-        out << std::setw(2) << static_cast<unsigned int>(byte);
-    }
-
-    return out.str();
-}
-
-[[nodiscard]] inline std::optional<std::uint8_t> hex_nibble(const char ch) noexcept
-{
-    if (ch >= '0' && ch <= '9') {
-        return static_cast<std::uint8_t>(ch - '0');
-    }
-
-    const char lower = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
-    if (lower >= 'a' && lower <= 'f') {
-        return static_cast<std::uint8_t>(10U + static_cast<unsigned int>(lower - 'a'));
-    }
-
-    return std::nullopt;
-}
-
-[[nodiscard]] inline outcome<std::vector<std::uint8_t>> hex_decode(const std::string_view hex)
-{
-    if ((hex.size() % 2U) != 0U) {
-        return tl::unexpected(
-            error{error_category::input_error, "hex input must contain an even number of digits"});
-    }
-
-    std::vector<std::uint8_t> bytes;
-    bytes.reserve(hex.size() / 2U);
-    for (std::size_t index = 0U; index < hex.size(); index += 2U) {
-        const auto high = hex_nibble(hex[index]);
-        const auto low = hex_nibble(hex[index + 1U]);
-        if (!high.has_value() || !low.has_value()) {
-            return tl::unexpected(
-                error{error_category::input_error, "hex input contains a non-hex character"});
-        }
-
-        bytes.push_back(static_cast<std::uint8_t>((*high << 4U) | *low));
     }
 
     return bytes;

@@ -96,7 +96,7 @@ int main(const int argc, char** argv)
     std::cout << "pcr16 event digests:\n";
     for (const auto& digest : event->digests) {
         if (digest.algorithm() == tpmkit::hash_algorithm::sha256) {
-            std::cout << "sha256 " << tpmkit::examples::hex_encode(digest.digest()) << "\n";
+            std::cout << "sha256 " << tpmkit::encoding::encode_hex(digest.digest()) << "\n";
         }
     }
 
@@ -109,7 +109,7 @@ int main(const int argc, char** argv)
     }
 
     for (const auto& value : read->values) {
-        std::cout << "pcr16 current " << tpmkit::examples::hex_encode(value.digest.digest())
+        std::cout << "pcr16 current " << tpmkit::encoding::encode_hex(value.digest.digest())
                   << "\n";
     }
     std::cout << "observer events: " << observer.event_count()

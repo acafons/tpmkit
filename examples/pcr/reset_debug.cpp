@@ -53,7 +53,7 @@ int main(const int argc, char** argv)
         return EXIT_FAILURE;
     }
 
-    std::cout << "pcr16 before " << tpmkit::examples::hex_encode(*before) << "\n";
-    std::cout << "pcr16 after  " << tpmkit::examples::hex_encode(*after) << "\n";
+    std::cout << "pcr16 before " << tpmkit::encoding::encode_hex(*before) << "\n";
+    std::cout << "pcr16 after  " << tpmkit::encoding::encode_hex(*after) << "\n";
     return EXIT_SUCCESS;
 }

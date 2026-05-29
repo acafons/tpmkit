@@ -77,7 +77,7 @@ int main(const int argc, char** argv)
         event_text = argv[2];
     }
 
-    auto digest_bytes = tpmkit::examples::hex_decode(sha256_digest);
+    auto digest_bytes = tpmkit::encoding::decode_hex(sha256_digest);
     if (!digest_bytes.has_value()) {
         tpmkit::examples::print_error(digest_bytes.error());
         return EXIT_FAILURE;

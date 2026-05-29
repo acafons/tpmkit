@@ -57,7 +57,7 @@ int main(const int argc, char** argv)
         ++active_count;
         const auto& digest = read->values.front().digest;
         std::cout << tpmkit::hash_algorithm_name(algorithm) << " active " << digest.digest().size()
-                  << " bytes " << tpmkit::examples::hex_encode(digest.digest()) << "\n";
+                  << " bytes " << tpmkit::encoding::encode_hex(digest.digest()) << "\n";
     }
 
     return active_count > 0U ? EXIT_SUCCESS : EXIT_FAILURE;
