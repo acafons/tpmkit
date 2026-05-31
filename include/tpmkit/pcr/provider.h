@@ -48,7 +48,11 @@ public:
      * @brief Read PCR values for one selection.
      *
      * @param[in] selection PCR bank and indices to read.
-     * @return Read result on success, or a domain error on expected failure.
+     * @return Read result on success, or `input_error`, `resource_error`, or
+     * `backend_error` on expected failure.
+     * @thread_safety Thread-compatible unless the implementation documents
+     * stronger guarantees.
+     * @exception_safety Strong; expected failures are reported in the outcome.
      */
     [[nodiscard]] virtual outcome<read_result> read(const selection& selection) = 0;
 
@@ -63,7 +67,11 @@ public:
      * @param[in] index PCR index to extend.
      * @param[in] digests Digest values for explicit PCR banks. Must contain
      * at least one digest and no duplicate hash algorithms.
-     * @return Empty success, or a domain error on expected failure.
+     * @return Empty success, or `input_error`, `resource_error`,
+     * `security_failure`, or `backend_error` on expected failure.
+     * @thread_safety Thread-compatible unless the implementation documents
+     * stronger guarantees.
+     * @exception_safety Strong; expected failures are reported in the outcome.
      * @see event
      */
     [[nodiscard]] virtual outcome<void> extend(index index,
@@ -80,7 +88,11 @@ public:
      * @param[in] index PCR index to extend in every active bank.
      * @param[in] event_data Raw event bytes. Must fit in the TPM event buffer.
      * @return Event result containing one digest per active bank on success, or
-     * a domain error on expected failure.
+     * `input_error`, `resource_error`, `security_failure`, or `backend_error`
+     * on expected failure.
+     * @thread_safety Thread-compatible unless the implementation documents
+     * stronger guarantees.
+     * @exception_safety Strong; expected failures are reported in the outcome.
      * @see extend
      */
     [[nodiscard]] virtual outcome<event_result> event(index index,
@@ -90,7 +102,11 @@ public:
      * @brief Reset one PCR to its TPM-defined initial value.
      *
      * @param[in] index PCR index to reset.
-     * @return Empty success, or a domain error on expected failure.
+     * @return Empty success, or `input_error`, `resource_error`,
+     * `security_failure`, or `backend_error` on expected failure.
+     * @thread_safety Thread-compatible unless the implementation documents
+     * stronger guarantees.
+     * @exception_safety Strong; expected failures are reported in the outcome.
      */
     [[nodiscard]] virtual outcome<void> reset(index index) = 0;
 
@@ -98,7 +114,11 @@ public:
      * @brief Allocate active PCR banks.
      *
      * @param[in] banks Requested PCR banks.
-     * @return Allocation result on success, or a domain error on expected failure.
+     * @return Allocation result on success, or `input_error`, `resource_error`,
+     * `security_failure`, or `backend_error` on expected failure.
+     * @thread_safety Thread-compatible unless the implementation documents
+     * stronger guarantees.
+     * @exception_safety Strong; expected failures are reported in the outcome.
      */
     [[nodiscard]] virtual outcome<allocate_result> allocate(gsl::span<const bank> banks) = 0;
 
@@ -107,7 +127,11 @@ public:
      *
      * @param[in] index PCR index to protect.
      * @param[in] auth Authorization value to transfer to the backend.
-     * @return Empty success, or a domain error on expected failure.
+     * @return Empty success, or `input_error`, `resource_error`,
+     * `security_failure`, or `backend_error` on expected failure.
+     * @thread_safety Thread-compatible unless the implementation documents
+     * stronger guarantees.
+     * @exception_safety Strong; expected failures are reported in the outcome.
      */
     [[nodiscard]] virtual outcome<void> set_auth_value(index index, secret_buffer auth) = 0;
 
@@ -117,7 +141,11 @@ public:
      * @param[in] index PCR index to protect.
      * @param[in] policy_alg Hash algorithm used for the policy digest.
      * @param[in] policy_digest Policy digest bytes.
-     * @return Empty success, or a domain error on expected failure.
+     * @return Empty success, or `input_error`, `resource_error`,
+     * `security_failure`, or `backend_error` on expected failure.
+     * @thread_safety Thread-compatible unless the implementation documents
+     * stronger guarantees.
+     * @exception_safety Strong; expected failures are reported in the outcome.
      */
     [[nodiscard]] virtual outcome<void>
     set_auth_policy(index index, hash_algorithm policy_alg,

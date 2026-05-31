@@ -29,6 +29,8 @@ Apply this skill in order on every build, tooling, or CI change:
 
 - `TPMKIT_LOG_MAX_LEVEL` — compile-time ceiling for log call sites. Default is `TRACE` for debug presets (everything compiled in for observability) and `INFO` for release presets (`DEBUG` and `TRACE` elided). Below the ceiling, the adapter's runtime filter takes over.
 - Setting `TPMKIT_LOG_MAX_LEVEL` lower than the default in release is fine — it strengthens the elision guarantee for the never-log rules in `.claude/rules/security.md`. Setting it *higher* than the default in release weakens that backstop and requires a justification in the build configuration.
+- `TPMKIT_ENABLE_LEGACY_SHA1_PCR` — default `OFF`. Enables legacy SHA-1 PCR
+  bank compatibility only; it does not make SHA-1 acceptable for security use.
 - Build-time options live in CMake cache variables, are documented in the README, and have defaults that produce a safe, hardened binary without further configuration.
 
 ## Supported toolchains
@@ -106,9 +108,13 @@ Output discipline:
 
 ## Invariant checks
 
-Three structural rules from other policy files are enforced by automated checks in this build. Each is a release blocker, not an advisory:
+Structural rules from other policy files are enforced by automated checks in this build. Each is a release blocker, not an advisory:
 
 - **Domain isolation** (`architecture.md`): no third-party headers (`openssl/`, `tss2/`, OS-specific) under `src/domain/` or `include/`. A grep-based CI gate fails the build on any match.
+- **Public API backend boundary** (`library-api-design.md`): backend-neutral
+  public headers do not expose TSS/OpenSSL/spdlog handles or includes. Explicit
+  low-level backend headers under names such as `include/tpmkit/tpm2_esys/` are
+  exempt, and must not be included by neutral headers.
 - **Header self-containment** (`library-api-design.md`): every public header under `include/` compiles standalone. The build generates one stub `.cpp` per header that includes only that header; the stub library must build clean with the project warning set.
 - **Symbol export discipline** (`library-api-design.md`): symbols exported from the umbrella library are diffed against a checked-in baseline (`abi/exported-symbols.txt`). A change to the baseline is a deliberate PR with an ABI/SemVer note (cross-reference: `library-api-design.md` "Versioning and deprecation"). There is no auto-update mode.
 - **Test policy discipline** (`tpm-write-tests`): `test_policy_guard` scans test sources for the minimum structural rules that are easy to regress: top-of-test behavior comments, parameterized contract tests, no deferred skip placeholders, and no compile-only header smoke tests under `tests/integration/`.
@@ -122,7 +128,11 @@ Mechanics for each in `references/cmake-recipes.md`.
 
 ## Dependency management
 
-- **Default:** vcpkg in manifest mode (`vcpkg.json`). All third-party dependencies pinned to a baseline commit.
+- **Default:** vcpkg in manifest mode (`vcpkg.json`). All third-party dependencies pinned to a baseline commit and exact override version when the project relies on a patched release.
+- Current pinned versions that must stay synchronized across CMake, vcpkg, the
+  dev container, README, and CMake discovery smoke tests: OpenSSL 3.5.5, TPM2
+  TSS 4.1.3, spdlog 1.15.3, GoogleTest 1.17.0 port 2, Microsoft.GSL 4.2.1,
+  and tl-expected 1.3.1.
 - `FetchContent` is acceptable only for header-only libraries that are not in vcpkg.
 - System packages (`apt`/`brew`) are not a supported development install path; they are an option for end users via the CMake package config.
 - Adding a dependency requires a security review (license, maintenance status, CVE history) and a justification in the PR description.
@@ -149,7 +159,7 @@ The CI workflow is the single source of truth for what runs on every push and PR
 - ASan, UBSan, and TSan jobs (one per sanitizer; see "Sanitizers" above).
 - `clang-tidy` with the project `.clang-tidy`.
 - `clang-format` check (no diff against the formatter).
-- Invariant checks (domain isolation, header self-containment, symbol-export diff — see "Invariant checks" above).
+- Invariant checks (domain isolation, public API backend-boundary guard, header self-containment, symbol-export diff — see "Invariant checks" above).
 - vcpkg manifest install with the pinned baseline.
 
 **Advisory jobs** — run on every PR, do not block merge but are reviewed:
@@ -164,6 +174,7 @@ A pull request that disables, skips, or relaxes a required gate must include a j
 ## Error Handling
 
 * **Domain-isolation grep gate fails.** A third-party header reached `src/domain/` or `include/`. Move the include into the appropriate adapter folder (`src/adapters/<name>/`, or a grouped family such as `src/adapters/logging/<backend>/`), expose the capability via a port (`.claude/rules/architecture.md`), and re-run the gate. Do not relax the grep pattern.
+* **Public API boundary guard fails.** A backend-neutral installed header exposes TSS/OpenSSL/spdlog types. Move the backend handle to an explicitly backend-named low-level header such as `include/tpmkit/tpm2_esys/...`, or keep it entirely adapter-internal. Do not include low-level backend headers transitively from neutral headers.
 * **Header self-containment build fails.** A public header depends on a transitive include. Add the missing `#include` to the header itself (or forward declare and move the include to the `.cpp`). Do not work around it by reordering includes in the stub.
 * **Symbol-export diff fails.** The umbrella library's exported symbols drifted from `abi/exported-symbols.txt`. Decide deliberately: if the change is intentional, update the baseline in the same PR and add an ABI/SemVer note (`.claude/rules/library-api-design.md`); if unintentional, hide the symbol with the export macro and visibility rules in `references/cmake-recipes.md`.
 * **Sanitizer job fails (ASan/UBSan/TSan).** Treat as a release blocker. Reproduce locally via the matching CMake preset before suppressing. A `__attribute__((no_sanitize))` or `// NOLINT` requires a justification comment at the suppression site (`.claude/rules/code-standards.md` Warnings).

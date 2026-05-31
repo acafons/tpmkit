@@ -41,6 +41,19 @@ public:
     return message.find("0x") != std::string::npos || message.find("TSS") != std::string::npos;
 }
 
+[[nodiscard]] const std::pair<std::string, std::string>*
+find_field(const std::vector<std::pair<std::string, std::string>>& fields,
+           const std::string_view key)
+{
+    for (const auto& field : fields) {
+        if (field.first == key) {
+            return &field;
+        }
+    }
+
+    return nullptr;
+}
+
 TEST(tcti_loader, rejects_empty_config_without_tss_code_in_message)
 {
     // Verifies empty TCTI configs fail before exposing TSS details.
@@ -120,12 +133,17 @@ TEST(tcti_loader, unknown_tcti_name_returns_input_error_without_tss_code)
     EXPECT_FALSE(contains_numeric_tss_code(result.error().message));
     ASSERT_EQ(log.records.size(), 1U);
     EXPECT_EQ(log.records.front().level, tpmkit::log_level::error);
-    EXPECT_EQ(log.records.front().message, "tpm.context.tss_error");
-    EXPECT_EQ(log.records.front().fields.size(), 3U);
-    ASSERT_FALSE(log.records.front().fields.empty());
-    EXPECT_EQ(log.records.front().fields.front().first,
-              std::string{tpmkit::detail::esys::events::fields::operation});
-    EXPECT_EQ(log.records.front().fields.front().second, "tcti_init");
+    EXPECT_EQ(log.records.front().message,
+              std::string{tpmkit::detail::esys::events::tss_error.message});
+    EXPECT_EQ(log.records.front().fields.size(), 7U);
+    const auto* event =
+        find_field(log.records.front().fields, tpmkit::detail::esys::events::fields::event);
+    const auto* operation =
+        find_field(log.records.front().fields, tpmkit::detail::esys::events::fields::operation);
+    ASSERT_NE(event, nullptr);
+    ASSERT_NE(operation, nullptr);
+    EXPECT_EQ(event->second, std::string{tpmkit::detail::esys::events::tss_error.name});
+    EXPECT_EQ(operation->second, "tcti_init");
 }
 
 } // namespace

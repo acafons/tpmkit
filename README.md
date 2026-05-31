@@ -37,7 +37,7 @@ PCR headers are grouped under `<tpmkit/pcr/...>` and PCR types live under
 
 ## TCTI Selection
 
-tpmkit requires callers to pass an explicit TCTI string or an owned TCTI handle. It does not guess from environment or platform defaults. The rationale is documented in [ADR-002](.compozy/tasks/esys-context/adrs/adr-002.md).
+tpmkit requires callers to pass an explicit TCTI string through the backend-neutral API. It does not guess from environment or platform defaults. The rationale is documented in [ADR-002](.compozy/tasks/esys-context/adrs/adr-002.md).
 
 | TCTI | Typical use | Example |
 | --- | --- | --- |
@@ -52,9 +52,13 @@ Example invocation with a swtpm TCTI:
 ./build/debug/examples/tpm_context_basics "swtpm:host=127.0.0.1,port=2321"
 ```
 
+Advanced ESYS callers that already own a TPM2 TSS TCTI handle use the explicit
+low-level header `<tpmkit/tpm2_esys/owned_tcti_context.h>`. That backend handle
+surface is intentionally separate from `<tpmkit/tpm_context.h>`.
+
 ## Building
 
-Dependencies are pinned in [vcpkg.json](vcpkg.json): `tl-expected` 1.3.1, `ms-gsl` 4.2.1, `tpm2-tss` 4.1.3, `spdlog` for the optional spdlog logger adapter, and `gtest` 1.17.0 port 2. Local project commands that use CMake, the TPM stack, or the toolchain must run through the dev container.
+Dependencies are pinned in [vcpkg.json](vcpkg.json): OpenSSL 3.5.5, TPM2 TSS 4.1.3, spdlog 1.15.3 for the optional spdlog logger adapter, GoogleTest 1.17.0 port 2, Microsoft.GSL 4.2.1, and tl-expected 1.3.1. Local project commands that use CMake, the TPM stack, or the toolchain must run through the dev container.
 
 ```sh
 ./scripts/run-tpmkit-docker.sh
@@ -64,6 +68,10 @@ Dependencies are pinned in [vcpkg.json](vcpkg.json): `tl-expected` 1.3.1, `ms-gs
 ```
 
 Supported presets are `debug`, `release`, `asan`, `ubsan`, `tsan`, and `coverage`.
+
+Legacy SHA-1 PCR bank compatibility is disabled by default. Configure with
+`-DTPMKIT_ENABLE_LEGACY_SHA1_PCR=ON` only when a legacy TPM PCR workflow
+requires SHA-1 PCR banks; SHA-1 remains forbidden for security use.
 
 ## Installing
 
@@ -77,7 +85,7 @@ Production installs export `tpmkit::tpmkit`. Test substitute headers and the `tp
 
 ## Logging
 
-tpmkit logs through the `tpmkit::logger` port. Consumers wire a concrete adapter at their composition root through `tpm_context_config::log`; leaving it unset uses `noop_logger` at runtime.
+tpmkit logs through the `tpmkit::logger` port. Consumers wire a concrete adapter at their composition root through `tpm_context_config::log`; leaving it unset or explicitly setting it to `nullptr` uses `noop_logger` at runtime.
 
 Logger adapter selection is controlled by the CMake cache `STRING` `TPMKIT_LOG_ADAPTER`; see [ADR-001](.compozy/tasks/stdio-logger-adapter/adrs/adr-001.md).
 

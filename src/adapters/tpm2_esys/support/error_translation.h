@@ -1,5 +1,7 @@
 #pragma once
 
+#include "log_events.h"
+
 #include <tpmkit/result.h>
 
 #include <tss2/tss2_common.h>
@@ -15,7 +17,7 @@ namespace detail::esys {
 [[nodiscard]] outcome<void> translate_tss_rc(TSS2_RC rc, std::string_view operation, logger* log);
 
 [[nodiscard]] outcome<void> translate_tss_rc(TSS2_RC rc, std::string_view operation, logger* log,
-                                             std::string_view error_event);
+                                             events::event_descriptor error_event);
 
 } // namespace detail::esys
 } // namespace tpmkit

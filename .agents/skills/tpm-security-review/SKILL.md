@@ -71,7 +71,7 @@ Cross-reference: `security.md` Input validation at the public API boundary.
 
 Cross-reference: `security.md` Cryptographic algorithm choices.
 
-- [ ] No newly-added use of MD5, SHA-1, RC4, DES/3DES, AES-ECB, RSA-PKCS#1 v1.5 signing, or raw ECB modes for security purposes. (Note: SHA-1 may appear in legacy interop; if so, it must be feature-gated and documented as legacy-only.)
+- [ ] No newly-added use of MD5, SHA-1, RC4, DES/3DES, AES-ECB, RSA-PKCS#1 v1.5 signing, or raw ECB modes for security purposes. SHA-1 may appear only for legacy TPM PCR bank compatibility, gated by `TPMKIT_ENABLE_LEGACY_SHA1_PCR`, and default builds must reject or filter it before exposing it as supported output.
 - [ ] New algorithms not on the default-allowed list have an attached justification (PR description, ADR, or inline comment referencing `security.md`).
 - [ ] Algorithm selection is *explicit* at the public API. No silent default that could change between versions.
 - [ ] AES uses GCM (or ChaCha20-Poly1305); RSA uses PSS with ≥3072-bit keys; ECDSA uses P-256/P-384 or Ed25519.
@@ -119,7 +119,7 @@ Cross-reference: `security.md` TPM-specific concerns.
 
 Cross-reference: `security.md` Dependencies and CVE tracking, `tpm-build-config` Dependency management.
 
-- [ ] OpenSSL and TPM2 TSS versions are pinned. The diff does not bump to "latest" without a specific version.
+- [ ] OpenSSL, TPM2 TSS, and optional logging dependencies such as spdlog are pinned. The diff does not bump to "latest" without a specific version.
 - [ ] If a dependency is bumped, the changelog/security advisories for the new version were checked. The PR description names any CVEs being closed.
 - [ ] If a new third-party dependency is added, the dependency-review section in the PR description is filled in (license, maintenance status, CVE history).
 - [ ] Minimum patched dependency versions in the README still apply, or the README is updated in the same PR.

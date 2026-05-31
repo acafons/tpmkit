@@ -82,7 +82,8 @@ public:
      * @brief Emit one structured log record.
      *
      * @param[in] level Severity selected by tpmkit for this event.
-     * @param[in] message Stable event name or short diagnostic text. Must not
+     * @param[in] message Fixed human-readable log message. Event identity
+     *                    belongs in the structured `event` field. Must not
      *                    contain secret-derived data.
      * @param[in] fields Non-owning field list valid only for this call.
      * @thread_safety Thread-safe. Implementations must handle concurrent calls.

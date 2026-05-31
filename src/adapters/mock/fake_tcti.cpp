@@ -228,39 +228,51 @@ private:
 
     TSS2_RC receive_next(std::size_t* const size, std::uint8_t* const response)
     {
-        const std::lock_guard<std::mutex> lock{mu_};
-        if (queue_.empty()) {
-            return TSS2_TCTI_RC_IO_ERROR;
-        }
-
-        queued_result& next = queue_.front();
-
-        if (const auto* const failure = std::get_if<failure_rc>(&next)) {
-            if (size != nullptr) {
-                *size = 0U;
-            }
-            const TSS2_RC rc = failure->rc;
-            queue_.pop_front();
-            return rc;
-        }
-
-        if (std::get_if<transmit_failure_rc>(&next) != nullptr) {
-            return TSS2_TCTI_RC_BAD_SEQUENCE;
-        }
-
         response_bytes materialized{};
-        if (const auto* const scripted = std::get_if<response_bytes>(&next)) {
-            materialized = *scripted;
-        } else {
-            const auto& dynamic = std::get<response_factory>(next);
-            const std::vector<std::uint8_t> empty_command;
-            const std::vector<std::uint8_t>& last_command =
-                transmitted_commands_.empty() ? empty_command : transmitted_commands_.back();
+        response_factory dynamic{};
+        std::vector<std::uint8_t> last_command;
+        bool use_dynamic = false;
+        {
+            const std::lock_guard<std::mutex> lock{mu_};
+            if (queue_.empty()) {
+                return TSS2_TCTI_RC_IO_ERROR;
+            }
+
+            queued_result& next = queue_.front();
+
+            if (const auto* const failure = std::get_if<failure_rc>(&next)) {
+                if (size != nullptr) {
+                    *size = 0U;
+                }
+                const TSS2_RC rc = failure->rc;
+                queue_.pop_front();
+                return rc;
+            }
+
+            if (std::get_if<transmit_failure_rc>(&next) != nullptr) {
+                return TSS2_TCTI_RC_BAD_SEQUENCE;
+            }
+
+            if (const auto* const scripted = std::get_if<response_bytes>(&next)) {
+                materialized = *scripted;
+            } else {
+                dynamic = std::get<response_factory>(next);
+                last_command = transmitted_commands_.empty() ? std::vector<std::uint8_t>{}
+                                                             : transmitted_commands_.back();
+                use_dynamic = true;
+            }
+        }
+
+        if (use_dynamic) {
             materialized.bytes = dynamic.factory(last_command);
         }
 
         const TSS2_RC rc = copy_response(materialized, size, response);
         if (rc == TSS2_RC_SUCCESS && response != nullptr) {
+            const std::lock_guard<std::mutex> lock{mu_};
+            if (queue_.empty()) {
+                return TSS2_TCTI_RC_BAD_SEQUENCE;
+            }
             queue_.pop_front();
             return rc;
         }

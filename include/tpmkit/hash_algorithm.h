@@ -20,7 +20,12 @@ namespace tpmkit {
  * @since v0.1
  */
 enum class TPMKIT_API hash_algorithm {
-    /** @brief SHA-1 digest algorithm. */
+    /**
+     * @brief SHA-1 digest algorithm for legacy PCR bank compatibility only.
+     *
+     * This value is rejected by default by APIs that need a digest size unless
+     * the project is built with `TPMKIT_ENABLE_LEGACY_SHA1_PCR=ON`.
+     */
     sha1,
     /** @brief SHA-256 digest algorithm. */
     sha256,

@@ -19,6 +19,7 @@ target_sources(tpmkit
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/result.h>
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/secret_buffer.h>
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/tpm_context.h>
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include/tpmkit/tpm2_esys/owned_tcti_context.h>
     PRIVATE
         domain/encoding/hex.cpp
         domain/hash_algorithm.cpp
@@ -30,6 +31,7 @@ target_sources(tpmkit
         domain/result.cpp
         domain/secret_buffer.cpp
         domain/secret_buffer_testing.h
+        support/build_options.h
 )
 target_include_directories(tpmkit
     PUBLIC
@@ -41,8 +43,11 @@ target_link_libraries(tpmkit
         Microsoft.GSL::GSL
         tl::expected
     PRIVATE
-        OpenSSL::Crypto
+        PkgConfig::OPENSSL_PKG
 )
+if(TPMKIT_ENABLE_LEGACY_SHA1_PCR)
+    target_compile_definitions(tpmkit PUBLIC TPMKIT_ENABLE_LEGACY_SHA1_PCR=1)
+endif()
 
 add_subdirectory(adapters/tpm2_esys)
 

@@ -292,16 +292,28 @@ TEST(error_translation, logs_non_success_rc_with_schema_fields)
     ASSERT_EQ(log.records.size(), 1U);
     const auto& record = log.records.front();
     EXPECT_EQ(record.level, tpmkit::log_level::error);
-    EXPECT_EQ(record.message, events::tss_error);
-    ASSERT_EQ(record.fields.size(), 3U);
+    EXPECT_EQ(record.message, std::string{events::tss_error.message});
+    ASSERT_EQ(record.fields.size(), 7U);
 
+    const auto* event = find_field(record.fields, events::fields::event);
+    const auto* component = find_field(record.fields, events::fields::component);
+    const auto* outcome = find_field(record.fields, events::fields::outcome);
+    const auto* category = find_field(record.fields, events::fields::error_category);
     const auto* operation = find_field(record.fields, events::fields::operation);
-    const auto* rc_hex = find_field(record.fields, events::fields::tss_rc_hex);
+    const auto* rc_hex = find_field(record.fields, events::fields::error_code);
     const auto* layer = find_field(record.fields, events::fields::tss_layer);
 
+    ASSERT_NE(event, nullptr);
+    ASSERT_NE(component, nullptr);
+    ASSERT_NE(outcome, nullptr);
+    ASSERT_NE(category, nullptr);
     ASSERT_NE(operation, nullptr);
     ASSERT_NE(rc_hex, nullptr);
     ASSERT_NE(layer, nullptr);
+    EXPECT_EQ(event->second, std::string{events::tss_error.name});
+    EXPECT_EQ(component->second, std::string{events::component_tpm2_esys});
+    EXPECT_EQ(outcome->second, std::string{events::values::failure});
+    EXPECT_EQ(category->second, std::string{events::values::resource_error});
     EXPECT_EQ(operation->second, "tcti_init");
     EXPECT_EQ(rc_hex->second, "0x000a000a");
     EXPECT_EQ(layer->second, "tcti");
@@ -327,7 +339,9 @@ TEST(error_translation, overload_logs_custom_error_event)
 
     ASSERT_FALSE(result.has_value());
     ASSERT_EQ(log.records.size(), 1U);
-    EXPECT_EQ(log.records.front().message, events::pcr_tss_error);
+    const auto* event = find_field(log.records.front().fields, events::fields::event);
+    ASSERT_NE(event, nullptr);
+    EXPECT_EQ(event->second, std::string{events::pcr_tss_error.name});
 }
 
 TEST(error_translation, logs_representative_tss_layer_names)

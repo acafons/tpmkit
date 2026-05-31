@@ -138,6 +138,22 @@ constexpr std::array<mapping_entry, 50> documented_mappings{{
     }
 }
 
+[[nodiscard]] std::string_view category_name(const error_category category) noexcept
+{
+    switch (category) {
+    case error_category::input_error:
+        return events::values::input_error;
+    case error_category::security_failure:
+        return events::values::security_failure;
+    case error_category::resource_error:
+        return events::values::resource_error;
+    case error_category::backend_error:
+        return events::values::backend_error;
+    }
+
+    return events::values::backend_error;
+}
+
 [[nodiscard]] mapped_error translate_layer_base(const TSS2_RC layer, const TSS2_RC base) noexcept
 {
     for (const auto& entry : documented_mappings) {
@@ -158,20 +174,25 @@ constexpr std::array<mapping_entry, 50> documented_mappings{{
 }
 
 void log_tss_error(logger* const log, const TSS2_RC rc, const TSS2_RC layer,
-                   const std::string_view operation, const std::string_view error_event)
+                   const error_category category, const std::string_view operation,
+                   const events::event_descriptor error_event)
 {
     if (log == nullptr) {
         return;
     }
 
     const std::string rc_hex = format_hex(rc);
-    const std::array<log_field, 3> fields{{
+    const std::array<log_field, 7> fields{{
+        {events::fields::event, error_event.name},
+        {events::fields::component, events::component_tpm2_esys},
+        {events::fields::outcome, events::values::failure},
+        {events::fields::error_category, category_name(category)},
+        {events::fields::error_code, rc_hex},
         {events::fields::operation, operation},
-        {events::fields::tss_rc_hex, rc_hex},
         {events::fields::tss_layer, layer_name(layer)},
     }};
 
-    log->log(log_level::error, error_event, gsl::span<const log_field>(fields));
+    log->log(log_level::error, error_event.message, gsl::span<const log_field>(fields));
 }
 
 } // namespace
@@ -183,16 +204,15 @@ outcome<void> translate_tss_rc(const TSS2_RC rc, const std::string_view operatio
 }
 
 outcome<void> translate_tss_rc(const TSS2_RC rc, const std::string_view operation,
-                               logger* const log, const std::string_view error_event)
+                               logger* const log, const events::event_descriptor error_event)
 {
     if (rc == TSS2_RC_SUCCESS) {
         return {};
     }
 
     const TSS2_RC layer = rc_layer(rc);
-    log_tss_error(log, rc, layer, operation, error_event);
-
     const mapped_error mapped = translate_layer_base(layer, rc_base(rc, layer));
+    log_tss_error(log, rc, layer, mapped.category, operation, error_event);
     return tl::unexpected(error{mapped.category, std::string{mapped.message}});
 }
 

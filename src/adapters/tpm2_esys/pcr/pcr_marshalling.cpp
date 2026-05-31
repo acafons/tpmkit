@@ -1,5 +1,7 @@
 #include "pcr_marshalling.h"
 
+#include "../../../support/build_options.h"
+
 #include <algorithm>
 #include <cstring>
 #include <set>
@@ -61,6 +63,11 @@ make_digest_value(const hash_algorithm algorithm, const BYTE* const data, const 
         error{error_category::backend_error, "TPM returned unsupported PCR hash algorithm"});
 }
 
+[[nodiscard]] bool should_skip_disabled_pcr_algorithm(const TPMI_ALG_HASH algorithm) noexcept
+{
+    return !::tpmkit::detail::legacy_sha1_pcr_enabled && algorithm == TPM2_ALG_SHA1;
+}
+
 void set_digest_bytes(TPMT_HA& destination, const pcr::digest_value& source) noexcept
 {
     destination.hashAlg = algorithm_to_tpm(source.algorithm());
@@ -96,7 +103,12 @@ outcome<hash_algorithm> algorithm_from_tpm(const TPMI_ALG_HASH algorithm)
 {
     switch (algorithm) {
     case TPM2_ALG_SHA1:
-        return hash_algorithm::sha1;
+        if constexpr (::tpmkit::detail::legacy_sha1_pcr_enabled) {
+            return hash_algorithm::sha1;
+        } else {
+            return tl::unexpected(error{error_category::backend_error,
+                                        "TPM returned disabled legacy SHA-1 PCR bank"});
+        }
     case TPM2_ALG_SHA256:
         return hash_algorithm::sha256;
     case TPM2_ALG_SHA384:
@@ -113,7 +125,11 @@ TPMI_ALG_HASH algorithm_to_tpm(const hash_algorithm algorithm) noexcept
 {
     switch (algorithm) {
     case hash_algorithm::sha1:
-        return TPM2_ALG_SHA1;
+        if constexpr (::tpmkit::detail::legacy_sha1_pcr_enabled) {
+            return TPM2_ALG_SHA1;
+        } else {
+            return TPM2_ALG_ERROR;
+        }
     case hash_algorithm::sha256:
         return TPM2_ALG_SHA256;
     case hash_algorithm::sha384:
@@ -146,6 +162,10 @@ outcome<std::vector<pcr::digest_value>> to_domain_digests(const TPML_DIGEST_VALU
     result.reserve(digests.count);
 
     for (UINT32 index = 0U; index < digests.count; ++index) {
+        if (should_skip_disabled_pcr_algorithm(digests.digests[index].hashAlg)) {
+            continue;
+        }
+
         auto value = make_digest_value(digests.digests[index]);
         if (!value.has_value()) {
             return tl::unexpected(value.error());

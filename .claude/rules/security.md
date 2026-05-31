@@ -40,6 +40,10 @@ These rules apply to the entire library. Crypto and TPM code is security-critica
 
 - Allowed by default: AES-GCM (256-bit), ChaCha20-Poly1305, ECDSA on P-256/P-384, Ed25519, RSA-PSS with 3072-bit minimum, SHA-256/SHA-384/SHA-512, HKDF.
 - Forbidden for security uses: MD5, SHA-1, RC4, DES/3DES, AES-ECB, RSA-PKCS#1 v1.5 signing, raw ECB modes.
+- SHA-1 is allowed only for legacy TPM PCR bank compatibility and is disabled
+  by default. Any API path that accepts or returns SHA-1 PCR data must be gated
+  behind `TPMKIT_ENABLE_LEGACY_SHA1_PCR`; default builds reject or ignore the
+  legacy bank before exposing it as supported output.
 - Algorithm selection is always explicit at the public API. Do not introduce silent defaults that can change between versions.
 - New algorithms require a documented justification before they can appear in the public API.
 
@@ -74,8 +78,11 @@ These rules apply to the entire library. Crypto and TPM code is security-critica
 
 ## Dependencies and CVE tracking
 
-- Pin OpenSSL and TPM2 TSS to specific versions in the build configuration. Never depend on "latest."
-- Track upstream security advisories for OpenSSL and TPM2 TSS. Bumping a dependency for a security fix takes priority over feature work.
+- Pin OpenSSL, TPM2 TSS, and optional logging dependencies such as spdlog to
+  specific versions in the build configuration and vcpkg manifest. Never depend
+  on "latest."
+- Track upstream security advisories for OpenSSL, TPM2 TSS, and spdlog.
+  Bumping a dependency for a security fix takes priority over feature work.
 - Document the minimum patched version of each dependency in the project README.
 
 ## Build hardening

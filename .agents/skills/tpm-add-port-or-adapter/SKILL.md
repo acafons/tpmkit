@@ -41,6 +41,11 @@ src/domain/<area>/*.cpp            <- new component-family domain logic
 Domain signatures use domain types only — no `openssl/`, no `tss2/`, no OS
 headers.
 
+Backend-neutral public configuration headers must also avoid opaque backend
+handles. If a caller must transfer a native handle, add or use a deliberately
+backend-named low-level header such as `include/tpmkit/tpm2_esys/...`; do not
+hide the handle in a neutral port/config variant.
+
 Naming: use the unprefixed concept inside the component namespace. Prefer
 `tpmkit::pcr::provider`, `tpmkit::nv::provider`, or
 `tpmkit::key::provider`; avoid `_port` and `_interface` suffixes, root-level
@@ -72,7 +77,7 @@ Cover:
 - Each error category from `error-handling.md` (`input_error`, `security_failure`, `resource_error`, `backend_error`).
 - Lifecycle: construction, destruction, move (if applicable).
 
-The contract suite must pass against the mock first. If it does not, the contract is unspecified or the mock is wrong; do not move on.
+The contract suite must pass against the mock first. Before the port is considered complete, instantiate the same suite for every concrete adapter that implements the port, including fake-backend or simulator-backed cases when the real backend cannot run in a unit process. If it does not pass, the contract is unspecified or the adapter is wrong; do not move on.
 
 Cross-reference: `tpm-write-tests` for fixture style, `PrintTo` requirements, and `StrictMock` defaults.
 
@@ -124,6 +129,11 @@ member factory on that owner instead of a free function named after the
 adapter. The member returns the domain port type, uses the owner's logger and
 backend state internally, and documents that the returned object must not
 outlive the owner.
+
+If the owner factory's public config accepts a nullable logger, normalize
+`nullptr` to `noop_logger` during owner construction. The context-derived
+factory still takes no logger parameter and borrows the owner's effective
+logger.
 
 ### A.8 Update consumers
 

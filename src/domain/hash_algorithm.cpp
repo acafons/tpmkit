@@ -1,5 +1,7 @@
 #include <tpmkit/hash_algorithm.h>
 
+#include "../support/build_options.h"
+
 #include <tpmkit/exception.h>
 
 namespace tpmkit {
@@ -24,7 +26,11 @@ std::size_t digest_size(const hash_algorithm algorithm)
 {
     switch (algorithm) {
     case hash_algorithm::sha1:
-        return 20U;
+        if constexpr (detail::legacy_sha1_pcr_enabled) {
+            return 20U;
+        } else {
+            throw tpmkit_error{"SHA-1 PCR support requires TPMKIT_ENABLE_LEGACY_SHA1_PCR"};
+        }
     case hash_algorithm::sha256:
         return 32U;
     case hash_algorithm::sha384:

@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  container-gates:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        preset:
+          - debug
+          - asan
+          - ubsan
+          - tsan
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build dev container image
+        run: ./scripts/build-tpmkit-docker.sh
+
+      - name: Start dev container
+        run: ./scripts/run-tpmkit-docker.sh
+
+      - name: Configure
+        run: ./scripts/exec-tpmkit-docker.sh 'cmake --preset ${{ matrix.preset }} -Dtpmkit_WARNINGS_AS_ERRORS=ON'
+
+      - name: Build
+        run: ./scripts/exec-tpmkit-docker.sh 'cmake --build --preset ${{ matrix.preset }} -j2'
+
+      - name: Test
+        run: ./scripts/exec-tpmkit-docker.sh 'ctest --preset ${{ matrix.preset }} --output-on-failure'
+
+      - name: Stop dev container
+        if: always()
+        run: ./scripts/stop-tpmkit-docker.sh
+
+  static-analysis:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build dev container image
+        run: ./scripts/build-tpmkit-docker.sh
+
+      - name: Start dev container
+        run: ./scripts/run-tpmkit-docker.sh
+
+      - name: Configure debug
+        run: ./scripts/exec-tpmkit-docker.sh 'cmake --preset debug -Dtpmkit_WARNINGS_AS_ERRORS=ON'
+
+      - name: clang-format
+        run: ./scripts/exec-tpmkit-docker.sh 'find include src tests examples -name "*.h" -o -name "*.cpp" | xargs clang-format --dry-run --Werror'
+
+      - name: clang-tidy
+        run: ./scripts/exec-tpmkit-docker.sh 'run-clang-tidy -p build/debug -quiet'
+
+      - name: cppcheck
+        run: ./scripts/exec-tpmkit-docker.sh 'cppcheck --project=build/debug/compile_commands.json --enable=warning,style,performance,portability --inline-suppr --suppressions-list=cppcheck-suppressions.txt --error-exitcode=1'
+
+      - name: Stop dev container
+        if: always()
+        run: ./scripts/stop-tpmkit-docker.sh

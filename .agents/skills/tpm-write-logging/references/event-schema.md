@@ -7,10 +7,10 @@ This file defines the events the tpmkit library emits and the fields each event 
 Every record contains:
 
 - A **level** (`trace` / `debug` / `info` / `warn` / `error`).
-- A **message** — short, human-readable, fixed wording per call site (no interpolation of variable data).
+- A **message** — short, human-readable, fixed wording per call site (no interpolation of variable data, and not the event name).
 - A **field set** — `key=value` pairs from the field reference below.
 
-Variable data lives in fields, not in the message. Two records that differ only in their field values share the same message text.
+Variable data lives in fields, not in the message. Event identity lives in the `event` field, not in the message. Two records that differ only in their field values share the same message text.
 
 ## Field reference
 
@@ -18,7 +18,7 @@ These fields appear across multiple events. Their type and semantics are fixed.
 
 | Field | Type | Description |
 |---|---|---|
-| `event` | `snake_case` event name | Always required. Format: `<category>.<action>`. |
+| `event` | `snake_case` event name | Always required. Format: `<category>.<action>`. This is the machine-readable event identity and must not be replaced by or duplicated as the message. |
 | `component` | adapter or composition unit | The folder name under `src/adapters/` (e.g., `tpm2_esys`, `tpm2_fapi`, `openssl`, `spdlog`), or `composition` / `domain` for non-adapter origins. |
 | `outcome` | `success` \| `failure` | Required on terminal log lines for an operation. Lifecycle and informational events without a clear outcome may omit. |
 | `error_category` | `input_error` \| `security_failure` \| `resource_error` \| `backend_error` | Required when `outcome=failure`. Mirrors the four categories from `error-handling.md`. |
@@ -33,6 +33,20 @@ These fields appear across multiple events. Their type and semantics are fixed.
 | `duration_ms` | non-negative integer | Optional; operation duration in whole milliseconds. Only when measured from inside the library. |
 | `attempt` | positive integer | Used on retry events. |
 | `reason` | short `snake_case` token | A *category* of reason (`hardware_busy`, `not_supported`, `insufficient_resources`), never a free-form message and never secret-derived. |
+| `operation` | short `snake_case` token | Adapter operation that failed, such as `pcr_read` or `esys_initialize`. |
+| `tss_layer` | `tpm` \| `tcti` \| `esapi` \| `sys` \| `mu` \| `unknown` | TPM2 TSS layer decoded from a backend return code. |
+| `tcti_kind` | `string` \| `owned_handle` | How a TPM context selected its TCTI source. |
+| `tcti_name` | bounded TCTI name token | TCTI loader name such as `swtpm`, `device`, `tabrmd`, or `mssim`; never a caller-supplied path or full config string. |
+| `startup_mode` | `clear` \| `state` \| `skip` | TPM startup behavior requested at context creation. |
+| `result` | short `snake_case` token | Bounded adapter result token such as `already_initialized`. |
+| `abi_version` | dotted numeric version | TSS ABI version used when initializing ESYS. |
+| `bank` | hash algorithm token | PCR bank algorithm, such as `sha256`; SHA-1 appears only when the legacy PCR option is enabled. |
+| `bank_count` | non-negative integer | Count of PCR banks affected by an operation. |
+| `pcr_count` | non-negative integer | Count of PCR registers returned or selected. |
+| `pcr_index` | integer in `[0, 31]` | PCR register index. |
+| `event_size` | non-negative integer | Size of raw PCR event data in bytes, never the event data itself. |
+| `policy_algorithm` | hash algorithm token | Hash algorithm used for a PCR policy digest. |
+| `allocation_success` | `true` \| `false` | TPM PCR allocation status returned by the backend. |
 
 ### Field stability
 
@@ -58,6 +72,21 @@ Events are grouped by category. Categories may be added; see *Reserved categorie
 | `tpm.command_failed` | error | `event`, `component`, `outcome=failure`, `error_category` | `request_id`, `attempt`, `reason` |
 | `tpm.command_retried` | warn | `event`, `component`, `outcome`, `attempt`, `reason` | `request_id` |
 | `tpm.backend_error` | error | `event`, `component`, `outcome=failure`, `error_category`, `error_code` | `request_id`, `reason` |
+| `tpm.context.tcti_configuring` | info | `event`, `component`, `outcome=success`, `tcti_kind` | `tcti_name`, `source` |
+| `tpm.context.tcti_configured` | info | `event`, `component`, `outcome=success`, `tcti_kind` | `tcti_name`, `source` |
+| `tpm.context.esys_initialized` | info | `event`, `component`, `outcome=success`, `abi_version` | `source` |
+| `tpm.context.startup_invoked` | info | `event`, `component`, `outcome=success`, `startup_mode` | `source` |
+| `tpm.context.startup_completed` | info | `event`, `component`, `outcome=success`, `startup_mode`, `result` | `source` |
+| `tpm.context.finalized` | info | `event`, `component`, `outcome=success` | `source` |
+| `tpm.context.tss_error` | error | `event`, `component`, `outcome=failure`, `error_category`, `error_code`, `operation`, `tss_layer` | `request_id`, `source` |
+| `tpm.pcr.read_completed` | info | `event`, `component`, `outcome=success`, `bank`, `pcr_count` | `source` |
+| `tpm.pcr.extend_completed` | info | `event`, `component`, `outcome=success`, `pcr_index`, `bank_count` | `source` |
+| `tpm.pcr.event_completed` | info | `event`, `component`, `outcome=success`, `pcr_index`, `event_size`, `bank_count` | `source` |
+| `tpm.pcr.reset_completed` | info | `event`, `component`, `outcome=success`, `pcr_index` | `source` |
+| `tpm.pcr.allocate_completed` | info | `event`, `component`, `outcome=success`, `bank_count`, `allocation_success` | `source` |
+| `tpm.pcr.auth_policy_set` | info | `event`, `component`, `outcome=success`, `pcr_index`, `policy_algorithm` | `source` |
+| `tpm.pcr.auth_value_set` | info | `event`, `component`, `outcome=success`, `pcr_index` | `source` |
+| `tpm.pcr.tss_error` | error | `event`, `component`, `outcome=failure`, `error_category`, `error_code`, `operation`, `tss_layer` | `request_id`, `source` |
 
 Notes:
 

@@ -11,7 +11,7 @@ These rules build on `code-standards.md` (resource handling, `noexcept`) and `li
 ## Synchronization primitives
 
 - `std::mutex` for mutual exclusion. `std::shared_mutex` only when reads dominate writes by a measured margin and the critical section is non-trivial. The added cost of a shared mutex is rarely paid back by short read sections.
-- Hold a lock through the smallest scope that preserves the invariant. Never call back into user-supplied callbacks (logger adapters, custom deleters) while holding a lock — use a local copy and release the lock first.
+- Hold a lock through the smallest scope that preserves the invariant. Never call back into user-supplied callbacks, response factories, observer hooks, logger adapters, or custom deleters while holding a lock — copy the required state locally, release the lock, then call out.
 - Use `std::lock_guard` for fixed-scope locking and `std::unique_lock` only when you need conditional unlock or hand-off (e.g., to `condition_variable::wait`). Do not use `std::scoped_lock` (C++17 multi-mutex) without a documented reason — it usually indicates a lock-ordering problem the design should solve instead.
 - `std::atomic<T>` only for trivially copyable types where a single read-modify-write is the entire operation. The moment you need two atomics to be consistent with each other, you need a mutex, not two atomics.
 - One-time initialization uses `std::call_once` with `std::once_flag`. Never roll a hand-written double-checked locking pattern — it is a known C++ memory-model trap.

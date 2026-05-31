@@ -33,10 +33,10 @@ struct provider_bundle {
     std::unique_ptr<tpmkit::pcr::provider> provider;
 };
 
-[[nodiscard]] std::array<tpmkit::hash_algorithm, 4U> all_hash_algorithms() noexcept
+[[nodiscard]] std::array<tpmkit::hash_algorithm, 3U> all_hash_algorithms() noexcept
 {
-    return {tpmkit::hash_algorithm::sha1, tpmkit::hash_algorithm::sha256,
-            tpmkit::hash_algorithm::sha384, tpmkit::hash_algorithm::sha512};
+    return {tpmkit::hash_algorithm::sha256, tpmkit::hash_algorithm::sha384,
+            tpmkit::hash_algorithm::sha512};
 }
 
 [[nodiscard]] std::string swtpm_tcti()
@@ -279,19 +279,16 @@ TEST(pcr_provider_swtpm, reads_default_sha256_debug_pcr_as_zero)
               std::vector<std::uint8_t>(tpmkit::digest_size(tpmkit::hash_algorithm::sha256), 0U));
 }
 
-TEST(pcr_provider_swtpm, reads_sha256_and_sha1_debug_banks)
+TEST(pcr_provider_swtpm, reads_sha256_debug_bank)
 {
-    // Verifies the provider can read both SHA-256 and SHA-1 PCR banks from swtpm.
+    // Verifies the provider can read the default SHA-256 PCR bank from swtpm.
 
     auto bundle = make_provider();
 
     const auto sha256 = read_debug_digest(*bundle.provider, tpmkit::hash_algorithm::sha256);
-    const auto sha1 = read_debug_digest(*bundle.provider, tpmkit::hash_algorithm::sha1);
 
     ASSERT_TRUE(sha256.has_value()) << sha256.error().message;
-    ASSERT_TRUE(sha1.has_value()) << sha1.error().message;
     EXPECT_EQ(sha256->size(), tpmkit::digest_size(tpmkit::hash_algorithm::sha256));
-    EXPECT_EQ(sha1->size(), tpmkit::digest_size(tpmkit::hash_algorithm::sha1));
 }
 
 TEST(pcr_provider_swtpm, extends_debug_pcr_and_reads_chained_sha256_value)

@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 namespace {
 
@@ -120,6 +121,30 @@ TEST(fake_tcti, receive_size_query_does_not_consume_response)
     std::array<std::uint8_t, 3> response{};
     response_size = response.size();
     EXPECT_EQ(receive(fake, response_size, response.data()), TSS2_RC_SUCCESS);
+    EXPECT_EQ(fake.pending_responses(), 0U);
+}
+
+TEST(fake_tcti, response_factory_can_reenter_fake_inspection_without_deadlock)
+{
+    // Verifies response factories run outside the fake TCTI mutex.
+
+    tpmkit::testing::fake_tcti fake;
+    fake.push_response_factory([&fake](const std::vector<std::uint8_t>& transmitted) {
+        EXPECT_EQ(fake.pending_responses(), 1U);
+        const auto commands = fake.transmitted_commands();
+        EXPECT_EQ(commands.size(), 1U);
+        EXPECT_EQ(commands.front(), transmitted);
+        return std::vector<std::uint8_t>{0x04U, 0x05U};
+    });
+    ASSERT_EQ(transmit(fake), TSS2_RC_SUCCESS);
+    std::array<std::uint8_t, 4> response{};
+    std::size_t response_size = response.size();
+
+    EXPECT_EQ(receive(fake, response_size, response.data()), TSS2_RC_SUCCESS);
+
+    EXPECT_EQ(response_size, 2U);
+    EXPECT_EQ(response[0], 0x04U);
+    EXPECT_EQ(response[1], 0x05U);
     EXPECT_EQ(fake.pending_responses(), 0U);
 }
 

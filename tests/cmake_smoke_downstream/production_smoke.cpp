@@ -9,8 +9,7 @@ int main()
     const tpmkit::pcr::selection selection{tpmkit::hash_algorithm::sha256,
                                            {tpmkit::pcr::index::debug}};
 
-    return std::holds_alternative<tpmkit::tcti_string_config>(config.tcti) &&
-                   selection.algorithm() == tpmkit::hash_algorithm::sha256
+    return config.tcti.config.empty() && selection.algorithm() == tpmkit::hash_algorithm::sha256
                ? 0
                : 1;
 }

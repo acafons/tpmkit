@@ -20,6 +20,7 @@ set(tpmkit_unit_public_api_sources
     unit/public_api/hash_algorithm_header_self_contained.cpp
     unit/public_api/logger_header_smoke.cpp
     unit/public_api/noop_logger_header_smoke.cpp
+    unit/public_api/owned_tcti_context_header_self_contained.cpp
     unit/public_api/pcr_bank_header_self_contained.cpp
     unit/public_api/pcr_digest_value_header_self_contained.cpp
     unit/public_api/pcr_index_header_self_contained.cpp
@@ -186,6 +187,20 @@ if(TARGET tpmkit_stdio)
 endif()
 tpmkit_discover_gtests(tpmkit_contract_logger_tests Contract)
 
+add_executable(tpmkit_contract_pcr_provider_tests
+    contract/pcr_provider_contract.cpp
+)
+tpmkit_configure_executable_target(tpmkit_contract_pcr_provider_tests)
+target_link_libraries(tpmkit_contract_pcr_provider_tests
+    PRIVATE
+        GTest::gtest_main
+        tpmkit::tpmkit
+        tpmkit::tpmkit_testing
+        PkgConfig::TSS2_ESYS
+        PkgConfig::TSS2_TCTILDR
+)
+tpmkit_discover_gtests(tpmkit_contract_pcr_provider_tests Contract Security)
+
 add_executable(tpmkit_integration_tpm2_esys_tests
     integration/tpm2_esys/pcr_integration_test.cpp
     integration/tpm2_esys/tcti_loader_test.cpp
@@ -233,7 +248,7 @@ add_test(
     NAME tpm_stack_start
     COMMAND
         /bin/bash -c
-        "${PROJECT_SOURCE_DIR}/scripts/tpm-start.sh && tpm2_pcrallocate sha1:0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23+sha256:0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23+sha384:0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23 >/dev/null && tpm2_shutdown -c >/dev/null && ${PROJECT_SOURCE_DIR}/scripts/tpm-stop.sh >/dev/null && ${PROJECT_SOURCE_DIR}/scripts/tpm-start.sh"
+        "${PROJECT_SOURCE_DIR}/scripts/tpm-start.sh && TPM2TOOLS_TCTI=\"\${TPMKIT_SWTPM_TCTI:-tabrmd:bus_type=system}\" tpm2_pcrallocate sha256:0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23+sha384:0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23 >/dev/null && TPM2TOOLS_TCTI=\"\${TPMKIT_SWTPM_TCTI:-tabrmd:bus_type=system}\" tpm2_shutdown -c >/dev/null && ${PROJECT_SOURCE_DIR}/scripts/tpm-stop.sh >/dev/null && ${PROJECT_SOURCE_DIR}/scripts/tpm-start.sh"
 )
 set_tests_properties(tpm_stack_start
     PROPERTIES
@@ -261,6 +276,30 @@ add_test(
 set_tests_properties(test_policy_guard
     PROPERTIES
         LABELS "Policy;Testing"
+)
+
+add_test(
+    NAME domain_isolation_guard
+    COMMAND
+        ${CMAKE_COMMAND}
+        -DTPMKIT_SOURCE_DIR=${PROJECT_SOURCE_DIR}
+        -P ${PROJECT_SOURCE_DIR}/cmake/check-domain-isolation.cmake
+)
+set_tests_properties(domain_isolation_guard
+    PROPERTIES
+        LABELS "Policy;Architecture"
+)
+
+add_test(
+    NAME public_api_boundary_guard
+    COMMAND
+        ${CMAKE_COMMAND}
+        -DTPMKIT_SOURCE_DIR=${PROJECT_SOURCE_DIR}
+        -P ${PROJECT_SOURCE_DIR}/cmake/check-public-api-boundaries.cmake
+)
+set_tests_properties(public_api_boundary_guard
+    PROPERTIES
+        LABELS "Policy;Architecture"
 )
 
 add_test(

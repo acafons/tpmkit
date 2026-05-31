@@ -5,6 +5,7 @@
 #include "../support/log_events.h"
 
 #include <tpmkit/logging/noop_logger.h>
+#include <tpmkit/tpm2_esys/owned_tcti_context.h>
 
 #include <tss2/tss2_common.h>
 #include <tss2/tss2_esys.h>
@@ -16,7 +17,6 @@
 #include <string>
 #include <string_view>
 #include <utility>
-#include <variant>
 
 namespace tpmkit {
 namespace {
@@ -77,33 +77,32 @@ struct resolved_tcti {
         return log;
     }
 
-    return std::make_shared<noop_logger>();
-}
-
-void log_event(logger* const log, const log_level level, const std::string_view event)
-{
-    if (log == nullptr) {
-        return;
-    }
-
-    log->log(level, event, gsl::span<const log_field>{});
+    return std::shared_ptr<logger>(&noop_logger::instance(), [](logger*) noexcept {});
 }
 
 template <std::size_t size>
-void log_event(logger* const log, const log_level level, const std::string_view event,
+void log_event(logger* const log, const log_level level, const events::event_descriptor event,
                const std::array<log_field, size>& fields)
 {
     if (log == nullptr) {
         return;
     }
 
-    log->log(level, event, gsl::span<const log_field>(fields));
+    std::array<log_field, size + 2U> merged{};
+    merged[0U] = {events::fields::event, event.name};
+    merged[1U] = {events::fields::component, events::component_tpm2_esys};
+    for (std::size_t index = 0U; index < size; ++index) {
+        merged[index + 2U] = fields[index];
+    }
+
+    log->log(level, event.message, gsl::span<const log_field>(merged));
 }
 
-void log_tcti_event(logger* const log, const std::string_view event, const std::string_view kind,
-                    const std::string_view name)
+void log_tcti_event(logger* const log, const events::event_descriptor event,
+                    const std::string_view kind, const std::string_view name)
 {
-    const std::array<log_field, 2U> fields{{
+    const std::array<log_field, 3U> fields{{
+        {events::fields::outcome, events::values::success},
         {events::fields::tcti_kind, kind},
         {events::fields::tcti_name, name},
     }};
@@ -172,41 +171,21 @@ void finalize_esys_context(ESYS_CONTEXT* context) noexcept
     Esys_Finalize(&context);
 }
 
-[[nodiscard]] outcome<resolved_tcti> resolve_tcti(tpm_context_config& config, logger* const log)
+[[nodiscard]] outcome<resolved_tcti> resolve_tcti(const tcti_string_config& string_config,
+                                                  logger* const log)
 {
-    if (std::holds_alternative<tcti_string_config>(config.tcti)) {
-        const auto& string_config = std::get<tcti_string_config>(config.tcti);
-        const std::string tcti_name = sanitized_tcti_name(string_config);
-        if (!tcti_name.empty()) {
-            log_tcti_event(log, events::tcti_configuring, "string", tcti_name);
-        }
-
-        auto loaded = detail::esys::load_tcti(string_config, log);
-        if (!loaded.has_value()) {
-            return tl::unexpected(loaded.error());
-        }
-
-        log_tcti_event(log, events::tcti_configured, "string", tcti_name);
-        return resolved_tcti{*std::move(loaded)};
+    const std::string tcti_name = sanitized_tcti_name(string_config);
+    if (!tcti_name.empty()) {
+        log_tcti_event(log, events::tcti_configuring, "string", tcti_name);
     }
 
-    auto& owned_config = std::get<tcti_owned_handle>(config.tcti);
-    if (owned_config.handle == nullptr) {
-        return tl::unexpected(
-            error{error_category::input_error, "TCTI owned handle must not be null"});
+    auto loaded = detail::esys::load_tcti(string_config, log);
+    if (!loaded.has_value()) {
+        return tl::unexpected(loaded.error());
     }
 
-    if (owned_config.handle.get_deleter() == nullptr) {
-        static_cast<void>(owned_config.handle.release());
-        return tl::unexpected(
-            error{error_category::input_error, "TCTI owned handle deleter must not be null"});
-    }
-
-    log_tcti_event(log, events::tcti_configuring, "owned", "<owned>");
-    detail::esys::unique_tcti_ptr tcti{std::move(owned_config.handle)};
-    log_tcti_event(log, events::tcti_configured, "owned", "<owned>");
-
-    return resolved_tcti{std::move(tcti)};
+    log_tcti_event(log, events::tcti_configured, "string", tcti_name);
+    return resolved_tcti{*std::move(loaded)};
 }
 
 [[nodiscard]] outcome<detail::esys::unique_esys_ptr> initialize_esys(TSS2_TCTI_CONTEXT* const tcti,
@@ -222,8 +201,9 @@ void finalize_esys_context(ESYS_CONTEXT* context) noexcept
 
     detail::esys::unique_esys_ptr esys{raw_esys, &finalize_esys_context};
     const std::string abi_version_value = abi_version_string(abi_version);
-    const std::array<log_field, 1U> fields{{
+    const std::array<log_field, 2U> fields{{
         {events::fields::abi_version, abi_version_value},
+        {events::fields::outcome, events::values::success},
     }};
     log_event(log, log_level::info, events::esys_initialized, fields);
 
@@ -234,13 +214,16 @@ void finalize_esys_context(ESYS_CONTEXT* context) noexcept
 start_tpm(ESYS_CONTEXT* const esys, const tpm_context_config::startup_mode mode, logger* const log)
 {
     const std::string mode_name = startup_mode_name(mode);
-    const std::array<log_field, 1U> invoked_fields{{
+    const std::array<log_field, 2U> invoked_fields{{
+        {events::fields::outcome, events::values::success},
         {events::fields::startup_mode, mode_name},
     }};
     log_event(log, log_level::info, events::startup_invoked, invoked_fields);
 
     if (mode == tpm_context_config::startup_mode::skip) {
-        const std::array<log_field, 1U> completed_fields{{
+        const std::array<log_field, 3U> completed_fields{{
+            {events::fields::outcome, events::values::success},
+            {events::fields::startup_mode, mode_name},
             {events::fields::result, "skipped"},
         }};
         log_event(log, log_level::info, events::startup_completed, completed_fields);
@@ -254,7 +237,9 @@ start_tpm(ESYS_CONTEXT* const esys, const tpm_context_config::startup_mode mode,
     }
 
     const std::string_view result = detail::esys::startup_result_field(rc);
-    const std::array<log_field, 1U> completed_fields{{
+    const std::array<log_field, 3U> completed_fields{{
+        {events::fields::outcome, events::values::success},
+        {events::fields::startup_mode, mode_name},
         {events::fields::result, result},
     }};
     log_event(log, log_level::info, events::startup_completed, completed_fields);
@@ -279,6 +264,32 @@ std::string_view startup_result_field(const TSS2_RC rc) noexcept
 
 } // namespace detail::esys
 
+namespace detail {
+
+struct tpm_context_factory {
+    [[nodiscard]] static outcome<tpm_context>
+    create_from_resolved_tcti(esys::unique_tcti_ptr tcti,
+                              const tpm_context_config::startup_mode startup,
+                              std::shared_ptr<logger> log)
+    {
+        auto esys = initialize_esys(tcti.get(), log.get());
+        if (!esys.has_value()) {
+            return tl::unexpected(esys.error());
+        }
+
+        auto started = start_tpm(esys->get(), startup, log.get());
+        if (!started.has_value()) {
+            return tl::unexpected(started.error());
+        }
+
+        auto implementation =
+            std::make_unique<tpm_context::impl>(std::move(tcti), *std::move(esys), std::move(log));
+        return tpm_context{std::move(implementation)};
+    }
+};
+
+} // namespace detail
+
 tpm_context::impl::impl(detail::esys::unique_tcti_ptr tcti, detail::esys::unique_esys_ptr esys,
                         std::shared_ptr<logger> log) noexcept
     : tcti_{std::move(tcti)}, esys_{std::move(esys)}, log_{std::move(log)}
@@ -286,7 +297,10 @@ tpm_context::impl::impl(detail::esys::unique_tcti_ptr tcti, detail::esys::unique
 
 tpm_context::impl::~impl() noexcept
 {
-    log_event(log_.get(), log_level::info, events::finalized);
+    const std::array<log_field, 1U> fields{{
+        {events::fields::outcome, events::values::success},
+    }};
+    log_event(log_.get(), log_level::info, events::finalized, fields);
 }
 
 ESYS_CONTEXT* tpm_context::impl::esys() const noexcept
@@ -318,24 +332,13 @@ outcome<tpm_context> tpm_context::create(tpm_context_config config)
 
     auto log = effective_logger(std::move(config.log));
 
-    auto tcti = resolve_tcti(config, log.get());
+    auto tcti = resolve_tcti(config.tcti, log.get());
     if (!tcti.has_value()) {
         return tl::unexpected(tcti.error());
     }
 
-    auto esys = initialize_esys(tcti->handle.get(), log.get());
-    if (!esys.has_value()) {
-        return tl::unexpected(esys.error());
-    }
-
-    auto startup = start_tpm(esys->get(), config.startup, log.get());
-    if (!startup.has_value()) {
-        return tl::unexpected(startup.error());
-    }
-
-    auto implementation =
-        std::make_unique<impl>(std::move(tcti->handle), *std::move(esys), std::move(log));
-    return tpm_context{std::move(implementation)};
+    return detail::tpm_context_factory::create_from_resolved_tcti(std::move(tcti->handle),
+                                                                  config.startup, std::move(log));
 }
 
 outcome<tpm_context> tpm_context::create(std::string tcti_config,
@@ -359,5 +362,37 @@ tpm_context::create_pcr_provider(pcr::observer* const observer)
 
     return std::make_unique<detail::esys::esys_pcr_provider>(impl_->esys(), impl_->log(), observer);
 }
+
+namespace tpm2_esys {
+
+outcome<tpm_context> create_context(owned_tcti_context tcti,
+                                    const tpm_context_config::startup_mode startup,
+                                    std::shared_ptr<logger> log)
+{
+    if (!is_valid_startup_mode(startup)) {
+        return tl::unexpected(error{error_category::input_error, "TPM startup mode is invalid"});
+    }
+
+    if (tcti.handle == nullptr) {
+        return tl::unexpected(
+            error{error_category::input_error, "TCTI owned handle must not be null"});
+    }
+
+    if (tcti.handle.get_deleter() == nullptr) {
+        static_cast<void>(tcti.handle.release());
+        return tl::unexpected(
+            error{error_category::input_error, "TCTI owned handle deleter must not be null"});
+    }
+
+    auto effective_log = effective_logger(std::move(log));
+    log_tcti_event(effective_log.get(), events::tcti_configuring, "owned_handle", "<owned>");
+    detail::esys::unique_tcti_ptr owned_tcti{std::move(tcti.handle)};
+    log_tcti_event(effective_log.get(), events::tcti_configured, "owned_handle", "<owned>");
+
+    return detail::tpm_context_factory::create_from_resolved_tcti(std::move(owned_tcti), startup,
+                                                                  std::move(effective_log));
+}
+
+} // namespace tpm2_esys
 
 } // namespace tpmkit

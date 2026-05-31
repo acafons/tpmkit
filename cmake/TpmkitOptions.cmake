@@ -21,6 +21,7 @@ option(tpmkit_BUILD_TESTS "Build tpmkit tests." "${tpmkit_IS_TOP_LEVEL}")
 option(TPMKIT_COVERAGE "Enable coverage instrumentation for Debug builds." OFF)
 option(TPMKIT_BUILD_DOCS "Build API reference documentation with Doxygen." OFF)
 option(TPMKIT_INSTALL_TESTING "Install the tpmkit_testing target export for downstream test utilities." OFF)
+option(TPMKIT_ENABLE_LEGACY_SHA1_PCR "Enable legacy SHA-1 PCR bank compatibility APIs." OFF)
 
 set(TPMKIT_LOG_ADAPTER "none" CACHE STRING "Logger adapter to build (none, spdlog, stdio).")
 string(TOLOWER "${TPMKIT_LOG_ADAPTER}" TPMKIT_LOG_ADAPTER)

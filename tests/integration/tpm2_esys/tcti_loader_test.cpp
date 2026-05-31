@@ -78,7 +78,10 @@ TEST(tcti_loader_integration, failed_load_emits_tss_error_record_with_operation_
     const auto records = log.snapshot();
     const auto it = std::find_if(records.begin(), records.end(), [](const auto& r) {
         return r.level == tpmkit::log_level::error &&
-               r.message == tpmkit::detail::esys::events::tss_error;
+               std::any_of(r.fields.begin(), r.fields.end(), [](const auto& f) {
+                   return f.first == tpmkit::detail::esys::events::fields::event &&
+                          f.second == tpmkit::detail::esys::events::tss_error.name;
+               });
     });
     ASSERT_NE(it, records.end()) << "expected a tss_error log record";
     const bool has_operation = std::any_of(it->fields.begin(), it->fields.end(), [](const auto& f) {

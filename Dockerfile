@@ -6,7 +6,7 @@ LABEL description="Dockerfile for building a container with IBM's Software TPM 2
 LABEL version="1.0"
 
 # Define the arguments for the versions of the software to be installed
-ARG openssl_version=openssl-3.5.0
+ARG openssl_version=openssl-3.5.5
 ARG ibmtpm_git=master
 ARG tpmtss_version=4.1.3
 ARG tpmabrm_version=3.0.0
@@ -20,6 +20,8 @@ RUN apt-get update && apt-get install -y \
     libarchive-dev \
     build-essential \
     clang-format \
+    clang-tidy \
+    cppcheck \
     g++ \
     gcc \
     git \

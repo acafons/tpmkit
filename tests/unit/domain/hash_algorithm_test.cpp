@@ -1,4 +1,5 @@
 #include <tpmkit/hash_algorithm.h>
+#include <tpmkit/exception.h>
 
 #include <gtest/gtest.h>
 
@@ -32,10 +33,17 @@ TEST(hash_algorithm, reports_digest_size_for_each_supported_algorithm)
 {
     // Verifies digest_size maps every public algorithm to its byte length.
 
-    EXPECT_EQ(tpmkit::digest_size(tpmkit::hash_algorithm::sha1), 20U);
     EXPECT_EQ(tpmkit::digest_size(tpmkit::hash_algorithm::sha256), 32U);
     EXPECT_EQ(tpmkit::digest_size(tpmkit::hash_algorithm::sha384), 48U);
     EXPECT_EQ(tpmkit::digest_size(tpmkit::hash_algorithm::sha512), 64U);
+}
+
+TEST(hash_algorithm, rejects_sha1_digest_size_by_default)
+{
+    // Verifies SHA-1 PCR compatibility is gated behind an explicit build option.
+
+    EXPECT_THROW(static_cast<void>(tpmkit::digest_size(tpmkit::hash_algorithm::sha1)),
+                 tpmkit::tpmkit_error);
 }
 
 TEST(hash_algorithm, reports_stable_name_for_each_supported_algorithm)

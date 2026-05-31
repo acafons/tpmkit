@@ -2,6 +2,11 @@ include_guard(GLOBAL)
 
 find_package(PkgConfig REQUIRED)
 
+set(TPMKIT_OPENSSL_REQUIRED_VERSION "3.5.5" CACHE STRING "Required OpenSSL package version.")
+set(TPMKIT_SPDLOG_REQUIRED_VERSION "1.15.3" CACHE STRING "Required spdlog package version.")
+pkg_check_modules(OPENSSL_PKG REQUIRED IMPORTED_TARGET
+    "openssl = ${TPMKIT_OPENSSL_REQUIRED_VERSION}"
+)
 find_package(Microsoft.GSL CONFIG REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(tl-expected CONFIG QUIET)
@@ -19,7 +24,8 @@ pkg_check_modules(TSS2_TCTILDR REQUIRED IMPORTED_TARGET
 )
 
 if(TPMKIT_LOG_ADAPTER STREQUAL "spdlog")
-    find_package(spdlog CONFIG REQUIRED)
+    pkg_check_modules(SPDLOG_PKG REQUIRED "spdlog = ${TPMKIT_SPDLOG_REQUIRED_VERSION}")
+    find_package(spdlog ${TPMKIT_SPDLOG_REQUIRED_VERSION} CONFIG REQUIRED)
     if(NOT TARGET spdlog::spdlog)
         message(FATAL_ERROR "TPMKIT_LOG_ADAPTER=spdlog requires the spdlog::spdlog CMake target.")
     endif()

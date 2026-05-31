@@ -14,7 +14,7 @@ Apply this skill in order when writing or modifying a test:
 1. **Classify the test tier.** Pick exactly one from the layout below:
    * **Unit** (`tests/unit/`) — public API behavior, pure domain behavior, public testing helpers, or adapter-internal logic isolated from live backends. Domain unit tests link no third-party libraries; adapter and adapter-shaped testing-helper unit tests may include/link backend SDK headers or constants but must not call a live backend, simulator, filesystem, or network.
    * **Integration** (`tests/integration/<backend>/`) — a specific adapter against the real backend (OpenSSL, FAPI, ESYS, swtpm). Hardware-only cases live here, gated by a `Hardware*` tag.
-   * **Contract** (`tests/contract/`) — one parameterized suite per port, instantiated against every adapter (mock, real, fallback). Includes the secret-leak sweep.
+   * **Contract** (`tests/contract/`) — one parameterized suite per port, instantiated against every adapter (mock, real, fallback, or fake-backend harness for adapter logic that cannot run against live hardware in-process). Includes the secret-leak sweep.
    * **Property** (`tests/property/`) — round-trips and invariants over generated inputs (rapidcheck).
    * **Fuzz** (`tests/fuzz/`) — libFuzzer harness for a parser of caller-supplied bytes.
    * **Known-answer** (`tests/kat/`) — published vectors for every algorithm on the `security.md` allowlist. Required when adding a new algorithm.
@@ -84,7 +84,7 @@ bench/                         Google Benchmark suites (see performance.md)
 - **Testing-helper unit tests** — public `tpmkit::testing::*` helpers. Backend-neutral helpers live under `tests/unit/testing/`; helpers shaped around an adapter or third-party ABI live under `tests/unit/testing/<adapter>/` (for example `tests/unit/testing/tpm2_esys/`).
 - **Adapter-internal unit tests** — pure translation, validation, schema, and ABI-shim logic for a specific adapter. Place these under `tests/unit/<adapter>/` (for example `tests/unit/tpm2_esys/`); grouped adapter families mirror the source layout, as logging does under `tests/unit/logging/<backend>/`. They may compile against the backend SDK when needed for constants or function signatures, but they do not open real backend resources; anything that needs swtpm, hardware, or a real library call belongs in the integration tier.
 - **Adapter integration tests** — verify each adapter satisfies its port using the real backend. Skipped only when the backend is unavailable on the platform.
-- **Contract tests** — one shared suite per port, run against every adapter (mock, real, software fallback) to catch divergence between mock and real behavior. Implement with GoogleTest parameterized tests (`TEST_P` + `INSTANTIATE_TEST_SUITE_P`), one instantiation per adapter — never copy-paste the suite per backend. The **secret-leak sweep** lives here.
+- **Contract tests** — one shared suite per port, run against every adapter (mock, real, software fallback, or fake-backend harness) to catch divergence between mock and real behavior. Implement with GoogleTest parameterized tests (`TEST_P` + `INSTANTIATE_TEST_SUITE_P`), one instantiation per adapter — never copy-paste the suite per backend. The **secret-leak sweep** lives here.
 - **Property-based tests** — applied to round-trips (encode/decode, sign/verify, encrypt/decrypt). Generators must reach edge cases (empty, max-size, boundary values).
 - **Fuzz tests** — every parser of caller-supplied bytes (key serialization, certificate parsing, policy parsing) has a fuzz harness that runs continuously in CI.
 - **Known-answer tests (KATs)** — every cryptographic primitive on the `security.md` allowlist is exercised against its published vectors (NIST CAVP for AES-GCM/SHA-2/HKDF/ECDSA/RSA-PSS, RFC vectors for ChaCha20-Poly1305 and Ed25519, TCG vectors for TPM-side operations). Adding a new algorithm to the allowlist is gated on its KAT suite landing in the same PR — without vectors, intent is not enforcement.
@@ -194,7 +194,7 @@ Security testing is **cross-cutting, not a tier of its own.** Each kind of secur
 
 ### Allowlist-enforcement tests
 
-- Every algorithm identifier rejected by `security.md` (MD5, SHA-1, RC4, DES/3DES, AES-ECB, RSA-PKCS#1 v1.5 signing, raw ECB modes) is tested at the public API: requesting it returns `input_error` and never reaches an adapter.
+- Every algorithm identifier rejected by `security.md` (MD5, SHA-1 outside `TPMKIT_ENABLE_LEGACY_SHA1_PCR`, RC4, DES/3DES, AES-ECB, RSA-PKCS#1 v1.5 signing, raw ECB modes) is tested at the public API: requesting it returns `input_error` and never reaches an adapter. Legacy SHA-1 PCR compatibility tests must build only in the explicit legacy-option configuration.
 - The negative-test set updates in the same PR as any allowlist change. A new forbidden algorithm without a negative test is an allowlist gap. Cross-reference `tpm-security-review` Section 5.
 - Lives in `tests/unit/public_api/`.
 

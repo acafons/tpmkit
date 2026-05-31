@@ -15,26 +15,16 @@
 
 #include <memory>
 #include <string>
-#include <variant>
-
-extern "C" {
-/**
- * @brief Opaque TPM2 TSS TCTI context type accepted by owned-handle configs.
- *
- * tpmkit only stores and transfers ownership of this forward-declared C type
- * at the public boundary; implementation files include the full TSS headers.
- *
- * @thread_safety Follows the TPM2 TSS TCTI implementation backing the handle.
- * @exception_safety No operations are exposed by this forward declaration.
- */
-typedef struct TSS2_TCTI_OPAQUE_CONTEXT_BLOB TSS2_TCTI_CONTEXT;
-}
 
 namespace tpmkit {
 
 namespace pcr {
 class observer;
 } // namespace pcr
+
+namespace detail {
+struct tpm_context_factory;
+} // namespace detail
 
 /**
  * @brief TCTI source selected by a tpm2-tools-compatible configuration string.
@@ -49,24 +39,6 @@ class observer;
 struct tcti_string_config {
     /** @brief TCTI configuration string validated by tpm_context::create. */
     std::string config;
-};
-
-/**
- * @brief TCTI source that transfers ownership of an existing TSS handle.
- *
- * @note The deleter owns the finalization policy and must be valid for the
- *       handle it receives.
- * @note Error categories: null or unusable handles are reported by
- *       tpm_context::create as error_category::input_error or
- *       error_category::backend_error depending on the failure point.
- * @thread_safety Thread-compatible.
- * @exception_safety Move operations are noexcept when the stored
- * `std::unique_ptr` move is noexcept.
- * @since v0.1
- */
-struct tcti_owned_handle {
-    /** @brief Owned opaque TCTI context and finalizer consumed by tpm_context::create. */
-    std::unique_ptr<TSS2_TCTI_CONTEXT, void (*)(TSS2_TCTI_CONTEXT*)> handle;
 };
 
 /**
@@ -96,8 +68,8 @@ struct tpm_context_config {
         skip,
     };
 
-    /** @brief Explicit TCTI source; defaults to an empty string config that create rejects. */
-    std::variant<tcti_string_config, tcti_owned_handle> tcti;
+    /** @brief Explicit string TCTI source; defaults to an empty config that create rejects. */
+    tcti_string_config tcti;
 
     /** @brief Requested startup behavior; defaults to startup_mode::clear. */
     startup_mode startup = startup_mode::clear;
@@ -237,6 +209,8 @@ private:
     explicit tpm_context(std::unique_ptr<impl> implementation) noexcept;
 
     std::unique_ptr<impl> impl_;
+
+    friend struct detail::tpm_context_factory;
 };
 
 } // namespace tpmkit

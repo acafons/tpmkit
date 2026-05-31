@@ -35,6 +35,10 @@ Apply this skill in order on every documentation change:
   `tpmkit::nv::*` and `tpmkit::key::*`. Examples and `@see` links use the
   nested names directly, with no root-level compatibility aliases unless a
   compatibility plan explicitly added them.
+- Explicit low-level backend headers, such as `include/tpmkit/tpm2_esys/...`,
+  must say they are backend-specific and must point backend-neutral callers to
+  the neutral API. Backend-neutral header documentation must not mention raw
+  TSS/OpenSSL handle ownership as an available path.
 - Every public class, function, type alias, and enum has a Doxygen comment. For public enums, document the enumeration *and* every enumerator — the values *are* the contract (`algorithm_id::ecdsa_p256`, `error::category::security_failure`, `tpm_startup_mode::clear` each carry meaning a consumer cannot infer from the enum's name alone).
 - Every public function documents:
   - Each parameter — purpose, valid range, ownership.
@@ -148,7 +152,7 @@ class tss2_error_translator {
 
 ## Project-level documentation
 
-- **README.md** — what the library does, supported platforms, minimum compiler and dependency versions, quick-start, links to examples and full docs.
+- **README.md** — what the library does, supported platforms, minimum compiler and dependency versions, build-time options such as `TPMKIT_ENABLE_LEGACY_SHA1_PCR`, quick-start, links to examples and full docs.
 - **CHANGELOG.md** — Keep a Changelog format. Every release entry lists Added / Changed / Deprecated / Removed / Fixed / Security. Security fixes are called out explicitly with the CVE if any.
 - **examples/** — runnable code that exercises common use cases. Each example builds in CI; broken examples are a release blocker.
 - **docs/adr/** — Architecture Decision Records for non-obvious choices (hexagonal layout, FAPI vs. ESYS adapter strategy, choice of error type). Format: title, context, decision, consequences. One file per decision; never edited after acceptance — supersede with a new ADR instead.

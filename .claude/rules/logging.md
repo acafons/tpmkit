@@ -19,11 +19,14 @@ second no-op fallback, or let callers split one TPM connection's audit trail
 across different logger instances.
 
 Adapters constructed directly by a composition root take `logger&` at
-construction, with the no-op default handled at that boundary. Optional or
-nullable logger parameters are forbidden on public APIs and adapter
-constructors. Nullable logger pointers are limited to private helper functions
-used while the owning context is still being created or while translating
-backend errors at an already-null-tolerant boundary.
+construction, with the no-op default handled at that boundary. Public
+configuration/factory APIs may accept a nullable `std::shared_ptr<logger>` for
+caller ergonomics, but the value is normalized exactly once at construction:
+`nullptr` becomes `noop_logger`, and no component stores or branches on a null
+logger afterward. Adapter constructors and context-derived factories do not
+accept nullable logger inputs. Nullable logger pointers are limited to private
+helper functions used while the owning context is still being created or while
+translating backend errors at an already-null-tolerant boundary.
 
 ## Port shape
 
@@ -57,6 +60,7 @@ public:
 Notes on the shape:
 
 - **One method, not five.** A single `log(level, ...)` method has one place to filter and one place to test. Per-level methods (`info`, `error`, ...) duplicate the surface, complicate mocking, and offer nothing the call-site macros (below) cannot provide.
+- **`message` is human text, not event identity.** Production call sites pass fixed, English, human-readable wording such as `"PCR extend completed"`. The stable machine-readable identity belongs in the structured `event` field, such as `event=tpm.pcr.extend_completed`. Do not use the event name as the message in production records.
 - **`std::string_view` for keys and values.** The port must not retain pointers to caller buffers across calls. Adapters that need to persist a record copy it before returning from `log`.
 - **`gsl::span` for the field list.** A non-owning view of a caller-provided array. Cross-reference: `code-standards.md` Memory and resources, `security.md` Memory safety.
 - **No `format` argument.** The library never asks the adapter to do printf-style substitution; it builds the message and the fields itself. This is the only way to keep secrets out of the format pipeline reliably.
@@ -120,7 +124,10 @@ If a structured field's *key* is sensitive (e.g., a session-correlation token), 
 
 ## Adapters and defaults
 
-- **No-op adapter** is the library default when no logger is wired. `noop_logger::log` is empty and `noexcept`. The library compiles and runs identically with logging disabled.
+- **No-op adapter** is the library default when no logger is wired. A public
+  config value of `nullptr` selects `noop_logger` at the API boundary.
+  `noop_logger::log` is empty and `noexcept`. The library compiles and runs
+  identically with logging disabled.
 - **`noop_logger::instance()` is allowed as a Null Object convenience.** It returns a stateless, immutable no-op logger reference; it is not a configurable global logger and must not be used to smuggle mutable logging state into the library.
 - **Reference adapter for spdlog** lives under `src/adapters/logging/spdlog/`. It demonstrates structured-field translation, level mapping, and the never-retain-pointers contract.
 - **stdio adapter** under `src/adapters/logging/stdio/` is the zero-dependency reference for tests and one-binary tools.

@@ -1,4 +1,3 @@
-#include <tpmkit/testing/fake_tcti.h>
 #include <tpmkit/testing/fake_tpm_context.h>
 #include <tpmkit/testing/recording_logger.h>
 
@@ -8,7 +7,6 @@
 #include <string>
 #include <type_traits>
 #include <utility>
-#include <variant>
 
 namespace {
 
@@ -74,9 +72,7 @@ TEST(fake_tpm_context, string_tcti_overload_stores_equivalent_config)
     const tpmkit::testing::fake_tpm_context context = *std::move(created);
     EXPECT_EQ(context.last_config().startup, startup_mode::state);
     EXPECT_EQ(context.last_config().log, log);
-    ASSERT_TRUE(std::holds_alternative<tpmkit::tcti_string_config>(context.last_config().tcti));
-    EXPECT_EQ(std::get<tpmkit::tcti_string_config>(context.last_config().tcti).config,
-              "mssim:host=localhost,port=2321");
+    EXPECT_EQ(context.last_config().tcti.config, "mssim:host=localhost,port=2321");
 }
 
 TEST(fake_tpm_context, invalid_startup_mode_returns_input_error)
@@ -108,9 +104,7 @@ TEST(fake_tpm_context, successful_context_exposes_last_config_for_introspection)
     ASSERT_TRUE(created.has_value());
     const tpmkit::testing::fake_tpm_context context = *std::move(created);
     EXPECT_EQ(context.last_config().startup, startup_mode::skip);
-    ASSERT_TRUE(std::holds_alternative<tpmkit::tcti_string_config>(context.last_config().tcti));
-    EXPECT_EQ(std::get<tpmkit::tcti_string_config>(context.last_config().tcti).config,
-              "mssim:host=localhost,port=2321");
+    EXPECT_EQ(context.last_config().tcti.config, "mssim:host=localhost,port=2321");
 }
 
 TEST(fake_tpm_context, create_pcr_provider_returns_resource_error)
@@ -167,42 +161,8 @@ TEST(fake_tpm_context, move_construction_preserves_moved_to_introspection)
     tpmkit::testing::fake_tpm_context moved{std::move(original)};
 
     EXPECT_EQ(moved.last_config().startup, startup_mode::state);
-    ASSERT_TRUE(std::holds_alternative<tpmkit::tcti_string_config>(moved.last_config().tcti));
-    EXPECT_EQ(std::get<tpmkit::tcti_string_config>(moved.last_config().tcti).config,
-              "mssim:host=localhost,port=2321");
+    EXPECT_EQ(moved.last_config().tcti.config, "mssim:host=localhost,port=2321");
     EXPECT_NO_THROW((void)original.last_config());
-}
-
-TEST(fake_tpm_context, null_owned_handle_returns_input_error)
-{
-    // Verifies a null owned TCTI handle is rejected.
-
-    tpmkit::tpm_context_config config;
-    config.tcti = tpmkit::tcti_owned_handle{
-        std::unique_ptr<TSS2_TCTI_CONTEXT, void (*)(TSS2_TCTI_CONTEXT*)>(nullptr, nullptr)};
-
-    const tpmkit::outcome<tpmkit::testing::fake_tpm_context> created =
-        tpmkit::testing::fake_tpm_context::create(std::move(config));
-
-    ASSERT_FALSE(created.has_value());
-    EXPECT_EQ(created.error().category, tpmkit::error_category::input_error);
-}
-
-TEST(fake_tpm_context, null_owned_handle_deleter_returns_input_error)
-{
-    // Verifies an owned TCTI handle without a deleter is rejected.
-
-    tpmkit::testing::fake_tcti fake;
-    tpmkit::tpm_context_config config;
-    config.tcti = tpmkit::tcti_owned_handle{
-        std::unique_ptr<TSS2_TCTI_CONTEXT, void (*)(TSS2_TCTI_CONTEXT*)>(fake.handle(), nullptr)};
-
-    const tpmkit::outcome<tpmkit::testing::fake_tpm_context> created =
-        tpmkit::testing::fake_tpm_context::create(std::move(config));
-
-    ASSERT_FALSE(created.has_value());
-    EXPECT_EQ(created.error().category, tpmkit::error_category::input_error);
-    EXPECT_EQ(fake.finalizes_observed(), 0U);
 }
 
 } // namespace

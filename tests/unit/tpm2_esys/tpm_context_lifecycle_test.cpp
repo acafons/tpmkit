@@ -1,5 +1,6 @@
 #include <tpmkit/testing/fake_tcti.h>
 #include <tpmkit/testing/recording_logger.h>
+#include <tpmkit/tpm2_esys/owned_tcti_context.h>
 #include <tpmkit/tpm_context.h>
 
 #include "src/adapters/tpm2_esys/context/impl.h"
@@ -61,16 +62,18 @@ std::vector<std::uint8_t> startup_response(const std::uint32_t rc)
     };
 }
 
-tpmkit::tpm_context_config owned_config(tpmkit::testing::fake_tcti& fake, const startup_mode mode,
-                                        std::shared_ptr<tpmkit::logger> log = nullptr)
+tpmkit::tpm2_esys::owned_tcti_context owned_tcti(tpmkit::testing::fake_tcti& fake)
 {
-    tpmkit::tpm_context_config config;
-    config.tcti =
-        tpmkit::tcti_owned_handle{std::unique_ptr<TSS2_TCTI_CONTEXT, void (*)(TSS2_TCTI_CONTEXT*)>(
-            fake.handle(), finalize_tcti_handle)};
-    config.startup = mode;
-    config.log = std::move(log);
-    return config;
+    return tpmkit::tpm2_esys::owned_tcti_context{
+        std::unique_ptr<TSS2_TCTI_CONTEXT, void (*)(TSS2_TCTI_CONTEXT*)>(fake.handle(),
+                                                                         finalize_tcti_handle)};
+}
+
+tpmkit::outcome<tpmkit::tpm_context>
+create_owned_context(tpmkit::testing::fake_tcti& fake, const startup_mode mode,
+                     std::shared_ptr<tpmkit::logger> log = nullptr)
+{
+    return tpmkit::tpm2_esys::create_context(owned_tcti(fake), mode, std::move(log));
 }
 
 std::string field_value(const tpmkit::testing::log_record& record, const std::string_view key)
@@ -108,7 +111,7 @@ TEST(tpm_context_lifecycle, create_with_owned_tcti_clear_starts_and_finalizes)
     fake.push_response(startup_response(TSS2_RC_SUCCESS));
 
     {
-        auto result = tpmkit::tpm_context::create(owned_config(fake, startup_mode::clear));
+        auto result = create_owned_context(fake, startup_mode::clear);
 
         ASSERT_TRUE(result.has_value());
         auto provider = result->create_pcr_provider();
@@ -129,7 +132,7 @@ TEST(tpm_context_lifecycle, create_with_skip_does_not_transmit_startup)
     tpmkit::testing::fake_tcti fake;
 
     {
-        auto result = tpmkit::tpm_context::create(owned_config(fake, startup_mode::skip, log));
+        auto result = create_owned_context(fake, startup_mode::skip, log);
 
         ASSERT_TRUE(result.has_value());
         EXPECT_EQ(fake.transmits_observed(), 0U);
@@ -140,7 +143,8 @@ TEST(tpm_context_lifecycle, create_with_skip_does_not_transmit_startup)
     const auto records = log->snapshot();
     bool found_completion = false;
     for (const auto& record : records) {
-        if (std::string_view{record.message} == events::startup_completed &&
+        if (field_value(record, events::fields::event) ==
+                std::string{events::startup_completed.name} &&
             field_value(record, events::fields::result) == "skipped") {
             found_completion = true;
         }
@@ -156,8 +160,7 @@ TEST(tpm_context_lifecycle, invalid_startup_mode_returns_input_error_without_tra
     auto log = std::make_shared<tpmkit::testing::recording_logger>();
     tpmkit::testing::fake_tcti fake;
 
-    const auto result =
-        tpmkit::tpm_context::create(owned_config(fake, static_cast<startup_mode>(99), log));
+    const auto result = create_owned_context(fake, static_cast<startup_mode>(99), log);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().category, tpmkit::error_category::input_error);
@@ -184,7 +187,7 @@ TEST(tpm_context_lifecycle, startup_initialize_response_is_success)
     fake.push_response(startup_response(TPM2_RC_INITIALIZE));
 
     {
-        auto result = tpmkit::tpm_context::create(owned_config(fake, startup_mode::clear, log));
+        auto result = create_owned_context(fake, startup_mode::clear, log);
 
         ASSERT_TRUE(result.has_value());
     }
@@ -193,7 +196,8 @@ TEST(tpm_context_lifecycle, startup_initialize_response_is_success)
     ASSERT_GE(records.size(), 5U);
     bool found = false;
     for (const auto& record : records) {
-        if (std::string_view{record.message} == events::startup_completed) {
+        if (field_value(record, events::fields::event) ==
+            std::string{events::startup_completed.name}) {
             found = true;
         }
     }
@@ -215,12 +219,11 @@ TEST(tpm_context_lifecycle, null_owned_handle_returns_input_error)
 {
     // Verifies a null owned TCTI handle is rejected during context creation.
 
-    tpmkit::tpm_context_config config;
-    config.tcti =
-        tpmkit::tcti_owned_handle{std::unique_ptr<TSS2_TCTI_CONTEXT, void (*)(TSS2_TCTI_CONTEXT*)>(
-            nullptr, finalize_tcti_handle)};
+    tpmkit::tpm2_esys::owned_tcti_context tcti{
+        std::unique_ptr<TSS2_TCTI_CONTEXT, void (*)(TSS2_TCTI_CONTEXT*)>(nullptr,
+                                                                         finalize_tcti_handle)};
 
-    const auto result = tpmkit::tpm_context::create(std::move(config));
+    const auto result = tpmkit::tpm2_esys::create_context(std::move(tcti));
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().category, tpmkit::error_category::input_error);
@@ -231,11 +234,10 @@ TEST(tpm_context_lifecycle, null_owned_handle_deleter_returns_input_error_withou
     // Verifies a missing owned-handle deleter is rejected without finalizing.
 
     tpmkit::testing::fake_tcti fake;
-    tpmkit::tpm_context_config config;
-    config.tcti = tpmkit::tcti_owned_handle{
+    tpmkit::tpm2_esys::owned_tcti_context tcti{
         std::unique_ptr<TSS2_TCTI_CONTEXT, void (*)(TSS2_TCTI_CONTEXT*)>(fake.handle(), nullptr)};
 
-    const auto result = tpmkit::tpm_context::create(std::move(config));
+    const auto result = tpmkit::tpm2_esys::create_context(std::move(tcti));
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().category, tpmkit::error_category::input_error);
@@ -249,7 +251,7 @@ TEST(tpm_context_lifecycle, startup_failure_finalizes_tcti_before_returning_erro
     tpmkit::testing::fake_tcti fake;
     fake.push_failure(TSS2_TCTI_RC_IO_ERROR);
 
-    const auto result = tpmkit::tpm_context::create(owned_config(fake, startup_mode::clear));
+    const auto result = create_owned_context(fake, startup_mode::clear);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().category, tpmkit::error_category::resource_error);
@@ -263,7 +265,7 @@ TEST(tpm_context_lifecycle, startup_transmit_failure_finalizes_tcti_before_retur
     tpmkit::testing::fake_tcti fake;
     fake.push_transmit_failure(TSS2_TCTI_RC_IO_ERROR);
 
-    const auto result = tpmkit::tpm_context::create(owned_config(fake, startup_mode::clear));
+    const auto result = create_owned_context(fake, startup_mode::clear);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().category, tpmkit::error_category::resource_error);
@@ -279,19 +281,24 @@ TEST(tpm_context_lifecycle, happy_path_emits_documented_lifecycle_sequence)
     fake.push_response(startup_response(TSS2_RC_SUCCESS));
 
     {
-        auto result = tpmkit::tpm_context::create(owned_config(fake, startup_mode::clear, log));
+        auto result = create_owned_context(fake, startup_mode::clear, log);
 
         ASSERT_TRUE(result.has_value());
     }
 
     const auto records = log->snapshot();
     ASSERT_EQ(records.size(), 6U);
-    EXPECT_EQ(std::string_view{records[0].message}, events::tcti_configuring);
-    EXPECT_EQ(std::string_view{records[1].message}, events::tcti_configured);
-    EXPECT_EQ(std::string_view{records[2].message}, events::esys_initialized);
-    EXPECT_EQ(std::string_view{records[3].message}, events::startup_invoked);
-    EXPECT_EQ(std::string_view{records[4].message}, events::startup_completed);
-    EXPECT_EQ(std::string_view{records[5].message}, events::finalized);
+    EXPECT_EQ(field_value(records[0], events::fields::event),
+              std::string{events::tcti_configuring.name});
+    EXPECT_EQ(field_value(records[1], events::fields::event),
+              std::string{events::tcti_configured.name});
+    EXPECT_EQ(field_value(records[2], events::fields::event),
+              std::string{events::esys_initialized.name});
+    EXPECT_EQ(field_value(records[3], events::fields::event),
+              std::string{events::startup_invoked.name});
+    EXPECT_EQ(field_value(records[4], events::fields::event),
+              std::string{events::startup_completed.name});
+    EXPECT_EQ(field_value(records[5], events::fields::event), std::string{events::finalized.name});
 }
 
 TEST(tpm_context_lifecycle, string_tcti_failure_logs_only_sanitized_module_name)
@@ -339,7 +346,7 @@ TEST(tpm_context_lifecycle, independent_contexts_are_thread_compatible)
     auto run = [&](const std::size_t index) {
         tpmkit::testing::fake_tcti fake;
         fake.push_response(startup_response(TSS2_RC_SUCCESS));
-        auto result = tpmkit::tpm_context::create(owned_config(fake, startup_mode::clear));
+        auto result = create_owned_context(fake, startup_mode::clear);
         succeeded[index] = result.has_value();
         transmits[index] = fake.transmits_observed();
     };

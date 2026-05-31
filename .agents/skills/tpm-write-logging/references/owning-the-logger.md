@@ -16,6 +16,13 @@ In a tpmkit-sized library this lands at roughly five to ten classes that take a 
 
 Adapters and the composition wiring take `logger& log` in the constructor, with a default of `noop_logger::instance()` so callers that do not care can omit it.
 
+Public configuration/factory APIs may expose `std::shared_ptr<logger> log =
+nullptr` for ABI-stable ownership and ergonomic defaults. That nullable value is
+accepted only at the boundary. The factory immediately resolves an effective
+logger (`nullptr` maps to `noop_logger`) and every object below that boundary
+stores or borrows a non-null logger reference/shared pointer. Do not scatter
+`if (log)` checks through adapters.
+
 ```cpp
 class esys_session_provider final : public session_provider {
 public:
@@ -114,7 +121,7 @@ Notes on the composition root:
 - **Singleton logger access** (`logger::instance()` returning a configurable mutable global, `spdlog::get("name")` from inside a class). Forbidden by `tpm-write-code` Anti-patterns and `architecture.md` Dependency inversion. Tests cannot isolate from each other; two `tpmkit` instances in the same process cannot use different loggers.
 - **Thread-local logger** (`thread_local logger* current_logger`). Cross-reference `concurrency.md` Thread-local state. Per-thread loggers would require thread-local storage owned by the library, which the rules forbid.
 - **Setter injection** (`adapter.set_logger(&log)` after construction). Two-phase initialization is forbidden by `code-standards.md` (Avoid two-phase initialization). The constructor either receives the logger or defaults to no-op; there is no third state.
-- **Optional `logger*` (raw pointer) parameter that may be null.** Reintroduces null checks at every call site. Use `logger&` with a no-op default instead.
+- **Optional `logger*` (raw pointer) parameter that may be null.** Reintroduces null checks at every call site. Use `logger&` with a no-op default inside adapters. Public config/factory `std::shared_ptr<logger>` values are the only nullable logger boundary and must be normalized immediately.
 - **Logger override on a context-derived factory** (`ctx.create_x(..., log)` or `create_x(ctx, ..., log)`). The context already owns the logger for that object graph; the derived component must borrow it.
 - **Backend-named context-derived factory** (`create_esys_x(ctx, ...)`). The backend is an internal adapter detail. Expose `ctx.create_x(...)` returning a domain port.
 - **Per-method logger parameter** (every method takes `logger&` as an argument). Adds permanent API noise for a cross-cutting concern. The constructor parameter pattern keeps the API clean.

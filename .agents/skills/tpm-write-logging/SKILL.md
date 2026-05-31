@@ -26,7 +26,7 @@ Constraints that follow from `logging.md` and `security.md`:
 
 ## Owning the logger
 
-The `logger` is a port like `key_provider` or `crypto_primitives`, but it is a **cross-cutting concern** — the operation's outcome does not depend on whether logging is enabled. The project's pattern is constructor injection of `logger& log` with a stateless no-op default (`noop_logger::instance()`), wired logger-first in the composition root so every adapter's reference outlives the adapter. Components derived from an existing owner/context use a backend-neutral owner member factory (`ctx.create_*()`), borrow the owner's effective logger internally, and do not expose another logger override. Singletons, thread-locals, globals, setter injection, and per-method logger parameters are all forbidden.
+The `logger` is a port like `key_provider` or `crypto_primitives`, but it is a **cross-cutting concern** — the operation's outcome does not depend on whether logging is enabled. The project's pattern is constructor injection of `logger& log` with a stateless no-op default (`noop_logger::instance()`), wired logger-first in the composition root so every adapter's reference outlives the adapter. Public configuration/factory APIs may accept a nullable `std::shared_ptr<logger>` only as a boundary convenience; normalize it immediately to an effective non-null logger (`nullptr` maps to `noop_logger`) and store/use the non-null logger thereafter. Components derived from an existing owner/context use a backend-neutral owner member factory (`ctx.create_*()`), borrow the owner's effective logger internally, and do not expose another logger override. Singletons, thread-locals, globals, setter injection, adapter-constructor nullable loggers, and per-method logger parameters are all forbidden.
 
 Read `references/owning-the-logger.md` when wiring a new adapter or composition root, deciding how a class should take the logger, creating a public factory from an existing context, or reviewing a PR that touches logger ownership. It covers the where-logging-lives split (adapters and composition only), the constructor-with-no-op-default sketch, context-derived component wiring, why a stateless no-op is not the singleton anti-pattern, the composition-root wiring example with lifetime-ordering rules, and the full anti-pattern list.
 
@@ -46,13 +46,22 @@ When you are about to write `logger_.log(...)` somewhere, walk through this:
 5. **Verify the never-log rules.** No key material, plaintext, ciphertext, MAC, signature, authorization value, PIN, passphrase, derived secret, raw handle value, or pointer (cross-reference `security.md` Logging, `logging.md` What never to log). When in doubt, omit the field.
 6. **Build the field array on the stack** with `std::array<log_field, N>`. Pass as `gsl::span` to `log()`. Do not allocate on a hot path.
 
+Implementation note for adapter-local event catalogs: keep each schema event name
+coupled to its fixed human message in one descriptor object. For the TPM2 ESYS
+adapter this is `events::event_descriptor` in
+`src/adapters/tpm2_esys/support/log_events.h`. Logging helpers should accept the
+descriptor and derive both the structured `event` field (`descriptor.name`) and
+the logger message (`descriptor.message`) from it. Do not maintain parallel
+`events::*` and `events::messages::*` constants, and do not pass message text and
+event names as independent parameters at call sites.
+
 ### Content rules for messages and fields
 
 Three rules apply on top of the never-log policy in `security.md` Logging:
 
 - **English only.** Messages and field keys are written in English, aligning with `code-standards.md` ("All code must be written in English"). This keeps log streams searchable across regions and avoids encoding pitfalls in adapters that assume narrow ASCII or UTF-8 subsets.
 
-- **Message text is fixed per call site — no format-string substitution.** Variable data goes in *fields*, never in the message. This is both a discipline rule (machines parse fields, not messages) and a security rule. Format-string injection is a real attack class — every layer that runs a runtime string through `printf`-family substitution becomes a place attacker-influenced bytes can corrupt the format. "Messages are string literals at compile time" forecloses that whole category by construction. `fmt::format` belongs *inside the adapter* on rendering, never at the call site.
+- **Message text is fixed human text per call site — no event names, no format-string substitution.** Variable data goes in *fields*, never in the message. Event identity goes in the structured `event` field (`descriptor.name`), while the logger message is human-readable wording (`descriptor.message`). This is both a discipline rule (machines parse fields, not messages) and a security rule. Format-string injection is a real attack class — every layer that runs a runtime string through `printf`-family substitution becomes a place attacker-influenced bytes can corrupt the format. "Messages are string literals at compile time" forecloses that whole category by construction. `fmt::format` belongs *inside the adapter* on rendering, never at the call site.
 
 - **Field values come from bounded sets or have bounded length.** Categorical values (`reason=hardware_busy`, `algorithm=ecdsa_p256`, `state_transition=opened_to_authenticated`) are best — they round-trip through queries cleanly and do not blow up log indexers. Numeric values with bounded magnitude (`attempt=2`, `duration_ms=42`) are fine. Free-form strings, raw nonces, randomly-generated identifiers, and other high-cardinality data create real cost on consumer infrastructure (one shard per unique value in many indexers) and usually overlap with the never-log list anyway. If a field looks high-cardinality, replace it with a bounded category (`size_bucket=medium` instead of `size=1024`) or omit it.
 
@@ -338,6 +347,9 @@ If a use case appears to require library-level support for one of the above, rai
 ## Common mistakes
 
 - **Inventing an event name at the call site instead of consulting the schema.** Two adapters end up with `tpm.session_started` and `tpm.session_open` for the same thing; consumers' queries miss half the lifetime.
+- **Splitting an event's schema name and message into parallel constants.** The call site
+  can then pair `message=A` with `event=B`. Keep them in one descriptor and pass that
+  descriptor through helper APIs.
 - **Stuffing variable data into the message text.** Use a field. The message is for humans; fields are for machines.
 - **Logging the raw `TSS2_RC` alongside a translated domain error in the same record.** The numeric code goes at the adapter boundary; the domain error goes at the operation result. Mixing them couples consumers to the third-party numbering scheme.
 - **Forgetting the `outcome` field** on a terminal log line. Without it, success and failure records look identical to a query.

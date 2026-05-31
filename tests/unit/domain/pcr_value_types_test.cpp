@@ -182,13 +182,10 @@ TEST(pcr_bank, constructs_from_supported_hash_algorithm)
 {
     // Verifies PCR banks preserve supported algorithms and digest sizes.
 
-    const tpmkit::pcr::bank sha1{tpmkit::hash_algorithm::sha1};
     const tpmkit::pcr::bank sha256{tpmkit::hash_algorithm::sha256};
     const tpmkit::pcr::bank sha384{tpmkit::hash_algorithm::sha384};
     const tpmkit::pcr::bank sha512{tpmkit::hash_algorithm::sha512};
 
-    EXPECT_EQ(sha1.algorithm(), tpmkit::hash_algorithm::sha1);
-    EXPECT_EQ(sha1.digest_size(), 20U);
     EXPECT_EQ(sha256.digest_size(), 32U);
     EXPECT_EQ(sha384.digest_size(), 48U);
     EXPECT_EQ(sha512.digest_size(), 64U);
@@ -199,6 +196,14 @@ TEST(pcr_bank, rejects_unsupported_hash_algorithm)
     // Verifies PCR banks reject values outside the hash algorithm vocabulary.
 
     EXPECT_THROW(static_cast<void>(tpmkit::pcr::bank{static_cast<tpmkit::hash_algorithm>(99)}),
+                 tpmkit::input_validation_error);
+}
+
+TEST(pcr_bank, rejects_sha1_when_legacy_pcr_support_is_disabled)
+{
+    // Verifies SHA-1 PCR banks require explicit legacy build opt-in.
+
+    EXPECT_THROW(static_cast<void>(tpmkit::pcr::bank{tpmkit::hash_algorithm::sha1}),
                  tpmkit::input_validation_error);
 }
 

@@ -1,0 +1,4 @@
+# Project-wide cppcheck suppressions.
+#
+# Keep this file intentionally small. New suppressions require a short inline
+# justification in the code or a documented reason in the PR.

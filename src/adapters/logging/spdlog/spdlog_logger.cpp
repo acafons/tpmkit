@@ -54,7 +54,11 @@ spdlog_logger& spdlog_logger::operator=(spdlog_logger&& other) noexcept
         return *this;
     }
 
-    const std::scoped_lock lock{mu_, other.mu_};
+    // Move assignment must hold both adapter mutexes without imposing an order
+    // on callers; std::lock provides the deadlock-free acquisition step.
+    std::lock(mu_, other.mu_);
+    const std::lock_guard<std::mutex> own_lock{mu_, std::adopt_lock};
+    const std::lock_guard<std::mutex> other_lock{other.mu_, std::adopt_lock};
     sink_ = std::move(other.sink_);
     return *this;
 }

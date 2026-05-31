@@ -45,6 +45,19 @@ Libs:
 ")
 endfunction()
 
+function(write_openssl_pc_file root version)
+    file(WRITE "${root}/pkgconfig/openssl.pc"
+"prefix=${root}
+includedir=${root}/include
+
+Name: openssl
+Description: Fake OpenSSL package for tpmkit discovery smoke tests
+Version: ${version}
+Cflags: -I${root}/include
+Libs:
+")
+endfunction()
+
 function(write_tss2_headers include_root)
     file(WRITE "${include_root}/tss2/tss2_common.h"
 "#pragma once
@@ -99,6 +112,8 @@ endfunction()
 
 write_tss2_pc_files("${good_pkg_root}" "4.1.3")
 write_tss2_pc_files("${bad_pkg_root}" "4.1.2")
+write_openssl_pc_file("${good_pkg_root}" "3.5.5")
+write_openssl_pc_file("${bad_pkg_root}" "3.5.5")
 write_tss2_headers("${good_pkg_root}/include")
 write_tss2_headers("${bad_pkg_root}/include")
 

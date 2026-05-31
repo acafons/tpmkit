@@ -152,7 +152,8 @@ public:
      * adapter escaping rules.
      *
      * @param[in] level Severity of the record.
-     * @param[in] message Stable event name or diagnostic text.
+     * @param[in] message Fixed human-readable log message. Event identity
+     *                    belongs in the structured `event` field.
      * @param[in] fields Non-owning field list valid for this call only.
      * @thread_safety Thread-safe.
      * @exception_safety noexcept; formatting or stream failures are swallowed.

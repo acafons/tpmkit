@@ -5,7 +5,6 @@
 #include <cctype>
 #include <string_view>
 #include <utility>
-#include <variant>
 
 namespace tpmkit::testing {
 
@@ -65,24 +64,9 @@ namespace {
         return tl::unexpected(error{error_category::input_error, "TPM startup mode is invalid"});
     }
 
-    if (const auto* const string_tcti = std::get_if<tcti_string_config>(&config.tcti)) {
-        if (!is_valid_string_config(*string_tcti)) {
-            return tl::unexpected(
-                error{error_category::input_error, "TCTI configuration must use name:args format"});
-        }
-    }
-
-    if (auto* const owned_tcti = std::get_if<tcti_owned_handle>(&config.tcti)) {
-        if (owned_tcti->handle == nullptr) {
-            return tl::unexpected(
-                error{error_category::input_error, "Owned TCTI handle must not be null"});
-        }
-
-        if (owned_tcti->handle.get_deleter() == nullptr) {
-            static_cast<void>(owned_tcti->handle.release());
-            return tl::unexpected(
-                error{error_category::input_error, "Owned TCTI handle deleter must not be null"});
-        }
+    if (!is_valid_string_config(config.tcti)) {
+        return tl::unexpected(
+            error{error_category::input_error, "TCTI configuration must use name:args format"});
     }
 
     return config;

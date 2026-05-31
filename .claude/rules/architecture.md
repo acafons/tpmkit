@@ -111,6 +111,12 @@ The two main backends are settled:
   accessors, or public headers unless the project deliberately introduces a
   separate low-level API. Prefer `tpm_context::create_*` factories that return
   domain ports for components borrowing a TPM connection.
+- Backend-neutral public headers must not expose TSS, OpenSSL, or other backend
+  handle types, even as opaque forward declarations. A low-level backend-named
+  public header is allowed only for a justified ownership-transfer contract,
+  such as one-way adoption of an owned TPM2 TSS TCTI handle under
+  `include/tpmkit/tpm2_esys/...`. Keep that surface out of neutral headers and
+  do not include it transitively from neutral headers.
 
 For the full walkthrough — file paths, CMake wiring, the per-adapter list, and the reasoning behind each choice — see `.agents/skills/tpm-write-code/references/worked-examples.md`.
 
@@ -134,3 +140,5 @@ For the full walkthrough — file paths, CMake wiring, the per-adapter list, and
 - Adapter-internal unit tests live under `tests/unit/<adapter>/`; grouped adapter families mirror their source layout, as logging does under `tests/unit/logging/<backend>/`. They may compile against backend SDK headers or constants, but they do not open real backend resources.
 - Each adapter has its own integration tests that exercise the real third-party library.
 - The mock adapter for a given port lives next to the real adapters under `src/adapters/mock/` so the contract is tested uniformly.
+- Every public port has a parameterized contract suite under `tests/contract/`
+  instantiated for the mock and each concrete adapter that implements the port.

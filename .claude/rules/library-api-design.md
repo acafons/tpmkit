@@ -7,8 +7,20 @@ These rules govern the public surface of the library. They apply to installed/pu
 - Public headers expose only the API surface — never implementation details, private helpers, or third-party types that are not part of the contract.
 - Place public headers under `include/<library_name>/` and internal headers under `src/`. Only `include/` is installed.
 - Keep public headers free of third-party includes when possible. Forward declare and move the include into the `.cpp` file.
+- Backend-neutral public headers must not expose backend handles or ABI types
+  such as `TSS2_TCTI_CONTEXT`, `ESYS_CONTEXT`, OpenSSL handles, or spdlog
+  concrete types. Only add a backend-named low-level public API when a concrete
+  use case cannot be represented by domain ports or backend-neutral
+  configuration. The current approved shape is one-way adoption of an owned TPM2
+  TSS TCTI handle through `<tpmkit/tpm2_esys/...>`, and that header must not be
+  included from backend-neutral headers.
 - Do not write `using namespace` at namespace scope in any public header.
-- Wrap the entire public API in a single top-level namespace named after the library. Place implementation-only types under a nested `detail` namespace and document that `detail` is not part of the public contract.
+- Wrap the public API in a single top-level namespace named after the library.
+- Do not place implementation-only types in public headers. When a helper must
+  appear in a public header for C++ mechanics such as templates, inline
+  functions, ADL, traits, or narrowly scoped friend declarations, put it under a
+  nested `detail` namespace and document that `detail` is not part of the public
+  contract.
 - Cohesive public component families live in nested domain namespaces that
   match their include folder. For example, PCR headers live under
   `<tpmkit/pcr/...>` and expose `tpmkit::pcr::*`. Future NV and key-management
