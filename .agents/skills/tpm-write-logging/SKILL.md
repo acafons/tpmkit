@@ -44,7 +44,11 @@ When you are about to write `logger_.log(...)` somewhere, walk through this:
 3. **Determine the required fields** for that event from the schema. These are mandatory; omitting them violates the schema.
 4. **Add optional fields** when they help diagnose without leaking. The schema lists candidates per event.
 5. **Verify the never-log rules.** No key material, plaintext, ciphertext, MAC, signature, authorization value, PIN, passphrase, derived secret, raw handle value, or pointer (cross-reference `security.md` Logging, `logging.md` What never to log). When in doubt, omit the field.
-6. **Build the field array on the stack** with `std::array<log_field, N>`. Pass as `gsl::span` to `log()`. Do not allocate on a hot path.
+6. **Build the field array on the stack** with `std::array<log_field, N>`.
+   Call sites provide only event-specific fields. Adapter-wide envelope fields
+   such as `event`, `component`, and terminal `outcome` belong in a shared
+   helper for that adapter; do not hand-build the same envelope in each
+   component. Do not allocate on a hot path.
 
 Implementation note for adapter-local event catalogs: keep each schema event name
 coupled to its fixed human message in one descriptor object. For the TPM2 ESYS
@@ -54,6 +58,14 @@ descriptor and derive both the structured `event` field (`descriptor.name`) and
 the logger message (`descriptor.message`) from it. Do not maintain parallel
 `events::*` and `events::messages::*` constants, and do not pass message text and
 event names as independent parameters at call sites.
+
+For adapter-wide record envelopes, centralize the mechanics near the event
+catalog and keep semantic helpers local to the component that understands the
+fields. In the TPM2 ESYS adapter, `src/adapters/tpm2_esys/support/log_record.h`
+adds the common `event`, `component=tpm2_esys`, and `outcome` fields. PCR
+helpers stay under `pcr/`, context lifecycle helpers stay under `context/`, and
+TSS failure helpers stay near error translation because they own return-code
+decoding and category mapping.
 
 ### Content rules for messages and fields
 

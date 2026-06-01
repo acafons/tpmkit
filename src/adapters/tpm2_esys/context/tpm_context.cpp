@@ -2,7 +2,7 @@
 
 #include "../pcr/esys_pcr_provider.h"
 #include "../support/error_translation.h"
-#include "../support/log_events.h"
+#include "../support/log_record.h"
 
 #include <tpmkit/logging/noop_logger.h>
 #include <tpmkit/tpm2_esys/owned_tcti_context.h>
@@ -80,34 +80,15 @@ struct resolved_tcti {
     return std::shared_ptr<logger>(&noop_logger::instance(), [](logger*) noexcept {});
 }
 
-template <std::size_t size>
-void log_event(logger* const log, const log_level level, const events::event_descriptor event,
-               const std::array<log_field, size>& fields)
-{
-    if (log == nullptr) {
-        return;
-    }
-
-    std::array<log_field, size + 2U> merged{};
-    merged[0U] = {events::fields::event, event.name};
-    merged[1U] = {events::fields::component, events::component_tpm2_esys};
-    for (std::size_t index = 0U; index < size; ++index) {
-        merged[index + 2U] = fields[index];
-    }
-
-    log->log(level, event.message, gsl::span<const log_field>(merged));
-}
-
 void log_tcti_event(logger* const log, const events::event_descriptor event,
                     const std::string_view kind, const std::string_view name)
 {
-    const std::array<log_field, 3U> fields{{
-        {events::fields::outcome, events::values::success},
+    const std::array<log_field, 2U> fields{{
         {events::fields::tcti_kind, kind},
         {events::fields::tcti_name, name},
     }};
 
-    log_event(log, log_level::info, event, fields);
+    detail::tpm2_esys::emit_success_record(log, event, fields);
 }
 
 [[nodiscard]] std::string startup_mode_name(const tpm_context_config::startup_mode mode) noexcept
@@ -200,11 +181,10 @@ initialize_esys(TSS2_TCTI_CONTEXT* const tcti, logger* const log,
     detail::tpm2_esys::unique_esys_ptr esys{raw_esys,
                                             detail::tpm2_esys::esys_context_deleter{&api}};
     const std::string abi_version_value = abi_version_string(abi_version);
-    const std::array<log_field, 2U> fields{{
+    const std::array<log_field, 1U> fields{{
         {events::fields::abi_version, abi_version_value},
-        {events::fields::outcome, events::values::success},
     }};
-    log_event(log, log_level::info, events::esys_initialized, fields);
+    detail::tpm2_esys::emit_success_record(log, events::esys_initialized, fields);
 
     return esys;
 }
@@ -214,19 +194,17 @@ initialize_esys(TSS2_TCTI_CONTEXT* const tcti, logger* const log,
                                       logger* const log, const detail::tpm2_esys::esys_api& api)
 {
     const std::string mode_name = startup_mode_name(mode);
-    const std::array<log_field, 2U> invoked_fields{{
-        {events::fields::outcome, events::values::success},
+    const std::array<log_field, 1U> invoked_fields{{
         {events::fields::startup_mode, mode_name},
     }};
-    log_event(log, log_level::info, events::startup_invoked, invoked_fields);
+    detail::tpm2_esys::emit_success_record(log, events::startup_invoked, invoked_fields);
 
     if (mode == tpm_context_config::startup_mode::skip) {
-        const std::array<log_field, 3U> completed_fields{{
-            {events::fields::outcome, events::values::success},
+        const std::array<log_field, 2U> completed_fields{{
             {events::fields::startup_mode, mode_name},
             {events::fields::result, "skipped"},
         }};
-        log_event(log, log_level::info, events::startup_completed, completed_fields);
+        detail::tpm2_esys::emit_success_record(log, events::startup_completed, completed_fields);
         return {};
     }
 
@@ -238,12 +216,11 @@ initialize_esys(TSS2_TCTI_CONTEXT* const tcti, logger* const log,
     }
 
     const std::string_view result = detail::tpm2_esys::startup_result_field(rc);
-    const std::array<log_field, 3U> completed_fields{{
-        {events::fields::outcome, events::values::success},
+    const std::array<log_field, 2U> completed_fields{{
         {events::fields::startup_mode, mode_name},
         {events::fields::result, result},
     }};
-    log_event(log, log_level::info, events::startup_completed, completed_fields);
+    detail::tpm2_esys::emit_success_record(log, events::startup_completed, completed_fields);
 
     return {};
 }
@@ -352,10 +329,8 @@ tpm_context::impl::impl(detail::tpm2_esys::unique_tcti_ptr tcti,
 
 tpm_context::impl::~impl() noexcept
 {
-    const std::array<log_field, 1U> fields{{
-        {events::fields::outcome, events::values::success},
-    }};
-    log_event(log_.get(), log_level::info, events::finalized, fields);
+    const std::array<log_field, 0U> fields{};
+    detail::tpm2_esys::emit_success_record(log_.get(), events::finalized, fields);
 }
 
 ESYS_CONTEXT* tpm_context::impl::esys() const noexcept

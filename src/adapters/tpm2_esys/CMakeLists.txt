@@ -17,6 +17,7 @@ target_sources(tpmkit
         support/error_translation.cpp
         support/error_translation.h
         support/log_events.h
+        support/log_record.h
         support/tss_error_decoder.h
 )
 target_link_libraries(tpmkit

@@ -1,6 +1,6 @@
 #include "error_translation.h"
 
-#include "log_events.h"
+#include "log_record.h"
 
 #include <tpmkit/logging/logger.h>
 
@@ -222,10 +222,7 @@ void log_tss_error(logger* const log, const TSS2_RC rc, const TSS2_RC layer,
 
     const std::string rc_hex = format_hex(rc);
     const std::string backend_error_description = decode_backend_error_description(rc, decoder);
-    const std::array<log_field, 8> fields{{
-        {events::fields::event, error_event.name},
-        {events::fields::component, events::component_tpm2_esys},
-        {events::fields::outcome, events::values::failure},
+    const std::array<log_field, 5> fields{{
         {events::fields::error_category, category_name(category)},
         {events::fields::error_code, rc_hex},
         {events::fields::backend_error_description, backend_error_description},
@@ -233,7 +230,7 @@ void log_tss_error(logger* const log, const TSS2_RC rc, const TSS2_RC layer,
         {events::fields::tss_layer, layer_name(layer)},
     }};
 
-    log->log(log_level::error, error_event.message, gsl::span<const log_field>(fields));
+    emit_failure_record(log, error_event, fields);
 }
 
 } // namespace
