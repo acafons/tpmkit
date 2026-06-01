@@ -18,7 +18,7 @@ namespace tpmkit {
 
 class logger;
 
-namespace detail::esys {
+namespace detail::tpm2_esys {
 
 using unique_tcti_ptr = std::unique_ptr<TSS2_TCTI_CONTEXT, void (*)(TSS2_TCTI_CONTEXT*)>;
 
@@ -36,5 +36,5 @@ struct tcti_loader_api {
 
 [[nodiscard]] const tcti_loader_api& default_tcti_loader_api() noexcept;
 
-} // namespace detail::esys
+} // namespace detail::tpm2_esys
 } // namespace tpmkit

@@ -28,7 +28,7 @@ constexpr auto input = tpmkit::error_category::input_error;
 constexpr auto security = tpmkit::error_category::security_failure;
 constexpr auto resource = tpmkit::error_category::resource_error;
 constexpr auto backend = tpmkit::error_category::backend_error;
-namespace events = tpmkit::detail::esys::events;
+namespace events = tpmkit::detail::tpm2_esys::events;
 
 const char* fake_decode_tss_rc(const TSS2_RC rc)
 {
@@ -162,7 +162,7 @@ TEST(error_translation, success_returns_value_without_logging)
     tpmkit::testing::recording_logger log;
 
     const auto result =
-        tpmkit::detail::esys::translate_tss_rc(TSS2_RC_SUCCESS, "esys_initialize", &log);
+        tpmkit::detail::tpm2_esys::translate_tss_rc(TSS2_RC_SUCCESS, "esys_initialize", &log);
 
     EXPECT_TRUE(result.has_value());
     EXPECT_TRUE(log.snapshot().empty());
@@ -174,7 +174,7 @@ TEST(error_translation, maps_every_documented_esapi_and_tcti_rc)
 
     for (const auto& test_case : documented_cases()) {
         const auto result =
-            tpmkit::detail::esys::translate_tss_rc(test_case.rc, "esys_initialize", nullptr);
+            tpmkit::detail::tpm2_esys::translate_tss_rc(test_case.rc, "esys_initialize", nullptr);
 
         ASSERT_FALSE(result.has_value()) << test_case.name;
         EXPECT_EQ(result.error().category, test_case.category) << test_case.name;
@@ -204,7 +204,7 @@ TEST(error_translation, maps_explicit_task_examples)
 
     for (const auto& test_case : cases) {
         const auto result =
-            tpmkit::detail::esys::translate_tss_rc(test_case.rc, "esys_startup", nullptr);
+            tpmkit::detail::tpm2_esys::translate_tss_rc(test_case.rc, "esys_startup", nullptr);
 
         ASSERT_FALSE(result.has_value()) << test_case.name;
         EXPECT_EQ(result.error().category, test_case.category) << test_case.name;
@@ -235,7 +235,7 @@ TEST(error_translation, maps_pcr_specific_tpm_return_codes)
 
     for (const auto& test_case : cases) {
         const auto result =
-            tpmkit::detail::esys::translate_tss_rc(test_case.rc, "pcr_extend", nullptr);
+            tpmkit::detail::tpm2_esys::translate_tss_rc(test_case.rc, "pcr_extend", nullptr);
 
         ASSERT_FALSE(result.has_value()) << test_case.name;
         EXPECT_EQ(result.error().category, test_case.category) << test_case.name;
@@ -269,8 +269,8 @@ TEST(error_translation, maps_parameterized_tpm_return_codes_to_base_categories)
 #endif
 
     for (const auto& test_case : cases) {
-        const auto result =
-            tpmkit::detail::esys::translate_tss_rc(test_case.rc, "pcr_set_auth_policy", nullptr);
+        const auto result = tpmkit::detail::tpm2_esys::translate_tss_rc(
+            test_case.rc, "pcr_set_auth_policy", nullptr);
 
         ASSERT_FALSE(result.has_value()) << test_case.name;
         EXPECT_EQ(result.error().category, test_case.category) << test_case.name;
@@ -293,7 +293,7 @@ TEST(error_translation, logs_non_success_rc_with_schema_fields)
 #endif
     tpmkit::testing::recording_logger log;
 
-    const auto result = tpmkit::detail::esys::translate_tss_rc(
+    const auto result = tpmkit::detail::tpm2_esys::translate_tss_rc(
         rc, "tcti_init", &log, events::tss_error, fake_decode_tss_rc);
 
     ASSERT_FALSE(result.has_value());
@@ -349,7 +349,7 @@ TEST(error_translation, overload_logs_custom_error_event)
 #endif
     tpmkit::testing::recording_logger log;
 
-    const auto result = tpmkit::detail::esys::translate_tss_rc(
+    const auto result = tpmkit::detail::tpm2_esys::translate_tss_rc(
         rc, "pcr_extend", &log, events::pcr_tss_error, fake_decode_tss_rc);
 
     ASSERT_FALSE(result.has_value());
@@ -383,7 +383,7 @@ TEST(error_translation, logs_representative_tss_layer_names)
     for (const auto& test_case : cases) {
         tpmkit::testing::recording_logger log;
 
-        const auto result = tpmkit::detail::esys::translate_tss_rc(
+        const auto result = tpmkit::detail::tpm2_esys::translate_tss_rc(
             test_case.rc, "esys_startup", &log, events::tss_error, fake_decode_tss_rc);
 
         ASSERT_FALSE(result.has_value()) << test_case.name;

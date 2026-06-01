@@ -13,7 +13,7 @@
 
 typedef struct ESYS_CONTEXT ESYS_CONTEXT;
 
-namespace tpmkit::detail::esys {
+namespace tpmkit::detail::tpm2_esys {
 
 [[nodiscard]] outcome<void> ensure_bank_count(gsl::span<const pcr::bank> banks);
 
@@ -30,4 +30,4 @@ namespace tpmkit::detail::esys {
 
 [[nodiscard]] outcome<void> ensure_sized_buffer_fits(std::size_t size, std::string_view message);
 
-} // namespace tpmkit::detail::esys
+} // namespace tpmkit::detail::tpm2_esys

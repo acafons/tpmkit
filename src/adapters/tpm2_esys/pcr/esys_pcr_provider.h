@@ -15,7 +15,7 @@ namespace tpmkit {
 
 class logger;
 
-namespace detail::esys {
+namespace detail::tpm2_esys {
 
 class esys_pcr_provider final : public pcr::provider {
 public:
@@ -41,5 +41,5 @@ private:
     pcr::observer* observer_;
 };
 
-} // namespace detail::esys
+} // namespace detail::tpm2_esys
 } // namespace tpmkit

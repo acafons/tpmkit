@@ -10,7 +10,7 @@ namespace tpmkit {
 
 class logger;
 
-namespace detail::esys {
+namespace detail::tpm2_esys {
 
 void log_allocate_completed(logger& log, bool allocation_success, std::size_t bank_count);
 
@@ -27,5 +27,5 @@ void log_read_completed(logger& log, const pcr::selection& selection, std::size_
 
 void log_reset_completed(logger& log, pcr::index index);
 
-} // namespace detail::esys
+} // namespace detail::tpm2_esys
 } // namespace tpmkit

@@ -42,9 +42,9 @@ const char* fake_decode_error(TSS2_RC)
     return "fake tcti loader error";
 }
 
-const tpmkit::detail::esys::tcti_loader_api& failing_loader_api()
+const tpmkit::detail::tpm2_esys::tcti_loader_api& failing_loader_api()
 {
-    static const tpmkit::detail::esys::tcti_loader_api api{
+    static const tpmkit::detail::tpm2_esys::tcti_loader_api api{
         fake_get_info_failure,
         fake_free_info,
         fake_loader_init,
@@ -80,7 +80,7 @@ TEST(tcti_loader, rejects_empty_config_without_tss_code_in_message)
 
     const tpmkit::tcti_string_config config{""};
 
-    const auto result = tpmkit::detail::esys::load_tcti(config, nullptr, failing_loader_api());
+    const auto result = tpmkit::detail::tpm2_esys::load_tcti(config, nullptr, failing_loader_api());
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().category, tpmkit::error_category::input_error);
@@ -93,7 +93,7 @@ TEST(tcti_loader, rejects_whitespace_only_config)
 
     const tpmkit::tcti_string_config config{" \t\n "};
 
-    const auto result = tpmkit::detail::esys::load_tcti(config, nullptr, failing_loader_api());
+    const auto result = tpmkit::detail::tpm2_esys::load_tcti(config, nullptr, failing_loader_api());
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().category, tpmkit::error_category::input_error);
@@ -106,7 +106,7 @@ TEST(tcti_loader, rejects_missing_colon_shape_before_adapter_boundary_log)
     tpmkit::testing::recording_logger log;
     const tpmkit::tcti_string_config config{"swtpm"};
 
-    const auto result = tpmkit::detail::esys::load_tcti(config, &log, failing_loader_api());
+    const auto result = tpmkit::detail::tpm2_esys::load_tcti(config, &log, failing_loader_api());
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().category, tpmkit::error_category::input_error);
@@ -119,7 +119,7 @@ TEST(tcti_loader, rejects_missing_name_before_colon)
 
     const tpmkit::tcti_string_config config{":socket=/tmp/tpm.sock"};
 
-    const auto result = tpmkit::detail::esys::load_tcti(config, nullptr, failing_loader_api());
+    const auto result = tpmkit::detail::tpm2_esys::load_tcti(config, nullptr, failing_loader_api());
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().category, tpmkit::error_category::input_error);
@@ -132,7 +132,7 @@ TEST(tcti_loader, does_not_log_client_side_validation_failures)
     tpmkit::testing::recording_logger log;
     const tpmkit::tcti_string_config config{" :socket=/tmp/tpm.sock"};
 
-    const auto result = tpmkit::detail::esys::load_tcti(config, &log, failing_loader_api());
+    const auto result = tpmkit::detail::tpm2_esys::load_tcti(config, &log, failing_loader_api());
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().category, tpmkit::error_category::input_error);
@@ -146,7 +146,7 @@ TEST(tcti_loader, unknown_tcti_name_returns_input_error_without_tss_code)
     tpmkit::testing::recording_logger log;
     const tpmkit::tcti_string_config config{"not_a_real_tcti:config"};
 
-    const auto result = tpmkit::detail::esys::load_tcti(config, &log, failing_loader_api());
+    const auto result = tpmkit::detail::tpm2_esys::load_tcti(config, &log, failing_loader_api());
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().category, tpmkit::error_category::input_error);
@@ -155,26 +155,28 @@ TEST(tcti_loader, unknown_tcti_name_returns_input_error_without_tss_code)
     ASSERT_EQ(records.size(), 1U);
     EXPECT_EQ(records.front().level, tpmkit::log_level::error);
     EXPECT_EQ(records.front().message,
-              std::string{tpmkit::detail::esys::events::tss_error.message});
+              std::string{tpmkit::detail::tpm2_esys::events::tss_error.message});
     EXPECT_EQ(records.front().fields.size(), 8U);
     const auto* event =
-        find_field(records.front().fields, tpmkit::detail::esys::events::fields::event);
+        find_field(records.front().fields, tpmkit::detail::tpm2_esys::events::fields::event);
     const auto* component =
-        find_field(records.front().fields, tpmkit::detail::esys::events::fields::component);
+        find_field(records.front().fields, tpmkit::detail::tpm2_esys::events::fields::component);
     const auto* outcome =
-        find_field(records.front().fields, tpmkit::detail::esys::events::fields::outcome);
+        find_field(records.front().fields, tpmkit::detail::tpm2_esys::events::fields::outcome);
     const auto* operation =
-        find_field(records.front().fields, tpmkit::detail::esys::events::fields::operation);
-    const auto* backend_description = find_field(
-        records.front().fields, tpmkit::detail::esys::events::fields::backend_error_description);
+        find_field(records.front().fields, tpmkit::detail::tpm2_esys::events::fields::operation);
+    const auto* backend_description =
+        find_field(records.front().fields,
+                   tpmkit::detail::tpm2_esys::events::fields::backend_error_description);
     ASSERT_NE(event, nullptr);
     ASSERT_NE(component, nullptr);
     ASSERT_NE(outcome, nullptr);
     ASSERT_NE(operation, nullptr);
     ASSERT_NE(backend_description, nullptr);
-    EXPECT_EQ(event->second, std::string{tpmkit::detail::esys::events::tss_error.name});
-    EXPECT_EQ(component->second, std::string{tpmkit::detail::esys::events::component_tpm2_esys});
-    EXPECT_EQ(outcome->second, std::string{tpmkit::detail::esys::events::values::failure});
+    EXPECT_EQ(event->second, std::string{tpmkit::detail::tpm2_esys::events::tss_error.name});
+    EXPECT_EQ(component->second,
+              std::string{tpmkit::detail::tpm2_esys::events::component_tpm2_esys});
+    EXPECT_EQ(outcome->second, std::string{tpmkit::detail::tpm2_esys::events::values::failure});
     EXPECT_EQ(operation->second, "tcti_init");
     EXPECT_EQ(backend_description->second, "fake tcti loader error");
 }

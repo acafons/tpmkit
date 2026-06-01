@@ -21,10 +21,10 @@
 namespace tpmkit {
 namespace {
 
-namespace events = detail::esys::events;
+namespace events = detail::tpm2_esys::events;
 
 struct resolved_tcti {
-    detail::esys::unique_tcti_ptr handle;
+    detail::tpm2_esys::unique_tcti_ptr handle;
 };
 
 [[nodiscard]] bool is_space(const char value) noexcept
@@ -166,16 +166,16 @@ void log_tcti_event(logger* const log, const events::event_descriptor event,
            std::to_string(version.tssLevel) + "." + std::to_string(version.tssVersion);
 }
 
-[[nodiscard]] outcome<resolved_tcti> resolve_tcti(const tcti_string_config& string_config,
-                                                  logger* const log,
-                                                  const detail::esys::tcti_loader_api& tcti_api)
+[[nodiscard]] outcome<resolved_tcti>
+resolve_tcti(const tcti_string_config& string_config, logger* const log,
+             const detail::tpm2_esys::tcti_loader_api& tcti_api)
 {
     const std::string tcti_name = sanitized_tcti_name(string_config);
     if (!tcti_name.empty()) {
         log_tcti_event(log, events::tcti_configuring, "string", tcti_name);
     }
 
-    auto loaded = detail::esys::load_tcti(string_config, log, tcti_api);
+    auto loaded = detail::tpm2_esys::load_tcti(string_config, log, tcti_api);
     if (!loaded.has_value()) {
         return tl::unexpected(loaded.error());
     }
@@ -184,19 +184,21 @@ void log_tcti_event(logger* const log, const events::event_descriptor event,
     return resolved_tcti{*std::move(loaded)};
 }
 
-[[nodiscard]] outcome<detail::esys::unique_esys_ptr>
-initialize_esys(TSS2_TCTI_CONTEXT* const tcti, logger* const log, const detail::esys::esys_api& api)
+[[nodiscard]] outcome<detail::tpm2_esys::unique_esys_ptr>
+initialize_esys(TSS2_TCTI_CONTEXT* const tcti, logger* const log,
+                const detail::tpm2_esys::esys_api& api)
 {
     ESYS_CONTEXT* raw_esys = nullptr;
     TSS2_ABI_VERSION abi_version = TSS2_ABI_VERSION_CURRENT;
     const TSS2_RC rc = api.initialize(&raw_esys, tcti, &abi_version);
     if (rc != TSS2_RC_SUCCESS) {
-        auto translated = detail::esys::translate_tss_rc(rc, "esys_initialize", log,
-                                                         events::tss_error, api.decode_error);
+        auto translated = detail::tpm2_esys::translate_tss_rc(rc, "esys_initialize", log,
+                                                              events::tss_error, api.decode_error);
         return tl::unexpected(translated.error());
     }
 
-    detail::esys::unique_esys_ptr esys{raw_esys, detail::esys::esys_context_deleter{&api}};
+    detail::tpm2_esys::unique_esys_ptr esys{raw_esys,
+                                            detail::tpm2_esys::esys_context_deleter{&api}};
     const std::string abi_version_value = abi_version_string(abi_version);
     const std::array<log_field, 2U> fields{{
         {events::fields::abi_version, abi_version_value},
@@ -209,7 +211,7 @@ initialize_esys(TSS2_TCTI_CONTEXT* const tcti, logger* const log, const detail::
 
 [[nodiscard]] outcome<void> start_tpm(ESYS_CONTEXT* const esys,
                                       const tpm_context_config::startup_mode mode,
-                                      logger* const log, const detail::esys::esys_api& api)
+                                      logger* const log, const detail::tpm2_esys::esys_api& api)
 {
     const std::string mode_name = startup_mode_name(mode);
     const std::array<log_field, 2U> invoked_fields{{
@@ -229,13 +231,13 @@ initialize_esys(TSS2_TCTI_CONTEXT* const tcti, logger* const log, const detail::
     }
 
     const TSS2_RC rc = api.startup(esys, startup_type(mode));
-    if (rc != TSS2_RC_SUCCESS && !detail::esys::is_startup_already_initialized(rc)) {
-        auto translated = detail::esys::translate_tss_rc(rc, "esys_startup", log, events::tss_error,
-                                                         api.decode_error);
+    if (rc != TSS2_RC_SUCCESS && !detail::tpm2_esys::is_startup_already_initialized(rc)) {
+        auto translated = detail::tpm2_esys::translate_tss_rc(rc, "esys_startup", log,
+                                                              events::tss_error, api.decode_error);
         return tl::unexpected(translated.error());
     }
 
-    const std::string_view result = detail::esys::startup_result_field(rc);
+    const std::string_view result = detail::tpm2_esys::startup_result_field(rc);
     const std::array<log_field, 3U> completed_fields{{
         {events::fields::outcome, events::values::success},
         {events::fields::startup_mode, mode_name},
@@ -248,7 +250,7 @@ initialize_esys(TSS2_TCTI_CONTEXT* const tcti, logger* const log, const detail::
 
 } // namespace
 
-namespace detail::esys {
+namespace detail::tpm2_esys {
 
 bool is_startup_already_initialized(const TSS2_RC rc) noexcept
 {
@@ -261,15 +263,15 @@ std::string_view startup_result_field(const TSS2_RC rc) noexcept
                                               : std::string_view{"ok"};
 }
 
-} // namespace detail::esys
+} // namespace detail::tpm2_esys
 
 namespace detail {
 
 struct tpm_context_factory {
     [[nodiscard]] static outcome<tpm_context>
-    create_from_resolved_tcti(esys::unique_tcti_ptr tcti,
+    create_from_resolved_tcti(tpm2_esys::unique_tcti_ptr tcti,
                               const tpm_context_config::startup_mode startup,
-                              std::shared_ptr<logger> log, const esys::esys_api& api)
+                              std::shared_ptr<logger> log, const tpm2_esys::esys_api& api)
     {
         auto esys = initialize_esys(tcti.get(), log.get(), api);
         if (!esys.has_value()) {
@@ -289,7 +291,7 @@ struct tpm_context_factory {
 
 } // namespace detail
 
-namespace detail::esys {
+namespace detail::tpm2_esys {
 
 outcome<tpm_context> create_context_from_config(tpm_context_config config,
                                                 const tcti_loader_api& tcti_api,
@@ -311,7 +313,7 @@ outcome<tpm_context> create_context_from_config(tpm_context_config config,
         std::move(tcti->handle), config.startup, std::move(log), api);
 }
 
-outcome<tpm_context> create_context_from_owned_tcti(tpm2_esys::owned_tcti_context tcti,
+outcome<tpm_context> create_context_from_owned_tcti(::tpmkit::tpm2_esys::owned_tcti_context tcti,
                                                     const tpm_context_config::startup_mode startup,
                                                     std::shared_ptr<logger> log,
                                                     const esys_api& api)
@@ -340,10 +342,11 @@ outcome<tpm_context> create_context_from_owned_tcti(tpm2_esys::owned_tcti_contex
         std::move(owned_tcti), startup, std::move(effective_log), api);
 }
 
-} // namespace detail::esys
+} // namespace detail::tpm2_esys
 
-tpm_context::impl::impl(detail::esys::unique_tcti_ptr tcti, detail::esys::unique_esys_ptr esys,
-                        std::shared_ptr<logger> log, const detail::esys::esys_api& api) noexcept
+tpm_context::impl::impl(detail::tpm2_esys::unique_tcti_ptr tcti,
+                        detail::tpm2_esys::unique_esys_ptr esys, std::shared_ptr<logger> log,
+                        const detail::tpm2_esys::esys_api& api) noexcept
     : tcti_{std::move(tcti)}, esys_{std::move(esys)}, log_{std::move(log)}, api_{api}
 {}
 
@@ -360,7 +363,7 @@ ESYS_CONTEXT* tpm_context::impl::esys() const noexcept
     return esys_.get();
 }
 
-const detail::esys::esys_api& tpm_context::impl::esys_api() const noexcept
+const detail::tpm2_esys::esys_api& tpm_context::impl::esys_api() const noexcept
 {
     return api_;
 }
@@ -382,9 +385,9 @@ tpm_context::tpm_context(std::unique_ptr<impl> implementation) noexcept
 
 outcome<tpm_context> tpm_context::create(tpm_context_config config)
 {
-    return detail::esys::create_context_from_config(std::move(config),
-                                                    detail::esys::default_tcti_loader_api(),
-                                                    detail::esys::default_esys_api());
+    return detail::tpm2_esys::create_context_from_config(
+        std::move(config), detail::tpm2_esys::default_tcti_loader_api(),
+        detail::tpm2_esys::default_esys_api());
 }
 
 outcome<tpm_context> tpm_context::create(std::string tcti_config,
@@ -406,8 +409,8 @@ tpm_context::create_pcr_provider(pcr::observer* const observer)
             error{error_category::resource_error, "TPM context does not contain a usable backend"});
     }
 
-    return std::make_unique<detail::esys::esys_pcr_provider>(impl_->esys(), impl_->log(), observer,
-                                                             impl_->esys_api());
+    return std::make_unique<detail::tpm2_esys::esys_pcr_provider>(impl_->esys(), impl_->log(),
+                                                                  observer, impl_->esys_api());
 }
 
 namespace tpm2_esys {
@@ -416,8 +419,8 @@ outcome<tpm_context> create_context(owned_tcti_context tcti,
                                     const tpm_context_config::startup_mode startup,
                                     std::shared_ptr<logger> log)
 {
-    return detail::esys::create_context_from_owned_tcti(std::move(tcti), startup, std::move(log),
-                                                        detail::esys::default_esys_api());
+    return detail::tpm2_esys::create_context_from_owned_tcti(
+        std::move(tcti), startup, std::move(log), detail::tpm2_esys::default_esys_api());
 }
 
 } // namespace tpm2_esys

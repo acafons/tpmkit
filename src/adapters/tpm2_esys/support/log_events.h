@@ -2,7 +2,7 @@
 
 #include <string_view>
 
-namespace tpmkit::detail::esys::events {
+namespace tpmkit::detail::tpm2_esys::events {
 
 struct event_descriptor {
     std::string_view name;
@@ -75,4 +75,4 @@ inline constexpr std::string_view success = "success";
 
 } // namespace values
 
-} // namespace tpmkit::detail::esys::events
+} // namespace tpmkit::detail::tpm2_esys::events

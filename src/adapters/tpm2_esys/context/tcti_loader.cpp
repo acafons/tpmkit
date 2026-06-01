@@ -14,7 +14,7 @@
 #include <string>
 #include <string_view>
 
-namespace tpmkit::detail::esys {
+namespace tpmkit::detail::tpm2_esys {
 namespace {
 
 constexpr std::string_view tcti_invalid_message = "TCTI configuration must use name:args format";
@@ -198,4 +198,4 @@ outcome<unique_tcti_ptr> load_tcti(const tcti_string_config& config, logger* con
     return unique_tcti_ptr{pending_context.context.release(), &finalize_loaded_tcti};
 }
 
-} // namespace tpmkit::detail::esys
+} // namespace tpmkit::detail::tpm2_esys

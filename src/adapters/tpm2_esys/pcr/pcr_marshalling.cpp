@@ -7,7 +7,7 @@
 #include <set>
 #include <utility>
 
-namespace tpmkit::detail::esys {
+namespace tpmkit::detail::tpm2_esys {
 namespace {
 
 constexpr std::uint8_t pcr_select_min_size = 3U;
@@ -319,4 +319,4 @@ TPM2B_DIGEST to_tpm_sized_digest(const gsl::span<const std::uint8_t> bytes) noex
     return result;
 }
 
-} // namespace tpmkit::detail::esys
+} // namespace tpmkit::detail::tpm2_esys

@@ -6,7 +6,7 @@
 
 namespace {
 
-namespace events = tpmkit::detail::esys::events;
+namespace events = tpmkit::detail::tpm2_esys::events;
 
 struct schema_constant {
     std::string_view actual;

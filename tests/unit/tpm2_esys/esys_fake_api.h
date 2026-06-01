@@ -322,9 +322,9 @@ inline const char* fake_decode_error(TSS2_RC)
     return "fake esys error";
 }
 
-inline const detail::esys::esys_api& fake_api() noexcept
+inline const detail::tpm2_esys::esys_api& fake_api() noexcept
 {
-    static const detail::esys::esys_api api{
+    static const detail::tpm2_esys::esys_api api{
         fake_initialize,          fake_finalize,           fake_free,     fake_pcr_allocate,
         fake_pcr_event,           fake_pcr_extend,         fake_pcr_read, fake_pcr_reset,
         fake_pcr_set_auth_policy, fake_pcr_set_auth_value, fake_startup,  fake_tr_set_auth,
@@ -351,7 +351,7 @@ inline tpmkit::pcr::digest_value sha256_digest(const std::uint8_t seed)
 
 inline TPML_PCR_SELECTION sha256_selection(const std::uint8_t pcr)
 {
-    return detail::esys::to_tpm_selection(
+    return detail::tpm2_esys::to_tpm_selection(
         tpmkit::pcr::selection{tpmkit::hash_algorithm::sha256, {tpmkit::pcr::index{pcr}}});
 }
 
@@ -366,7 +366,7 @@ inline TPML_DIGEST read_values(const std::vector<std::uint8_t>& digest)
 
 inline TPML_DIGEST_VALUES digest_values(const tpmkit::pcr::digest_value& digest)
 {
-    return detail::esys::to_tpm_digest_values(gsl::make_span(&digest, 1U));
+    return detail::tpm2_esys::to_tpm_digest_values(gsl::make_span(&digest, 1U));
 }
 
 inline std::string field_value(const tpmkit::testing::log_record& record,

@@ -8,7 +8,7 @@
 
 #include <memory>
 
-namespace tpmkit::detail::esys {
+namespace tpmkit::detail::tpm2_esys {
 namespace {
 
 using unique_digest_values = std::unique_ptr<TPML_DIGEST_VALUES, void (*)(void*) noexcept>;
@@ -268,4 +268,4 @@ outcome<void> esys_pcr_provider::set_auth_value(const pcr::index index, secret_b
     return {};
 }
 
-} // namespace tpmkit::detail::esys
+} // namespace tpmkit::detail::tpm2_esys

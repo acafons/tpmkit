@@ -2,7 +2,7 @@
 
 #include <tss2/tss2_rc.h>
 
-namespace tpmkit::detail::esys {
+namespace tpmkit::detail::tpm2_esys {
 namespace {
 
 TSS2_RC initialize(ESYS_CONTEXT** const esys_context, TSS2_TCTI_CONTEXT* const tcti,
@@ -110,4 +110,4 @@ const esys_api& default_esys_api() noexcept
     return api;
 }
 
-} // namespace tpmkit::detail::esys
+} // namespace tpmkit::detail::tpm2_esys

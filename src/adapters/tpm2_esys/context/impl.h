@@ -13,7 +13,7 @@
 
 namespace tpmkit {
 
-namespace detail::esys {
+namespace detail::tpm2_esys {
 
 using unique_esys_ptr = std::unique_ptr<ESYS_CONTEXT, esys_context_deleter>;
 
@@ -22,7 +22,7 @@ using unique_esys_ptr = std::unique_ptr<ESYS_CONTEXT, esys_context_deleter>;
 [[nodiscard]] std::string_view startup_result_field(TSS2_RC rc) noexcept;
 
 [[nodiscard]] outcome<tpm_context>
-create_context_from_owned_tcti(tpm2_esys::owned_tcti_context tcti,
+create_context_from_owned_tcti(::tpmkit::tpm2_esys::owned_tcti_context tcti,
                                tpm_context_config::startup_mode startup,
                                std::shared_ptr<logger> log, const esys_api& api);
 
@@ -30,12 +30,12 @@ create_context_from_owned_tcti(tpm2_esys::owned_tcti_context tcti,
                                                               const tcti_loader_api& tcti_api,
                                                               const esys_api& api);
 
-} // namespace detail::esys
+} // namespace detail::tpm2_esys
 
 class tpm_context::impl final {
 public:
-    impl(detail::esys::unique_tcti_ptr tcti, detail::esys::unique_esys_ptr esys,
-         std::shared_ptr<logger> log, const detail::esys::esys_api& api) noexcept;
+    impl(detail::tpm2_esys::unique_tcti_ptr tcti, detail::tpm2_esys::unique_esys_ptr esys,
+         std::shared_ptr<logger> log, const detail::tpm2_esys::esys_api& api) noexcept;
 
     ~impl() noexcept;
 
@@ -43,16 +43,16 @@ public:
     impl& operator=(const impl&) = delete;
 
     [[nodiscard]] ESYS_CONTEXT* esys() const noexcept;
-    [[nodiscard]] const detail::esys::esys_api& esys_api() const noexcept;
+    [[nodiscard]] const detail::tpm2_esys::esys_api& esys_api() const noexcept;
     [[nodiscard]] logger& log() const noexcept;
 
 private:
     // Non-alphabetical order is intentional: C++ destroys in reverse declaration
     // order, so esys_ is finalised before tcti_ — matching the TSS teardown contract.
-    detail::esys::unique_tcti_ptr tcti_;
-    detail::esys::unique_esys_ptr esys_;
+    detail::tpm2_esys::unique_tcti_ptr tcti_;
+    detail::tpm2_esys::unique_esys_ptr esys_;
     std::shared_ptr<logger> log_;
-    const detail::esys::esys_api& api_;
+    const detail::tpm2_esys::esys_api& api_;
 };
 
 } // namespace tpmkit

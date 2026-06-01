@@ -28,7 +28,7 @@ TEST(tcti_loader_integration, loads_configured_simulator_tcti)
 
     const tpmkit::tcti_string_config config{swtpm_tcti()};
 
-    auto result = tpmkit::detail::esys::load_tcti(config, nullptr);
+    auto result = tpmkit::detail::tpm2_esys::load_tcti(config, nullptr);
 
     ASSERT_TRUE(result.has_value()) << result.error().message;
     EXPECT_NE(result->get(), nullptr);
@@ -40,7 +40,7 @@ TEST(tcti_loader_integration, invalid_device_config_returns_error_without_leakin
 
     const tpmkit::tcti_string_config config{"device:/dev/nonexistent"};
 
-    auto result = tpmkit::detail::esys::load_tcti(config, nullptr);
+    auto result = tpmkit::detail::tpm2_esys::load_tcti(config, nullptr);
 
     ASSERT_FALSE(result.has_value());
     EXPECT_TRUE(result.error().category == tpmkit::error_category::resource_error ||
@@ -55,7 +55,7 @@ TEST(tcti_loader_integration, successful_load_emits_no_error_records)
     tpmkit::testing::recording_logger log;
     const tpmkit::tcti_string_config config{swtpm_tcti()};
 
-    auto result = tpmkit::detail::esys::load_tcti(config, &log);
+    auto result = tpmkit::detail::tpm2_esys::load_tcti(config, &log);
 
     ASSERT_TRUE(result.has_value()) << result.error().message;
     const auto records = log.snapshot();
@@ -72,26 +72,27 @@ TEST(tcti_loader_integration, failed_load_emits_tss_error_record_with_operation_
     tpmkit::testing::recording_logger log;
     const tpmkit::tcti_string_config config{"device:/dev/nonexistent"};
 
-    auto result = tpmkit::detail::esys::load_tcti(config, &log);
+    auto result = tpmkit::detail::tpm2_esys::load_tcti(config, &log);
 
     ASSERT_FALSE(result.has_value());
     const auto records = log.snapshot();
     const auto it = std::find_if(records.begin(), records.end(), [](const auto& r) {
         return r.level == tpmkit::log_level::error &&
                std::any_of(r.fields.begin(), r.fields.end(), [](const auto& f) {
-                   return f.first == tpmkit::detail::esys::events::fields::event &&
-                          f.second == tpmkit::detail::esys::events::tss_error.name;
+                   return f.first == tpmkit::detail::tpm2_esys::events::fields::event &&
+                          f.second == tpmkit::detail::tpm2_esys::events::tss_error.name;
                });
     });
     ASSERT_NE(it, records.end()) << "expected a tss_error log record";
     const bool has_operation = std::any_of(it->fields.begin(), it->fields.end(), [](const auto& f) {
-        return f.first == tpmkit::detail::esys::events::fields::operation &&
+        return f.first == tpmkit::detail::tpm2_esys::events::fields::operation &&
                f.second == "tcti_init";
     });
     EXPECT_TRUE(has_operation);
     const bool has_backend_error_description =
         std::any_of(it->fields.begin(), it->fields.end(), [](const auto& f) {
-            return f.first == tpmkit::detail::esys::events::fields::backend_error_description &&
+            return f.first ==
+                       tpmkit::detail::tpm2_esys::events::fields::backend_error_description &&
                    !f.second.empty();
         });
     EXPECT_TRUE(has_backend_error_description);

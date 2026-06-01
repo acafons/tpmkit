@@ -7,7 +7,7 @@
 #include <set>
 #include <string>
 
-namespace tpmkit::detail::esys {
+namespace tpmkit::detail::tpm2_esys {
 
 outcome<void> ensure_bank_count(const gsl::span<const pcr::bank> banks)
 {
@@ -107,4 +107,4 @@ outcome<void> ensure_sized_buffer_fits(const std::size_t size, const std::string
     return {};
 }
 
-} // namespace tpmkit::detail::esys
+} // namespace tpmkit::detail::tpm2_esys

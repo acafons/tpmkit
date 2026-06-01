@@ -16,7 +16,7 @@
 
 namespace {
 
-namespace events = tpmkit::detail::esys::events;
+namespace events = tpmkit::detail::tpm2_esys::events;
 namespace fake = tpmkit::testing::esys;
 
 using startup_mode = tpmkit::tpm_context_config::startup_mode;
@@ -49,9 +49,9 @@ const char* fake_decode_error(TSS2_RC)
     return "fake tcti loader error";
 }
 
-const tpmkit::detail::esys::tcti_loader_api& failing_loader_api()
+const tpmkit::detail::tpm2_esys::tcti_loader_api& failing_loader_api()
 {
-    static const tpmkit::detail::esys::tcti_loader_api api{
+    static const tpmkit::detail::tpm2_esys::tcti_loader_api api{
         fake_get_info_failure,
         fake_free_info,
         fake_loader_init,
@@ -65,8 +65,8 @@ tpmkit::outcome<tpmkit::tpm_context>
 create_owned_context(fake::fake_esys_state& state, const startup_mode mode,
                      std::shared_ptr<tpmkit::logger> log = nullptr)
 {
-    return tpmkit::detail::esys::create_context_from_owned_tcti(fake::owned_tcti(state), mode,
-                                                                std::move(log), fake::fake_api());
+    return tpmkit::detail::tpm2_esys::create_context_from_owned_tcti(
+        fake::owned_tcti(state), mode, std::move(log), fake::fake_api());
 }
 
 tpmkit::outcome<tpmkit::tpm_context>
@@ -75,8 +75,8 @@ create_string_context(std::string config, std::shared_ptr<tpmkit::logger> log = 
     tpmkit::tpm_context_config context_config;
     context_config.tcti = tpmkit::tcti_string_config{std::move(config)};
     context_config.log = std::move(log);
-    return tpmkit::detail::esys::create_context_from_config(std::move(context_config),
-                                                            failing_loader_api(), fake::fake_api());
+    return tpmkit::detail::tpm2_esys::create_context_from_config(
+        std::move(context_config), failing_loader_api(), fake::fake_api());
 }
 
 void expect_lifecycle_success_record(const tpmkit::testing::log_record& record,
@@ -206,8 +206,8 @@ TEST(tpm_context_lifecycle, raw_startup_initialize_rc_maps_to_already_initialize
 {
     // Verifies raw startup helpers classify TPM2_RC_INITIALIZE consistently.
 
-    EXPECT_TRUE(tpmkit::detail::esys::is_startup_already_initialized(TPM2_RC_INITIALIZE));
-    EXPECT_EQ(tpmkit::detail::esys::startup_result_field(TPM2_RC_INITIALIZE),
+    EXPECT_TRUE(tpmkit::detail::tpm2_esys::is_startup_already_initialized(TPM2_RC_INITIALIZE));
+    EXPECT_EQ(tpmkit::detail::tpm2_esys::startup_result_field(TPM2_RC_INITIALIZE),
               std::string_view{"already_initialized"});
 }
 
@@ -219,7 +219,7 @@ TEST(tpm_context_lifecycle, null_owned_handle_returns_input_error)
         std::unique_ptr<TSS2_TCTI_CONTEXT, void (*)(TSS2_TCTI_CONTEXT*)>(
             nullptr, fake::finalize_tcti_handle)};
 
-    const auto result = tpmkit::detail::esys::create_context_from_owned_tcti(
+    const auto result = tpmkit::detail::tpm2_esys::create_context_from_owned_tcti(
         std::move(tcti), startup_mode::clear, nullptr, fake::fake_api());
 
     ASSERT_FALSE(result.has_value());
@@ -235,7 +235,7 @@ TEST(tpm_context_lifecycle, null_owned_handle_deleter_returns_input_error_withou
         std::unique_ptr<TSS2_TCTI_CONTEXT, void (*)(TSS2_TCTI_CONTEXT*)>(fake::tcti_handle(state),
                                                                          nullptr)};
 
-    const auto result = tpmkit::detail::esys::create_context_from_owned_tcti(
+    const auto result = tpmkit::detail::tpm2_esys::create_context_from_owned_tcti(
         std::move(tcti), startup_mode::clear, nullptr, fake::fake_api());
 
     ASSERT_FALSE(result.has_value());

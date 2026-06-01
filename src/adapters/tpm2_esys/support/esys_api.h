@@ -7,7 +7,7 @@
 #include <tss2/tss2_tcti.h>
 #include <tss2/tss2_tpm2_types.h>
 
-namespace tpmkit::detail::esys {
+namespace tpmkit::detail::tpm2_esys {
 
 struct esys_api {
     TSS2_RC (*initialize)(ESYS_CONTEXT** esys_context, TSS2_TCTI_CONTEXT* tcti,
@@ -49,4 +49,4 @@ struct esys_context_deleter {
 
 [[nodiscard]] const esys_api& default_esys_api() noexcept;
 
-} // namespace tpmkit::detail::esys
+} // namespace tpmkit::detail::tpm2_esys

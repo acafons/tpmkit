@@ -15,7 +15,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace tpmkit::detail::esys {
+namespace tpmkit::detail::tpm2_esys {
 
 [[nodiscard]] outcome<hash_algorithm> algorithm_from_tpm(TPMI_ALG_HASH algorithm);
 
@@ -44,4 +44,4 @@ to_domain_read_values(const TPML_DIGEST& values, const pcr::selection& selection
 
 [[nodiscard]] TPM2B_DIGEST to_tpm_sized_digest(gsl::span<const std::uint8_t> bytes) noexcept;
 
-} // namespace tpmkit::detail::esys
+} // namespace tpmkit::detail::tpm2_esys

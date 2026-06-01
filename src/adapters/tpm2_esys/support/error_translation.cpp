@@ -13,7 +13,7 @@
 #include <string>
 #include <string_view>
 
-namespace tpmkit::detail::esys {
+namespace tpmkit::detail::tpm2_esys {
 namespace {
 
 struct mapped_error {
@@ -264,4 +264,4 @@ outcome<void> translate_tss_rc(const TSS2_RC rc, const std::string_view operatio
     return tl::unexpected(error{mapped.category, std::string{mapped.message}});
 }
 
-} // namespace tpmkit::detail::esys
+} // namespace tpmkit::detail::tpm2_esys

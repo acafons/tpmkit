@@ -20,7 +20,7 @@
 
 namespace {
 
-namespace events = tpmkit::detail::esys::events;
+namespace events = tpmkit::detail::tpm2_esys::events;
 namespace fake = tpmkit::testing::esys;
 
 tpmkit::logger& default_log()
@@ -56,15 +56,15 @@ public:
     tpmkit::pcr::event_result event_result;
 };
 
-tpmkit::detail::esys::esys_pcr_provider
+tpmkit::detail::tpm2_esys::esys_pcr_provider
 make_provider(fake::fake_esys_state& state, tpmkit::logger& log,
               tpmkit::pcr::observer* const observer = nullptr)
 {
-    return tpmkit::detail::esys::esys_pcr_provider{fake::esys_handle(state), log, observer,
-                                                   fake::fake_api()};
+    return tpmkit::detail::tpm2_esys::esys_pcr_provider{fake::esys_handle(state), log, observer,
+                                                        fake::fake_api()};
 }
 
-tpmkit::detail::esys::esys_pcr_provider
+tpmkit::detail::tpm2_esys::esys_pcr_provider
 make_provider(fake::fake_esys_state& state, tpmkit::pcr::observer* const observer = nullptr)
 {
     return make_provider(state, default_log(), observer);
@@ -333,8 +333,8 @@ TEST(esys_pcr_provider, read_rejects_missing_esys_context)
 {
     // Verifies PCR read requires an ESYS context.
 
-    tpmkit::detail::esys::esys_pcr_provider provider{nullptr, default_log(), nullptr,
-                                                     fake::fake_api()};
+    tpmkit::detail::tpm2_esys::esys_pcr_provider provider{nullptr, default_log(), nullptr,
+                                                          fake::fake_api()};
 
     const auto result = provider.read(tpmkit::pcr::selection{tpmkit::hash_algorithm::sha256});
 
@@ -360,7 +360,7 @@ TEST(esys_pcr_provider, extend_translates_digest_and_calls_observer)
     EXPECT_EQ(observer.extended_digests.front(), digest);
     ASSERT_EQ(state.extend_calls.size(), 1U);
     const auto& call = state.extend_calls.front();
-    EXPECT_EQ(call.pcr_handle, tpmkit::detail::esys::pcr_handle(tpmkit::pcr::index::debug));
+    EXPECT_EQ(call.pcr_handle, tpmkit::detail::tpm2_esys::pcr_handle(tpmkit::pcr::index::debug));
     expect_password_sessions(call.shandle1, call.shandle2, call.shandle3);
     ASSERT_EQ(call.digests.count, 1U);
     EXPECT_EQ(call.digests.digests[0U].hashAlg, TPM2_ALG_SHA256);
@@ -374,8 +374,8 @@ TEST(esys_pcr_provider, extend_rejects_missing_esys_context)
 {
     // Verifies PCR extend requires an ESYS context.
 
-    tpmkit::detail::esys::esys_pcr_provider provider{nullptr, default_log(), nullptr,
-                                                     fake::fake_api()};
+    tpmkit::detail::tpm2_esys::esys_pcr_provider provider{nullptr, default_log(), nullptr,
+                                                          fake::fake_api()};
     const tpmkit::pcr::digest_value digest = fake::sha256_digest(0x38U);
 
     const auto result = provider.extend(tpmkit::pcr::index::debug, gsl::make_span(&digest, 1U));
@@ -485,8 +485,8 @@ TEST(esys_pcr_provider, event_rejects_missing_esys_context)
 {
     // Verifies PCR event requires an ESYS context.
 
-    tpmkit::detail::esys::esys_pcr_provider provider{nullptr, default_log(), nullptr,
-                                                     fake::fake_api()};
+    tpmkit::detail::tpm2_esys::esys_pcr_provider provider{nullptr, default_log(), nullptr,
+                                                          fake::fake_api()};
     const std::vector<std::uint8_t> event_data{0x01U};
 
     const auto result = provider.event(tpmkit::pcr::index::debug, event_data);
@@ -559,7 +559,7 @@ TEST(esys_pcr_provider, event_passes_event_data_and_returns_result)
     EXPECT_EQ(result->digests.front(), digest);
     ASSERT_EQ(state.event_calls.size(), 1U);
     const auto& call = state.event_calls.front();
-    EXPECT_EQ(call.pcr_handle, tpmkit::detail::esys::pcr_handle(tpmkit::pcr::index::debug));
+    EXPECT_EQ(call.pcr_handle, tpmkit::detail::tpm2_esys::pcr_handle(tpmkit::pcr::index::debug));
     expect_password_sessions(call.shandle1, call.shandle2, call.shandle3);
     EXPECT_EQ(call.event_data.size, event_data.size());
     EXPECT_EQ(std::vector<std::uint8_t>(call.event_data.buffer,
@@ -642,7 +642,7 @@ TEST(esys_pcr_provider, reset_succeeds_for_resettable_pcr)
     ASSERT_TRUE(reset.has_value());
     ASSERT_EQ(state.reset_calls.size(), 1U);
     const auto& call = state.reset_calls.front();
-    EXPECT_EQ(call.pcr_handle, tpmkit::detail::esys::pcr_handle(tpmkit::pcr::index::debug));
+    EXPECT_EQ(call.pcr_handle, tpmkit::detail::tpm2_esys::pcr_handle(tpmkit::pcr::index::debug));
     expect_password_sessions(call.shandle1, call.shandle2, call.shandle3);
 }
 
@@ -800,7 +800,7 @@ TEST(esys_pcr_provider, set_auth_value_emits_success_log_without_auth_value)
     ASSERT_TRUE(result.has_value());
     ASSERT_EQ(state.tr_set_auth_calls.size(), 2U);
     EXPECT_EQ(state.tr_set_auth_calls[0U].handle,
-              tpmkit::detail::esys::pcr_handle(tpmkit::pcr::index::debug));
+              tpmkit::detail::tpm2_esys::pcr_handle(tpmkit::pcr::index::debug));
     EXPECT_EQ(state.tr_set_auth_calls[0U].auth.size, 0U);
     ASSERT_EQ(state.set_auth_value_calls.size(), 1U);
     EXPECT_EQ(state.set_auth_value_calls.front().auth.size, 0U);

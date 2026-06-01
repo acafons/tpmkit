@@ -19,7 +19,7 @@
 
 namespace {
 
-namespace events = tpmkit::detail::esys::events;
+namespace events = tpmkit::detail::tpm2_esys::events;
 namespace fake = tpmkit::testing::esys;
 using startup_mode = tpmkit::tpm_context_config::startup_mode;
 
@@ -48,7 +48,7 @@ public:
 tpmkit::outcome<tpmkit::tpm_context>
 create_owned_context(fake::fake_esys_state& state, std::shared_ptr<tpmkit::logger> log = nullptr)
 {
-    return tpmkit::detail::esys::create_context_from_owned_tcti(
+    return tpmkit::detail::tpm2_esys::create_context_from_owned_tcti(
         fake::owned_tcti(state), startup_mode::skip, std::move(log), fake::fake_api());
 }
 

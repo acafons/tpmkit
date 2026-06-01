@@ -8,7 +8,7 @@
 #include <string>
 #include <string_view>
 
-namespace tpmkit::detail::esys {
+namespace tpmkit::detail::tpm2_esys {
 namespace {
 
 template <std::size_t size>
@@ -112,4 +112,4 @@ void log_reset_completed(logger& log, const pcr::index index)
     log_pcr_event(log, events::pcr_reset_completed, fields);
 }
 
-} // namespace tpmkit::detail::esys
+} // namespace tpmkit::detail::tpm2_esys
