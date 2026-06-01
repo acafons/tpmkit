@@ -65,8 +65,8 @@ tpmkit::outcome<tpmkit::tpm_context>
 create_owned_context(fake::fake_esys_state& state, const startup_mode mode,
                      std::shared_ptr<tpmkit::logger> log = nullptr)
 {
-    return tpmkit::detail::esys::create_context_with_api(fake::owned_tcti(state), mode,
-                                                         std::move(log), fake::fake_api());
+    return tpmkit::detail::esys::create_context_from_owned_tcti(fake::owned_tcti(state), mode,
+                                                                std::move(log), fake::fake_api());
 }
 
 tpmkit::outcome<tpmkit::tpm_context>
@@ -75,8 +75,8 @@ create_string_context(std::string config, std::shared_ptr<tpmkit::logger> log = 
     tpmkit::tpm_context_config context_config;
     context_config.tcti = tpmkit::tcti_string_config{std::move(config)};
     context_config.log = std::move(log);
-    return tpmkit::detail::esys::create_context_with_apis(std::move(context_config),
-                                                          failing_loader_api(), fake::fake_api());
+    return tpmkit::detail::esys::create_context_from_config(std::move(context_config),
+                                                            failing_loader_api(), fake::fake_api());
 }
 
 void expect_lifecycle_success_record(const tpmkit::testing::log_record& record,
@@ -219,7 +219,7 @@ TEST(tpm_context_lifecycle, null_owned_handle_returns_input_error)
         std::unique_ptr<TSS2_TCTI_CONTEXT, void (*)(TSS2_TCTI_CONTEXT*)>(
             nullptr, fake::finalize_tcti_handle)};
 
-    const auto result = tpmkit::detail::esys::create_context_with_api(
+    const auto result = tpmkit::detail::esys::create_context_from_owned_tcti(
         std::move(tcti), startup_mode::clear, nullptr, fake::fake_api());
 
     ASSERT_FALSE(result.has_value());
@@ -235,7 +235,7 @@ TEST(tpm_context_lifecycle, null_owned_handle_deleter_returns_input_error_withou
         std::unique_ptr<TSS2_TCTI_CONTEXT, void (*)(TSS2_TCTI_CONTEXT*)>(fake::tcti_handle(state),
                                                                          nullptr)};
 
-    const auto result = tpmkit::detail::esys::create_context_with_api(
+    const auto result = tpmkit::detail::esys::create_context_from_owned_tcti(
         std::move(tcti), startup_mode::clear, nullptr, fake::fake_api());
 
     ASSERT_FALSE(result.has_value());

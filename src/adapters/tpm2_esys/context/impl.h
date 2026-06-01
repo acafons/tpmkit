@@ -21,14 +21,14 @@ using unique_esys_ptr = std::unique_ptr<ESYS_CONTEXT, esys_context_deleter>;
 
 [[nodiscard]] std::string_view startup_result_field(TSS2_RC rc) noexcept;
 
-[[nodiscard]] outcome<tpm_context> create_context_with_api(tpm2_esys::owned_tcti_context tcti,
-                                                           tpm_context_config::startup_mode startup,
-                                                           std::shared_ptr<logger> log,
-                                                           const esys_api& api);
+[[nodiscard]] outcome<tpm_context>
+create_context_from_owned_tcti(tpm2_esys::owned_tcti_context tcti,
+                               tpm_context_config::startup_mode startup,
+                               std::shared_ptr<logger> log, const esys_api& api);
 
-[[nodiscard]] outcome<tpm_context> create_context_with_apis(tpm_context_config config,
-                                                            const tcti_loader_api& tcti_api,
-                                                            const esys_api& api);
+[[nodiscard]] outcome<tpm_context> create_context_from_config(tpm_context_config config,
+                                                              const tcti_loader_api& tcti_api,
+                                                              const esys_api& api);
 
 } // namespace detail::esys
 

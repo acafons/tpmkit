@@ -48,7 +48,7 @@ public:
 tpmkit::outcome<tpmkit::tpm_context>
 create_owned_context(fake::fake_esys_state& state, std::shared_ptr<tpmkit::logger> log = nullptr)
 {
-    return tpmkit::detail::esys::create_context_with_api(
+    return tpmkit::detail::esys::create_context_from_owned_tcti(
         fake::owned_tcti(state), startup_mode::skip, std::move(log), fake::fake_api());
 }
 

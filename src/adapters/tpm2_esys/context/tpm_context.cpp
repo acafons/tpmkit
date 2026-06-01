@@ -291,8 +291,9 @@ struct tpm_context_factory {
 
 namespace detail::esys {
 
-outcome<tpm_context> create_context_with_apis(tpm_context_config config,
-                                              const tcti_loader_api& tcti_api, const esys_api& api)
+outcome<tpm_context> create_context_from_config(tpm_context_config config,
+                                                const tcti_loader_api& tcti_api,
+                                                const esys_api& api)
 {
     const auto validated = validate_config(config);
     if (!validated.has_value()) {
@@ -310,9 +311,10 @@ outcome<tpm_context> create_context_with_apis(tpm_context_config config,
         std::move(tcti->handle), config.startup, std::move(log), api);
 }
 
-outcome<tpm_context> create_context_with_api(tpm2_esys::owned_tcti_context tcti,
-                                             const tpm_context_config::startup_mode startup,
-                                             std::shared_ptr<logger> log, const esys_api& api)
+outcome<tpm_context> create_context_from_owned_tcti(tpm2_esys::owned_tcti_context tcti,
+                                                    const tpm_context_config::startup_mode startup,
+                                                    std::shared_ptr<logger> log,
+                                                    const esys_api& api)
 {
     if (!is_valid_startup_mode(startup)) {
         return tl::unexpected(error{error_category::input_error, "TPM startup mode is invalid"});
@@ -380,9 +382,9 @@ tpm_context::tpm_context(std::unique_ptr<impl> implementation) noexcept
 
 outcome<tpm_context> tpm_context::create(tpm_context_config config)
 {
-    return detail::esys::create_context_with_apis(std::move(config),
-                                                  detail::esys::default_tcti_loader_api(),
-                                                  detail::esys::default_esys_api());
+    return detail::esys::create_context_from_config(std::move(config),
+                                                    detail::esys::default_tcti_loader_api(),
+                                                    detail::esys::default_esys_api());
 }
 
 outcome<tpm_context> tpm_context::create(std::string tcti_config,
@@ -414,8 +416,8 @@ outcome<tpm_context> create_context(owned_tcti_context tcti,
                                     const tpm_context_config::startup_mode startup,
                                     std::shared_ptr<logger> log)
 {
-    return detail::esys::create_context_with_api(std::move(tcti), startup, std::move(log),
-                                                 detail::esys::default_esys_api());
+    return detail::esys::create_context_from_owned_tcti(std::move(tcti), startup, std::move(log),
+                                                        detail::esys::default_esys_api());
 }
 
 } // namespace tpm2_esys
