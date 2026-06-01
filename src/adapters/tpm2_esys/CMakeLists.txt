@@ -12,9 +12,12 @@ target_sources(tpmkit
         pcr/pcr_marshalling.h
         pcr/pcr_validation.cpp
         pcr/pcr_validation.h
+        support/esys_api.cpp
+        support/esys_api.h
         support/error_translation.cpp
         support/error_translation.h
         support/log_events.h
+        support/tss_error_decoder.h
 )
 target_link_libraries(tpmkit
     PRIVATE

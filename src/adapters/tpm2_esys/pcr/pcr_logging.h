@@ -18,7 +18,8 @@ void log_auth_policy_set(logger& log, pcr::index index, hash_algorithm algorithm
 
 void log_auth_value_set(logger& log, pcr::index index);
 
-void log_event_completed(logger& log, pcr::index index, std::size_t event_size);
+void log_event_completed(logger& log, pcr::index index, std::size_t event_size,
+                         std::size_t bank_count);
 
 void log_extend_completed(logger& log, pcr::index index, std::size_t bank_count);
 

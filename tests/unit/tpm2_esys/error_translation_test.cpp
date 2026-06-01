@@ -3,6 +3,7 @@
 #include "src/adapters/tpm2_esys/support/log_events.h"
 
 #include <tpmkit/logging/logger.h>
+#include <tpmkit/testing/recording_logger.h>
 
 #include <tss2/tss2_common.h>
 #include <tss2/tss2_tpm2_types.h>
@@ -16,29 +17,6 @@
 
 namespace {
 
-struct log_record {
-    tpmkit::log_level level;
-    std::string message;
-    std::vector<std::pair<std::string, std::string>> fields;
-};
-
-class recording_logger final : public tpmkit::logger {
-public:
-    void log(const tpmkit::log_level level, const std::string_view message,
-             const gsl::span<const tpmkit::log_field> fields) noexcept final
-    {
-        std::vector<std::pair<std::string, std::string>> copied_fields;
-        copied_fields.reserve(fields.size());
-        for (const auto& field : fields) {
-            copied_fields.emplace_back(field.key, field.value);
-        }
-
-        records.push_back(log_record{level, std::string{message}, std::move(copied_fields)});
-    }
-
-    std::vector<log_record> records;
-};
-
 struct mapping_case {
     const char* name;
     TSS2_RC rc;
@@ -51,6 +29,19 @@ constexpr auto security = tpmkit::error_category::security_failure;
 constexpr auto resource = tpmkit::error_category::resource_error;
 constexpr auto backend = tpmkit::error_category::backend_error;
 namespace events = tpmkit::detail::esys::events;
+
+const char* fake_decode_tss_rc(const TSS2_RC rc)
+{
+    if (rc == TSS2_TCTI_RC_IO_ERROR) {
+        return "tcti IO error";
+    }
+
+    if (rc == static_cast<TSS2_RC>(TPM2_RC_LOCALITY)) {
+        return "tpm locality error";
+    }
+
+    return "decoded tss error";
+}
 
 [[nodiscard]] bool contains_disallowed_message_detail(const std::string& message)
 {
@@ -168,13 +159,13 @@ TEST(error_translation, success_returns_value_without_logging)
 {
     // Verifies successful TSS return codes produce no log record.
 
-    recording_logger log;
+    tpmkit::testing::recording_logger log;
 
     const auto result =
         tpmkit::detail::esys::translate_tss_rc(TSS2_RC_SUCCESS, "esys_initialize", &log);
 
     EXPECT_TRUE(result.has_value());
-    EXPECT_TRUE(log.records.empty());
+    EXPECT_TRUE(log.snapshot().empty());
 }
 
 TEST(error_translation, maps_every_documented_esapi_and_tcti_rc)
@@ -300,13 +291,15 @@ TEST(error_translation, logs_non_success_rc_with_schema_fields)
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
-    recording_logger log;
+    tpmkit::testing::recording_logger log;
 
-    const auto result = tpmkit::detail::esys::translate_tss_rc(rc, "tcti_init", &log);
+    const auto result = tpmkit::detail::esys::translate_tss_rc(
+        rc, "tcti_init", &log, events::tss_error, fake_decode_tss_rc);
 
     ASSERT_FALSE(result.has_value());
-    ASSERT_EQ(log.records.size(), 1U);
-    const auto& record = log.records.front();
+    const auto records = log.snapshot();
+    ASSERT_EQ(records.size(), 1U);
+    const auto& record = records.front();
     EXPECT_EQ(record.level, tpmkit::log_level::error);
     EXPECT_EQ(record.message, std::string{events::tss_error.message});
     ASSERT_EQ(record.fields.size(), 8U);
@@ -354,14 +347,15 @@ TEST(error_translation, overload_logs_custom_error_event)
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
-    recording_logger log;
+    tpmkit::testing::recording_logger log;
 
-    const auto result =
-        tpmkit::detail::esys::translate_tss_rc(rc, "pcr_extend", &log, events::pcr_tss_error);
+    const auto result = tpmkit::detail::esys::translate_tss_rc(
+        rc, "pcr_extend", &log, events::pcr_tss_error, fake_decode_tss_rc);
 
     ASSERT_FALSE(result.has_value());
-    ASSERT_EQ(log.records.size(), 1U);
-    const auto* event = find_field(log.records.front().fields, events::fields::event);
+    const auto records = log.snapshot();
+    ASSERT_EQ(records.size(), 1U);
+    const auto* event = find_field(records.front().fields, events::fields::event);
     ASSERT_NE(event, nullptr);
     EXPECT_EQ(event->second, std::string{events::pcr_tss_error.name});
 }
@@ -387,16 +381,17 @@ TEST(error_translation, logs_representative_tss_layer_names)
 #endif
 
     for (const auto& test_case : cases) {
-        recording_logger log;
+        tpmkit::testing::recording_logger log;
 
-        const auto result =
-            tpmkit::detail::esys::translate_tss_rc(test_case.rc, "esys_startup", &log);
+        const auto result = tpmkit::detail::esys::translate_tss_rc(
+            test_case.rc, "esys_startup", &log, events::tss_error, fake_decode_tss_rc);
 
         ASSERT_FALSE(result.has_value()) << test_case.name;
         EXPECT_EQ(result.error().category, test_case.category) << test_case.name;
-        ASSERT_EQ(log.records.size(), 1U) << test_case.name;
+        const auto records = log.snapshot();
+        ASSERT_EQ(records.size(), 1U) << test_case.name;
 
-        const auto* layer = find_field(log.records.front().fields, events::fields::tss_layer);
+        const auto* layer = find_field(records.front().fields, events::fields::tss_layer);
         ASSERT_NE(layer, nullptr) << test_case.name;
         EXPECT_EQ(layer->second, test_case.layer) << test_case.name;
     }

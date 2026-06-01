@@ -40,6 +40,7 @@ struct provider_subject {
 struct pcr_provider_case {
     const char* name;
     std::function<provider_subject()> make_read_success;
+    std::function<provider_subject()> make_empty_read_success;
     std::function<provider_subject()> make_extend_success;
     std::function<provider_subject()> make_event_success;
     std::function<provider_subject()> make_reset_success;
@@ -161,6 +162,20 @@ std::vector<std::uint8_t> read_success_response(const std::uint32_t update_count
     return response;
 }
 
+std::vector<std::uint8_t> empty_read_success_response(const std::uint32_t update_counter)
+{
+    std::vector<std::uint8_t> parameters;
+    append_u32(parameters, update_counter);
+    append_u32(parameters, 0U);
+    append_u32(parameters, 0U);
+
+    std::vector<std::uint8_t> response;
+    append_header(response, TPM2_ST_NO_SESSIONS,
+                  static_cast<std::uint32_t>(10U + parameters.size()), TSS2_RC_SUCCESS);
+    response.insert(response.end(), parameters.begin(), parameters.end());
+    return response;
+}
+
 std::vector<std::uint8_t> event_success_response(const std::vector<std::uint8_t>& digest)
 {
     std::vector<std::uint8_t> parameters;
@@ -223,6 +238,12 @@ tpmkit::pcr::read_result expected_read_result()
         {tpmkit::pcr::value{tpmkit::pcr::index::debug, sha256_digest(0x20U)}}};
 }
 
+tpmkit::pcr::read_result expected_empty_read_result()
+{
+    return tpmkit::pcr::read_result{
+        tpmkit::pcr::selection{tpmkit::hash_algorithm::sha256}, 9U, {}};
+}
+
 tpmkit::error make_error(const tpmkit::error_category category)
 {
     return tpmkit::error{category, "contract failure"};
@@ -233,6 +254,15 @@ provider_subject make_mock_read_success()
     provider_subject subject;
     auto provider = std::make_unique<tpmkit::testing::mock_pcr_provider>();
     provider->set_read_result(expected_read_result());
+    subject.provider = std::move(provider);
+    return subject;
+}
+
+provider_subject make_mock_empty_read_success()
+{
+    provider_subject subject;
+    auto provider = std::make_unique<tpmkit::testing::mock_pcr_provider>();
+    provider->set_read_result(expected_empty_read_result());
     subject.provider = std::move(provider);
     return subject;
 }
@@ -348,6 +378,11 @@ provider_subject make_esys_read_success()
         read_success_response(9U, tpmkit::pcr::index::debug.value(), digest_bytes(0x20U)));
 }
 
+provider_subject make_esys_empty_read_success()
+{
+    return make_esys_subject(empty_read_success_response(9U));
+}
+
 provider_subject make_esys_extend_success()
 {
     return make_esys_subject(session_success_response());
@@ -429,6 +464,7 @@ std::vector<pcr_provider_case> provider_cases()
         pcr_provider_case{
             "mock_pcr_provider",
             make_mock_read_success,
+            make_mock_empty_read_success,
             make_mock_extend_success,
             make_mock_event_success,
             make_mock_reset_success,
@@ -447,6 +483,7 @@ std::vector<pcr_provider_case> provider_cases()
         pcr_provider_case{
             "tpm2_esys_fake_tcti",
             make_esys_read_success,
+            make_esys_empty_read_success,
             make_esys_extend_success,
             make_esys_event_success,
             make_esys_reset_success,
@@ -482,6 +519,21 @@ TEST_P(pcr_provider_contract, reads_selected_pcr_values)
 
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(*result, expected_read_result());
+}
+
+TEST_P(pcr_provider_contract, reads_empty_selection_as_empty_result)
+{
+    // Verifies provider implementations treat empty PCR read selections as successful no-ops.
+
+    provider_subject subject = GetParam().make_empty_read_success();
+    ASSERT_NE(subject.provider, nullptr);
+    const tpmkit::pcr::selection empty_selection{tpmkit::hash_algorithm::sha256};
+
+    const auto result = subject.provider->read(empty_selection);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->actual_selection, empty_selection);
+    EXPECT_TRUE(result->values.empty());
 }
 
 TEST_P(pcr_provider_contract, extends_one_digest)

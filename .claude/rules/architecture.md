@@ -137,7 +137,9 @@ For the full walkthrough — file paths, CMake wiring, the per-adapter list, and
 - Public API tests live under `tests/unit/public_api/` and cover installed headers, value types, configuration objects, and public API contracts.
 - Domain tests use mock adapters and run with no third-party dependencies linked.
 - Public testing-helper tests live under `tests/unit/testing/`; helper tests tied to an adapter or third-party ABI live under `tests/unit/testing/<adapter>/`.
-- Adapter-internal unit tests live under `tests/unit/<adapter>/`; grouped adapter families mirror their source layout, as logging does under `tests/unit/logging/<backend>/`. They may compile against backend SDK headers or constants, but they do not open real backend resources.
+- Adapter-internal unit tests live under `tests/unit/<adapter>/`; grouped adapter families mirror their source layout, as logging does under `tests/unit/logging/<backend>/`. They may compile against backend SDK headers or constants, but they do not open real backend resources or call real backend SDK entry points. Exercise adapter boundaries through injected function tables, mock ports, or hand-written stubs and assert the structured arguments passed across that boundary.
+- Byte-scripted fake transports are not a substitute for adapter-unit assertions. Tests that validate wire transcripts, transport queues, simulator behavior, or real TSS/OpenSSL behavior belong in integration, contract, interop, or stress tiers as appropriate.
+- The `test_policy_guard` CTest entry enforces the mechanically detectable subset of these test-tier rules. Do not remove or relax it to make a test pass; fix the test tier, seam, or assertion shape instead.
 - Each adapter has its own integration tests that exercise the real third-party library.
 - The mock adapter for a given port lives next to the real adapters under `src/adapters/mock/` so the contract is tested uniformly.
 - Every public port has a parameterized contract suite under `tests/contract/`

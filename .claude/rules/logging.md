@@ -137,7 +137,8 @@ If a structured field's *key* is sensitive (e.g., a session-correlation token), 
 ## Testing
 
 - **Test on observable behavior, not log lines.** Asserting that a specific log message appears couples the test to wording that will drift. Log assertions are a smell; they belong in tests *of the adapter*, not of the domain.
-- **The recording adapter** is for validating that the right *level* and *field keys* are emitted at lifecycle boundaries — never the message text.
+- **The recording adapter** is for validating structured log contracts at lifecycle boundaries. Tests assert the level, stable event field, outcome, operation, required keys, stable field values, and the absence of secret or caller-sensitive material. They do not pass by merely finding a substring or counting that some record was emitted.
+- The `test_policy_guard` CTest entry owns simple static checks for recurring test-shape mistakes. When a logging-test rule can be enforced mechanically without false positives, add it there rather than relying on review memory.
 - **Coverage of the never-log rules** is enforced by the recording adapter plus a test that scans recorded values for known-secret patterns and fails if any appear. Cross-reference: `tpm-write-tests`.
 - **Test with the no-op adapter** at least once per port test suite. If a test passes only with logging on, the test is depending on side effects that should not exist.
 

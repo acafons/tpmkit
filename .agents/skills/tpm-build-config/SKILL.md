@@ -117,7 +117,7 @@ Structural rules from other policy files are enforced by automated checks in thi
   exempt, and must not be included by neutral headers.
 - **Header self-containment** (`library-api-design.md`): every public header under `include/` compiles standalone. The build generates one stub `.cpp` per header that includes only that header; the stub library must build clean with the project warning set.
 - **Symbol export discipline** (`library-api-design.md`): symbols exported from the umbrella library are diffed against a checked-in baseline (`abi/exported-symbols.txt`). A change to the baseline is a deliberate PR with an ABI/SemVer note (cross-reference: `library-api-design.md` "Versioning and deprecation"). There is no auto-update mode.
-- **Test policy discipline** (`tpm-write-tests`): `test_policy_guard` scans test sources for the minimum structural rules that are easy to regress: top-of-test behavior comments, parameterized contract tests, no deferred skip placeholders, and no compile-only header smoke tests under `tests/integration/`.
+- **Test policy discipline** (`tpm-write-tests`): `test_policy_guard` scans test sources for the minimum structural rules that are easy to regress: top-of-test behavior comments, parameterized contract tests, no deferred skip placeholders, no compile-only header smoke tests under `tests/integration/`, and adapter-unit boundaries that stay isolated from real backend SDK calls or byte-scripted fake transports.
 
 Mechanics for each in `references/cmake-recipes.md`.
 

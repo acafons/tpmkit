@@ -9,6 +9,12 @@ file(GLOB_RECURSE test_sources
 )
 
 set(policy_failures "")
+set(tpm2_esys_live_tss_pattern
+    "(^|[^A-Za-z0-9_:])(Esys_[A-Za-z0-9_]+|Tss2_TctiLdr_[A-Za-z0-9_]+|Tss2_Tcti_TctiLdr_Init|Tss2_RC_Decode)[ \t]*\\("
+)
+set(tpm2_esys_fake_transport_pattern
+    "tpmkit/testing/fake_tcti\\.h|(^|[^A-Za-z0-9_])(fake_tcti|push_response|transmitted_commands|response_factory|contains_bytes)([^A-Za-z0-9_]|$)"
+)
 
 foreach(test_source IN LISTS test_sources)
     file(READ "${test_source}" content)
@@ -40,6 +46,23 @@ foreach(test_source IN LISTS test_sources)
        NOT content MATCHES "INSTANTIATE_TEST_SUITE_P")
         list(APPEND policy_failures
             "${test_source}: TEST_P contract tests require INSTANTIATE_TEST_SUITE_P")
+    endif()
+
+    if(test_source MATCHES "/tests/unit/tpm2_esys/")
+        if(content MATCHES "${tpm2_esys_live_tss_pattern}")
+            list(APPEND policy_failures
+                "${test_source}: tpm2_esys adapter-unit tests must use injected fake APIs, not real TSS entry points")
+        endif()
+
+        if(content MATCHES "${tpm2_esys_fake_transport_pattern}")
+            list(APPEND policy_failures
+                "${test_source}: tpm2_esys adapter-unit tests must assert structured fake API calls, not fake TCTI byte scripts")
+        endif()
+
+        if(content MATCHES "(^|[^A-Za-z0-9_:])std::thread([^A-Za-z0-9_]|$)")
+            list(APPEND policy_failures
+                "${test_source}: tpm2_esys concurrency coverage belongs in stress or integration tests, not adapter-unit tests")
+        endif()
     endif()
 
     file(STRINGS "${test_source}" lines)

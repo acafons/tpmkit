@@ -63,11 +63,14 @@ void log_auth_value_set(logger& log, const pcr::index index)
     log_pcr_event(log, events::pcr_auth_value_set, fields);
 }
 
-void log_event_completed(logger& log, const pcr::index index, const std::size_t event_size)
+void log_event_completed(logger& log, const pcr::index index, const std::size_t event_size,
+                         const std::size_t bank_count)
 {
+    const std::string bank_count_value = std::to_string(bank_count);
     const std::string index_value = std::to_string(index.value());
     const std::string event_size_value = std::to_string(event_size);
-    const std::array<log_field, 2U> fields{{
+    const std::array<log_field, 3U> fields{{
+        {events::fields::bank_count, bank_count_value},
         {events::fields::event_size, event_size_value},
         {events::fields::pcr_index, index_value},
     }};

@@ -47,6 +47,9 @@ public:
     /**
      * @brief Read PCR values for one selection.
      *
+     * Passing an empty selection is valid. A successful empty read returns an
+     * empty actual selection and no PCR values.
+     *
      * @param[in] selection PCR bank and indices to read.
      * @return Read result on success, or `input_error`, `resource_error`, or
      * `backend_error` on expected failure.

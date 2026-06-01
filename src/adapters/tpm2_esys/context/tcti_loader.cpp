@@ -5,6 +5,7 @@
 #include <tpmkit/logging/logger.h>
 
 #include <tss2/tss2_common.h>
+#include <tss2/tss2_rc.h>
 #include <tss2/tss2_tcti.h>
 #include <tss2/tss2_tctildr.h>
 
@@ -98,17 +99,30 @@ void release_failed_tcti_init(TSS2_TCTI_CONTEXT* const context) noexcept
     }
 }
 
-void free_tcti_info(TSS2_TCTI_INFO* info) noexcept
+TSS2_RC get_tcti_info(const char* const name, TSS2_TCTI_INFO** const info)
 {
-    Tss2_TctiLdr_FreeInfo(&info);
+    return Tss2_TctiLdr_GetInfo(name, info);
 }
 
-[[nodiscard]] outcome<pending_tcti_context> allocate_tcti_loader_context(logger* const log)
+void free_tcti_loader_info(TSS2_TCTI_INFO** const info) noexcept
+{
+    Tss2_TctiLdr_FreeInfo(info);
+}
+
+TSS2_RC initialize_tcti_loader(TSS2_TCTI_CONTEXT* const context, std::size_t* const size,
+                               const char* const conf)
+{
+    return Tss2_Tcti_TctiLdr_Init(context, size, conf);
+}
+
+[[nodiscard]] outcome<pending_tcti_context> allocate_tcti_loader_context(logger* const log,
+                                                                         const tcti_loader_api& api)
 {
     std::size_t context_size = 0U;
-    const TSS2_RC rc = Tss2_Tcti_TctiLdr_Init(nullptr, &context_size, nullptr);
+    const TSS2_RC rc = api.init(nullptr, &context_size, nullptr);
     if (rc != TSS2_RC_SUCCESS) {
-        auto translated = translate_tss_rc(rc, "tcti_init", log);
+        auto translated =
+            translate_tss_rc(rc, "tcti_init", log, events::tss_error, api.decode_error);
         return tl::unexpected(translated.error());
     }
 
@@ -131,7 +145,25 @@ void free_tcti_info(TSS2_TCTI_INFO* info) noexcept
 
 } // namespace
 
+const tcti_loader_api& default_tcti_loader_api() noexcept
+{
+    static const tcti_loader_api api{
+        get_tcti_info,
+        free_tcti_loader_info,
+        initialize_tcti_loader,
+        &Tss2_RC_Decode,
+    };
+
+    return api;
+}
+
 outcome<unique_tcti_ptr> load_tcti(const tcti_string_config& config, logger* const log)
+{
+    return load_tcti(config, log, default_tcti_loader_api());
+}
+
+outcome<unique_tcti_ptr> load_tcti(const tcti_string_config& config, logger* const log,
+                                   const tcti_loader_api& api)
 {
     auto validated = validate_config(config);
     if (!validated.has_value()) {
@@ -140,24 +172,26 @@ outcome<unique_tcti_ptr> load_tcti(const tcti_string_config& config, logger* con
 
     TSS2_TCTI_INFO* info = nullptr;
     const std::string name{tcti_name(*validated)};
-    const TSS2_RC info_rc = Tss2_TctiLdr_GetInfo(name.c_str(), &info);
-    free_tcti_info(info);
+    const TSS2_RC info_rc = api.get_info(name.c_str(), &info);
+    api.free_info(&info);
     if (info_rc != TSS2_RC_SUCCESS) {
-        auto translated = translate_tss_rc(info_rc, "tcti_init", log);
+        auto translated =
+            translate_tss_rc(info_rc, "tcti_init", log, events::tss_error, api.decode_error);
         static_cast<void>(translated);
         return tl::unexpected(error{error_category::input_error, "Unknown TCTI name"});
     }
 
-    auto allocated = allocate_tcti_loader_context(log);
+    auto allocated = allocate_tcti_loader_context(log, api);
     if (!allocated.has_value()) {
         return tl::unexpected(allocated.error());
     }
 
     auto pending_context = *std::move(allocated);
-    const TSS2_RC rc = Tss2_Tcti_TctiLdr_Init(pending_context.context.get(), &pending_context.size,
-                                              validated->c_str());
+    const TSS2_RC rc =
+        api.init(pending_context.context.get(), &pending_context.size, validated->c_str());
     if (rc != TSS2_RC_SUCCESS) {
-        auto translated = translate_tss_rc(rc, "tcti_init", log);
+        auto translated =
+            translate_tss_rc(rc, "tcti_init", log, events::tss_error, api.decode_error);
         return tl::unexpected(translated.error());
     }
 
