@@ -5,6 +5,7 @@
 #include <tpmkit/logging/logger.h>
 
 #include <tss2/tss2_common.h>
+#include <tss2/tss2_rc.h>
 #include <tss2/tss2_tpm2_types.h>
 
 #include <array>
@@ -30,6 +31,8 @@ constexpr std::string_view input_message = "input rejected by TPM";
 constexpr std::string_view security_message = "TPM verification failed";
 constexpr std::string_view resource_message = "TPM operation cannot be completed";
 constexpr std::string_view backend_message = "TPM backend reported an error";
+constexpr std::string_view unavailable_backend_error_description = "unavailable";
+constexpr std::size_t max_backend_error_description_size = 128U;
 
 constexpr mapped_error input_error{error_category::input_error, input_message};
 constexpr mapped_error security_error{error_category::security_failure, security_message};
@@ -173,6 +176,37 @@ constexpr std::array<mapping_entry, 50> documented_mappings{{
     return std::string{buffer.data()};
 }
 
+[[nodiscard]] bool is_printable_ascii(const char value) noexcept
+{
+    const auto byte = static_cast<unsigned char>(value);
+    return byte >= 0x20U && byte < 0x7fU;
+}
+
+[[nodiscard]] std::string sanitized_backend_error_description(const char* const decoded)
+{
+    if (decoded == nullptr || decoded[0] == '\0') {
+        return std::string{unavailable_backend_error_description};
+    }
+
+    std::string description;
+    description.reserve(max_backend_error_description_size);
+    for (std::size_t index = 0U;
+         decoded[index] != '\0' && index < max_backend_error_description_size; ++index) {
+        description.push_back(is_printable_ascii(decoded[index]) ? decoded[index] : '_');
+    }
+
+    if (description.empty()) {
+        return std::string{unavailable_backend_error_description};
+    }
+
+    return description;
+}
+
+[[nodiscard]] std::string decode_backend_error_description(const TSS2_RC rc)
+{
+    return sanitized_backend_error_description(Tss2_RC_Decode(rc));
+}
+
 void log_tss_error(logger* const log, const TSS2_RC rc, const TSS2_RC layer,
                    const error_category category, const std::string_view operation,
                    const events::event_descriptor error_event)
@@ -182,12 +216,14 @@ void log_tss_error(logger* const log, const TSS2_RC rc, const TSS2_RC layer,
     }
 
     const std::string rc_hex = format_hex(rc);
-    const std::array<log_field, 7> fields{{
+    const std::string backend_error_description = decode_backend_error_description(rc);
+    const std::array<log_field, 8> fields{{
         {events::fields::event, error_event.name},
         {events::fields::component, events::component_tpm2_esys},
         {events::fields::outcome, events::values::failure},
         {events::fields::error_category, category_name(category)},
         {events::fields::error_code, rc_hex},
+        {events::fields::backend_error_description, backend_error_description},
         {events::fields::operation, operation},
         {events::fields::tss_layer, layer_name(layer)},
     }};

@@ -21,7 +21,7 @@ When a test or scenario is failing, work through these in order. Each step rules
 
 Two questions get conflated. They have different answers, different tools, and treating them as one wastes hours.
 
-- **Diagnosis** — *"what happened, on which path, with what failure mode?"* The log answers this. The categorical schema from `tpm-write-logging` (`event`, `component`, `algorithm`, `key_kind`, `session_kind`, `attempt`, `reason`, `source`, `error_code`) plus the fixed message text narrows a production failure to a specific code path in minutes.
+- **Diagnosis** — *"what happened, on which path, with what failure mode?"* The log answers this. The categorical schema from `tpm-write-logging` (`event`, `component`, `algorithm`, `key_kind`, `session_kind`, `attempt`, `reason`, `source`, `error_code`, `backend_error_description`) plus the fixed message text narrows a production failure to a specific code path in minutes.
 - **Reproduction** — *"can I trigger the same failure on my dev box?"* The log does **not** answer this, by design. Inputs to crypto/TPM operations are typically secrets, and the never-log rules forbid them at every level (cross-reference `security.md` Logging, `logging.md` What never to log). Reproduction uses different tools.
 
 The mental shift: **the log narrows the search; the test infrastructure reproduces the bug.** In practice the path/category signal from the log is enough to run or write a targeted test that hits the same code path, without ever seeing the original input. Developers coming from non-crypto code expect "debug log → replay inputs in dev" and have to unlearn it here — every commercial crypto library has the same constraint.
@@ -73,7 +73,7 @@ Common code patterns to recognise on sight:
 - `TPM2_RC_OBJECT_HANDLES` / `TPM2_RC_SESSION_HANDLES` — handle table exhausted. Session leak is the usual cause; see *Session leaks* below.
 - `TSS2_TCTI_RC_IO_ERROR` — transport failed. swtpm is not running, the socket/path is wrong, or it crashed.
 
-To get a human-readable name, use `Tss2_RC_Decode` from `tss2-rc-decode` if linked, or look the value up in the TPM 2.0 Library spec part 2 (return codes section). Do not guess from partial matches.
+For tpmkit backend-boundary logs, read `backend_error_description` first for the sanitized `Tss2_RC_Decode` output, then use `error_code` as the canonical value if the decoded text is unavailable or too coarse. Do not guess from partial matches.
 
 ## Draining the OpenSSL error stack
 

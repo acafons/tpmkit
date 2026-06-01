@@ -43,6 +43,17 @@ Version: ${version}
 Cflags: -I${root}/include
 Libs:
 ")
+
+    file(WRITE "${root}/pkgconfig/tss2-rc.pc"
+"prefix=${root}
+includedir=${root}/include
+
+Name: tss2-rc
+Description: Fake TPM2 TSS return-code package for tpmkit discovery smoke tests
+Version: ${version}
+Cflags: -I${root}/include
+Libs:
+")
 endfunction()
 
 function(write_openssl_pc_file root version)
@@ -71,6 +82,13 @@ typedef uint32_t TSS2_RC;
 #define TSS2_TCTI_RC_INSUFFICIENT_BUFFER ((TSS2_RC)0x0A0003U)
 #define TSS2_TCTI_RC_BAD_SEQUENCE ((TSS2_RC)0x0A0004U)
 #define TSS2_TCTI_RC_IO_ERROR ((TSS2_RC)0x0A0005U)
+")
+
+    file(WRITE "${include_root}/tss2/tss2_rc.h"
+"#pragma once
+#include <tss2/tss2_common.h>
+
+const char *Tss2_RC_Decode(TSS2_RC rc);
 ")
 
     file(WRITE "${include_root}/tss2/tss2_tcti.h"

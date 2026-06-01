@@ -80,7 +80,7 @@ There is no `fatal` level. The library does not abort the process; that is the c
 
 | Level | Examples |
 |---|---|
-| `error` | Translation point: an OpenSSL or TSS2 call returned non-success. Log original error code at the adapter, then translate. |
+| `error` | Translation point: an OpenSSL or TSS2 call returned non-success. Log original error code, decoded backend diagnostic text when available, and operation context at the adapter, then translate. |
 | `warn` | TPM busy, retried successfully. Falling back from FAPI to ESYS. Configuration value out of range, default applied (when allowed by `security.md`). |
 | `info` | TPM session opened with attributes X. Key loaded at handle Y. Persistent handle Z evicted. Backend selection at composition root. |
 | `debug` | Adapter chose path A over B because of capability check. Request size, algorithm chosen (when not secret). |
@@ -96,6 +96,7 @@ If a structured field's *key* is sensitive (e.g., a session-correlation token), 
 
 - **Key naming.** Keys are `snake_case`, stable, and documented per call site. Renaming a field is an observable change for log consumers and counts as a minor version bump.
 - **Value formatting.** Adapters format. The library passes already-stringified values (`std::to_string`, hex for byte counts, etc.); it does not pass binary blobs.
+- **Backend diagnostic text.** Decoded third-party error text, such as TPM2-TSS or OpenSSL diagnostics, is emitted as a bounded sanitized field (for example `backend_error_description`) when available. It is not the logger message and is not copied into public `error.message`.
 - **No timestamps.** Adapters add timestamps. A library-emitted timestamp is wrong by the time the adapter writes it, and consumers may want a different clock.
 - **No PII or system info.** No usernames, hostnames, IPs, file paths derived from caller input. The library does not know what the consumer considers sensitive.
 - **No correlation IDs from globals.** If a caller wants correlation, they pass a context object that carries the ID into each call site explicitly. Thread-local correlation IDs are forbidden (cross-reference: `concurrency.md` Thread-local state).

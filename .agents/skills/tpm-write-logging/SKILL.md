@@ -83,12 +83,13 @@ logger_.log(log_level::info,
 Example, adapter-boundary failure log before translation:
 
 ```cpp
-const std::array<log_field, 6> fields{{
+const std::array<log_field, 7> fields{{
     {"event",          "tpm.backend_error"},
     {"component",      "tpm2_esys"},
     {"outcome",        "failure"},
     {"error_category", "backend_error"},
     {"error_code",     to_hex(rc)},     // TSS2_RC, never a secret
+    {"backend_error_description", decoded_backend_description},
     {"source",         "esys_session_provider::start_auth_session"},
 }};
 logger_.log(log_level::error,
@@ -96,7 +97,7 @@ logger_.log(log_level::error,
             gsl::span<const log_field>(fields));
 ```
 
-The adapter logs *before* translating to a domain `error` (cross-reference `error-handling.md` Translating third-party errors). The original numeric code goes here and nowhere else.
+The adapter logs *before* translating to a domain `error` (cross-reference `error-handling.md` Translating third-party errors). The original numeric code and sanitized decoded backend diagnostic text go here and nowhere else.
 
 The `source` field carries the `class::method` that emitted the record so consumers can attribute root cause without grepping the source tree. **It is forbidden on `outcome=failure` records with `error_category=security_failure`** to preserve the oracle-prevention rule from `error-handling.md` (Security-sensitive failures) — see `references/event-schema.md` Forbidden combinations. On every other event, including `backend_error`, `resource_error`, `input_error`, and all success records, `source` is fine.
 
@@ -108,14 +109,14 @@ The two call sites above produce records like the ones below. The **library** em
 
 ```
 [2026-05-09 14:23:01.234] [tpmkit] [info]  TPM session opened event=tpm.session_open component=tpm2_esys outcome=success session_kind=hmac source=esys_session_provider::open
-[2026-05-09 14:23:05.678] [tpmkit] [error] Esys_StartAuthSession failed event=tpm.backend_error component=tpm2_esys outcome=failure error_category=backend_error error_code=0x0000098e source=esys_session_provider::start_auth_session
+[2026-05-09 14:23:05.678] [tpmkit] [error] Esys_StartAuthSession failed event=tpm.backend_error component=tpm2_esys outcome=failure error_category=backend_error error_code=0x0000098e backend_error_description=esapi:try_again source=esys_session_provider::start_auth_session
 ```
 
 JSON format — same call sites, different adapter rendering (spdlog with a JSON pattern, or a custom sink):
 
 ```json
 {"ts":"2026-05-09T14:23:01.234Z","level":"info","msg":"TPM session opened","event":"tpm.session_open","component":"tpm2_esys","outcome":"success","session_kind":"hmac","source":"esys_session_provider::open"}
-{"ts":"2026-05-09T14:23:05.678Z","level":"error","msg":"Esys_StartAuthSession failed","event":"tpm.backend_error","component":"tpm2_esys","outcome":"failure","error_category":"backend_error","error_code":"0x0000098e","source":"esys_session_provider::start_auth_session"}
+{"ts":"2026-05-09T14:23:05.678Z","level":"error","msg":"Esys_StartAuthSession failed","event":"tpm.backend_error","component":"tpm2_esys","outcome":"failure","error_category":"backend_error","error_code":"0x0000098e","backend_error_description":"esapi:try_again","source":"esys_session_provider::start_auth_session"}
 ```
 
 Notes:
@@ -320,7 +321,7 @@ Do not log:
 
 Errors are logged **once, at the adapter boundary**, then propagate up as a domain `error` (or thrown `tpmkit_error`) with no further automatic logging at any layer above.
 
-- **Backend errors** (`TSS2_RC`, OpenSSL, `errno`) — the adapter logs at `error` *before* translating. The original third-party numeric code lives in this single record (`event=*.backend_error`, `error_code=...`); nothing above the adapter sees it. Cross-reference `error-handling.md` Translating third-party errors.
+- **Backend errors** (`TSS2_RC`, OpenSSL, `errno`) — the adapter logs at `error` *before* translating. The original third-party numeric code (`error_code=...`) and sanitized decoded backend diagnostic text (`backend_error_description=...`) live in this single record when available; nothing above the adapter sees them. Cross-reference `error-handling.md` Translating third-party errors.
 - **Security failures** — logged with the `security_failure` category, deliberately coarse: no precise `source` field, no caller-visible detail beyond the category, no secret-derived bytes. Cross-reference `error-handling.md` Security-sensitive failures and `references/event-schema.md` Forbidden combinations.
 - **Input and resource errors** — logged once at the boundary that detected them (public-API validation, or the adapter that produced the resource failure), not at every level the error propagates through.
 
@@ -352,6 +353,7 @@ If a use case appears to require library-level support for one of the above, rai
   descriptor through helper APIs.
 - **Stuffing variable data into the message text.** Use a field. The message is for humans; fields are for machines.
 - **Logging the raw `TSS2_RC` alongside a translated domain error in the same record.** The numeric code goes at the adapter boundary; the domain error goes at the operation result. Mixing them couples consumers to the third-party numbering scheme.
+- **Copying decoded backend diagnostic text into public `error.message`.** Backend text is dependency-owned and may expose implementation details. Keep it in `backend_error_description` at the adapter boundary.
 - **Forgetting the `outcome` field** on a terminal log line. Without it, success and failure records look identical to a query.
 - **Logging the TPM handle value** as a field. Handle values are sensitive (they can leak ASLR offsets, persistent-handle ownership, or session-state correlation). Use `handle_kind` (`transient` / `persistent` / `session`) instead.
 - **Skipping `noexcept` on the adapter override.** Every override of `logger::log` is `noexcept` per the port contract; an exception escaping is a contract violation.

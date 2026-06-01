@@ -53,6 +53,9 @@ if(_tpmkit_need_production)
     pkg_check_modules(TSS2_TCTILDR REQUIRED IMPORTED_TARGET
         "tss2-tctildr = ${TPMKIT_TSS2_REQUIRED_VERSION}"
     )
+    pkg_check_modules(TSS2_RC REQUIRED IMPORTED_TARGET
+        "tss2-rc = ${TPMKIT_TSS2_REQUIRED_VERSION}"
+    )
 endif()
 
 include("${CMAKE_CURRENT_LIST_DIR}/tpmkitTargets.cmake")

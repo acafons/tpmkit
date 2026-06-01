@@ -82,7 +82,7 @@ Cross-reference: `security.md` Failure handling, `error-handling.md` Security-se
 
 - [ ] Security-relevant checks (signature verify, MAC validate, policy evaluate) **fail closed**. The diff does not contain a "best effort" path that proceeds despite a failed check.
 - [ ] Public-API errors for security-sensitive failures return a single `security_failure` outcome with **no caller-visible detail** distinguishing the cause (no "wrong padding" vs. "wrong MAC" vs. "tag mismatch"). Detailed reasons are logged internally only.
-- [ ] No error from OpenSSL or TSS is silently suppressed. Adapter code drains the OpenSSL error stack (cross-reference: `tpm-debug` Draining the OpenSSL error stack) and logs the original code before translating.
+- [ ] No error from OpenSSL or TSS is silently suppressed. Adapter code drains the OpenSSL error stack (cross-reference: `tpm-debug` Draining the OpenSSL error stack) and logs the original code plus sanitized decoded backend diagnostic text when available before translating.
 - [ ] No exception thrown from inside a `secret_buffer` lifetime that could leave secrets uncleared. RAII covers this; verify no diff introduces a path that bypasses RAII.
 
 ## 7. Logging and side channels
@@ -90,7 +90,7 @@ Cross-reference: `security.md` Failure handling, `error-handling.md` Security-se
 Cross-reference: `security.md` Logging, `logging.md`.
 
 - [ ] No log line at any level emits key material, plaintext, ciphertext, signature bytes, MAC tags, authorization values, PINs, passphrases, derived secrets, or pointer values that leak ASLR.
-- [ ] Adapter-boundary logs include the original third-party error code and library context, but not secret-derived bytes (e.g., no "expected MAC X, got Y").
+- [ ] Adapter-boundary logs include the original third-party error code, sanitized decoded backend diagnostic text when available, and library context, but not secret-derived bytes (e.g., no "expected MAC X, got Y").
 - [ ] No log call inside a hot path or constant-time loop. Cross-reference: `performance.md` Hot-path discipline, `logging.md` Hot-path discipline.
 - [ ] No new field key in a structured log record reveals a secret-derived value.
 - [ ] If a new log field could leak in some configuration but not others, the configuration is documented and the default is the safe one.

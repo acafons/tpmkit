@@ -45,6 +45,7 @@ inline constexpr std::string_view allocation_success = "allocation_success";
 inline constexpr std::string_view bank = "bank";
 inline constexpr std::string_view bank_count = "bank_count";
 inline constexpr std::string_view component = "component";
+inline constexpr std::string_view backend_error_description = "backend_error_description";
 inline constexpr std::string_view error_category = "error_category";
 inline constexpr std::string_view error_code = "error_code";
 inline constexpr std::string_view event = "event";

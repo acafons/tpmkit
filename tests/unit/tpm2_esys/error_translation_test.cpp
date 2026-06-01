@@ -65,6 +65,22 @@ namespace events = tpmkit::detail::esys::events;
     return message.find_first_of("0123456789") != std::string::npos;
 }
 
+[[nodiscard]] bool is_bounded_printable_field_value(const std::string& value)
+{
+    if (value.empty() || value.size() > 128U) {
+        return false;
+    }
+
+    for (const char ch : value) {
+        const auto byte = static_cast<unsigned char>(ch);
+        if (byte < 0x20U || byte >= 0x7fU) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 [[nodiscard]] const std::pair<std::string, std::string>*
 find_field(const std::vector<std::pair<std::string, std::string>>& fields,
            const std::string_view key)
@@ -293,7 +309,7 @@ TEST(error_translation, logs_non_success_rc_with_schema_fields)
     const auto& record = log.records.front();
     EXPECT_EQ(record.level, tpmkit::log_level::error);
     EXPECT_EQ(record.message, std::string{events::tss_error.message});
-    ASSERT_EQ(record.fields.size(), 7U);
+    ASSERT_EQ(record.fields.size(), 8U);
 
     const auto* event = find_field(record.fields, events::fields::event);
     const auto* component = find_field(record.fields, events::fields::component);
@@ -301,6 +317,8 @@ TEST(error_translation, logs_non_success_rc_with_schema_fields)
     const auto* category = find_field(record.fields, events::fields::error_category);
     const auto* operation = find_field(record.fields, events::fields::operation);
     const auto* rc_hex = find_field(record.fields, events::fields::error_code);
+    const auto* backend_description =
+        find_field(record.fields, events::fields::backend_error_description);
     const auto* layer = find_field(record.fields, events::fields::tss_layer);
 
     ASSERT_NE(event, nullptr);
@@ -309,6 +327,7 @@ TEST(error_translation, logs_non_success_rc_with_schema_fields)
     ASSERT_NE(category, nullptr);
     ASSERT_NE(operation, nullptr);
     ASSERT_NE(rc_hex, nullptr);
+    ASSERT_NE(backend_description, nullptr);
     ASSERT_NE(layer, nullptr);
     EXPECT_EQ(event->second, std::string{events::tss_error.name});
     EXPECT_EQ(component->second, std::string{events::component_tpm2_esys});
@@ -316,7 +335,10 @@ TEST(error_translation, logs_non_success_rc_with_schema_fields)
     EXPECT_EQ(category->second, std::string{events::values::resource_error});
     EXPECT_EQ(operation->second, "tcti_init");
     EXPECT_EQ(rc_hex->second, "0x000a000a");
+    EXPECT_NE(backend_description->second.find("IO"), std::string::npos);
+    EXPECT_TRUE(is_bounded_printable_field_value(backend_description->second));
     EXPECT_EQ(layer->second, "tcti");
+    EXPECT_FALSE(contains_disallowed_message_detail(result.error().message));
 }
 
 TEST(error_translation, overload_logs_custom_error_event)

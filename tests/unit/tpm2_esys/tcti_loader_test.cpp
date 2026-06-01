@@ -135,15 +135,20 @@ TEST(tcti_loader, unknown_tcti_name_returns_input_error_without_tss_code)
     EXPECT_EQ(log.records.front().level, tpmkit::log_level::error);
     EXPECT_EQ(log.records.front().message,
               std::string{tpmkit::detail::esys::events::tss_error.message});
-    EXPECT_EQ(log.records.front().fields.size(), 7U);
+    EXPECT_EQ(log.records.front().fields.size(), 8U);
     const auto* event =
         find_field(log.records.front().fields, tpmkit::detail::esys::events::fields::event);
     const auto* operation =
         find_field(log.records.front().fields, tpmkit::detail::esys::events::fields::operation);
+    const auto* backend_description =
+        find_field(log.records.front().fields,
+                   tpmkit::detail::esys::events::fields::backend_error_description);
     ASSERT_NE(event, nullptr);
     ASSERT_NE(operation, nullptr);
+    ASSERT_NE(backend_description, nullptr);
     EXPECT_EQ(event->second, std::string{tpmkit::detail::esys::events::tss_error.name});
     EXPECT_EQ(operation->second, "tcti_init");
+    EXPECT_FALSE(backend_description->second.empty());
 }
 
 } // namespace

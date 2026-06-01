@@ -53,7 +53,8 @@ If a single operation needs more granular programmatic dispatch than the four ca
 ## Translating third-party errors
 
 - Adapters own the translation from `TSS2_RC`, OpenSSL error stacks, and OS errno values into domain errors. Domain code never sees a third-party error type.
-- The original error code and message are logged at the adapter boundary, then dropped. Do not propagate raw third-party errors into domain types.
+- The original error code and decoded backend diagnostic message are logged at the adapter boundary when available, then dropped. Do not propagate raw third-party errors into domain types.
+- Decoded backend diagnostic messages belong in structured log fields, never in the fixed log message text and never in public `error.message`. They must be bounded and sanitized before logging.
 - Translation tables (e.g., `TSS2_RC` → category) live next to the adapter, not in the domain.
 - A third-party call returning an error with no obvious mapping is classified as `backend_error`. The adapter's log line must contain enough detail to diagnose offline.
 

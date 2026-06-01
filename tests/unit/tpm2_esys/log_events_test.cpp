@@ -48,6 +48,7 @@ TEST(log_events, field_keys_match_documented_schema)
         {events::fields::event, "event"},
         {events::fields::component, "component"},
         {events::fields::outcome, "outcome"},
+        {events::fields::backend_error_description, "backend_error_description"},
         {events::fields::error_category, "error_category"},
         {events::fields::error_code, "error_code"},
         {events::fields::tcti_kind, "tcti_kind"},

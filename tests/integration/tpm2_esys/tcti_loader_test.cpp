@@ -89,6 +89,12 @@ TEST(tcti_loader_integration, failed_load_emits_tss_error_record_with_operation_
                f.second == "tcti_init";
     });
     EXPECT_TRUE(has_operation);
+    const bool has_backend_error_description =
+        std::any_of(it->fields.begin(), it->fields.end(), [](const auto& f) {
+            return f.first == tpmkit::detail::esys::events::fields::backend_error_description &&
+                   !f.second.empty();
+        });
+    EXPECT_TRUE(has_backend_error_description);
 }
 
 } // namespace

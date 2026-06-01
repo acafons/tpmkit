@@ -20,6 +20,7 @@ target_link_libraries(tpmkit
     PRIVATE
         PkgConfig::TSS2_ESYS
         PkgConfig::TSS2_TCTILDR
+        PkgConfig::TSS2_RC
 )
 
 # TPM2 TSS libraries stay PRIVATE implementation dependencies. Static-library

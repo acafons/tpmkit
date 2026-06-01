@@ -182,7 +182,7 @@ role, as `esys_pcr_provider` does for `tpmkit::pcr::provider`. Use the
 
 For option 1 ports: subclass the abstract base and implement every pure virtual. For option 2: provide the required members on a concrete type. For option 3: provide the symbol bodies for the new backend's `.cpp`.
 
-Translate third-party errors at the adapter boundary into one of the four domain error categories. Log the original code at the adapter boundary before translating; never propagate raw `TSS2_RC` or OpenSSL error codes into domain types.
+Translate third-party errors at the adapter boundary into one of the four domain error categories. Log the original code and sanitized decoded backend diagnostic text, when available, at the adapter boundary before translating; never propagate raw `TSS2_RC`, OpenSSL error codes, or backend diagnostic text into domain types.
 
 ### B.4 Run the contract suite against the new adapter
 

@@ -933,6 +933,7 @@ TEST(esys_pcr_provider, failure_emits_pcr_tss_error_without_measurement_bytes)
               std::string{events::pcr_tss_error.name});
     EXPECT_EQ(field_value(records.front(), events::fields::operation), "pcr_extend");
     EXPECT_EQ(field_value(records.front(), events::fields::error_code), "0x00000907");
+    EXPECT_FALSE(field_value(records.front(), events::fields::backend_error_description).empty());
     EXPECT_EQ(field_value(records.front(), events::fields::tss_layer), "tpm");
     EXPECT_FALSE(contains_field_value(records, "d0"));
 }
@@ -1368,6 +1369,7 @@ TEST(esys_pcr_provider, allocate_emits_pcr_tss_error_on_failure)
     EXPECT_EQ(field_value(records.front(), events::fields::event),
               std::string{events::pcr_tss_error.name});
     EXPECT_EQ(field_value(records.front(), events::fields::operation), "pcr_allocate");
+    EXPECT_FALSE(field_value(records.front(), events::fields::backend_error_description).empty());
     EXPECT_EQ(field_value(records.front(), events::fields::tss_layer), "tpm");
 }
 

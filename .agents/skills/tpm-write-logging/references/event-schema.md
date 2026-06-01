@@ -23,6 +23,7 @@ These fields appear across multiple events. Their type and semantics are fixed.
 | `outcome` | `success` \| `failure` | Required on terminal log lines for an operation. Lifecycle and informational events without a clear outcome may omit. |
 | `error_category` | `input_error` \| `security_failure` \| `resource_error` \| `backend_error` | Required when `outcome=failure`. Mirrors the four categories from `error-handling.md`. |
 | `error_code` | hex string of an adapter-internal numeric code | Adapter-boundary failure logs only. Original `TSS2_RC` (e.g., `0x0000098e`) or OpenSSL error code. Never appears on domain log lines. |
+| `backend_error_description` | bounded sanitized string | Optional adapter-boundary diagnostic text decoded from the third-party error state, such as TPM2-TSS or OpenSSL. Never appears in public `error.message`. |
 | `request_id` | opaque caller-supplied identifier | Optional; carried through context for correlation across calls. Must not come from a thread-local global (cross-reference `concurrency.md` Thread-local state). |
 | `source` | `class::method` form (e.g., `esys_session_provider::open`) | Optional on most events; **forbidden on `outcome=failure` + `error_category=security_failure`** records (see *Forbidden combinations* below). The class and method that emitted the record. Format is `class::method` only — never `file:line`, never pointer values, never `this` addresses, never stack traces. |
 | `algorithm` | algorithm identifier (`aes_256_gcm`, `ecdsa_p256`, `sha_256`, ...) | Optional; only when the algorithm is not itself a secret of the protocol. |
@@ -71,14 +72,14 @@ Events are grouped by category. Categories may be added; see *Reserved categorie
 | `tpm.persistent_handle_evict` | info | `event`, `component`, `outcome`, `handle_kind` | `request_id` |
 | `tpm.command_failed` | error | `event`, `component`, `outcome=failure`, `error_category` | `request_id`, `attempt`, `reason` |
 | `tpm.command_retried` | warn | `event`, `component`, `outcome`, `attempt`, `reason` | `request_id` |
-| `tpm.backend_error` | error | `event`, `component`, `outcome=failure`, `error_category`, `error_code` | `request_id`, `reason` |
+| `tpm.backend_error` | error | `event`, `component`, `outcome=failure`, `error_category`, `error_code` | `backend_error_description`, `request_id`, `reason` |
 | `tpm.context.tcti_configuring` | info | `event`, `component`, `outcome=success`, `tcti_kind` | `tcti_name`, `source` |
 | `tpm.context.tcti_configured` | info | `event`, `component`, `outcome=success`, `tcti_kind` | `tcti_name`, `source` |
 | `tpm.context.esys_initialized` | info | `event`, `component`, `outcome=success`, `abi_version` | `source` |
 | `tpm.context.startup_invoked` | info | `event`, `component`, `outcome=success`, `startup_mode` | `source` |
 | `tpm.context.startup_completed` | info | `event`, `component`, `outcome=success`, `startup_mode`, `result` | `source` |
 | `tpm.context.finalized` | info | `event`, `component`, `outcome=success` | `source` |
-| `tpm.context.tss_error` | error | `event`, `component`, `outcome=failure`, `error_category`, `error_code`, `operation`, `tss_layer` | `request_id`, `source` |
+| `tpm.context.tss_error` | error | `event`, `component`, `outcome=failure`, `error_category`, `error_code`, `operation`, `tss_layer` | `backend_error_description`, `request_id`, `source` |
 | `tpm.pcr.read_completed` | info | `event`, `component`, `outcome=success`, `bank`, `pcr_count` | `source` |
 | `tpm.pcr.extend_completed` | info | `event`, `component`, `outcome=success`, `pcr_index`, `bank_count` | `source` |
 | `tpm.pcr.event_completed` | info | `event`, `component`, `outcome=success`, `pcr_index`, `event_size`, `bank_count` | `source` |
@@ -86,7 +87,7 @@ Events are grouped by category. Categories may be added; see *Reserved categorie
 | `tpm.pcr.allocate_completed` | info | `event`, `component`, `outcome=success`, `bank_count`, `allocation_success` | `source` |
 | `tpm.pcr.auth_policy_set` | info | `event`, `component`, `outcome=success`, `pcr_index`, `policy_algorithm` | `source` |
 | `tpm.pcr.auth_value_set` | info | `event`, `component`, `outcome=success`, `pcr_index` | `source` |
-| `tpm.pcr.tss_error` | error | `event`, `component`, `outcome=failure`, `error_category`, `error_code`, `operation`, `tss_layer` | `request_id`, `source` |
+| `tpm.pcr.tss_error` | error | `event`, `component`, `outcome=failure`, `error_category`, `error_code`, `operation`, `tss_layer` | `backend_error_description`, `request_id`, `source` |
 
 Notes:
 
@@ -97,7 +98,7 @@ Notes:
 | Event | Level | Required fields | Optional fields |
 |---|---|---|---|
 | `crypto.operation_failed` | error | `event`, `component`, `outcome=failure`, `error_category` | `algorithm`, `request_id` |
-| `crypto.backend_error` | error | `event`, `component`, `outcome=failure`, `error_category`, `error_code` | `algorithm`, `request_id`, `reason` |
+| `crypto.backend_error` | error | `event`, `component`, `outcome=failure`, `error_category`, `error_code` | `algorithm`, `backend_error_description`, `request_id`, `reason` |
 | `crypto.fallback_selected` | warn | `event`, `component`, `outcome=success`, `algorithm`, `reason` | `request_id` |
 
 Notes:

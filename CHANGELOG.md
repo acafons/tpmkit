@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - Add `noop_logger::instance()` as a stateless no-op logger reference for adapter defaults and tests.
+- Add `backend_error_description` to adapter-boundary log records so decoded backend diagnostics stay in logs without leaking into public API errors.
 - Add the explicit low-level `<tpmkit/tpm2_esys/owned_tcti_context.h>` API for callers that need to transfer an owned TPM2 TSS TCTI handle.
 - Add `TPMKIT_ENABLE_LEGACY_SHA1_PCR`, defaulting to `OFF`, for legacy SHA-1 PCR bank compatibility.
 - Add parameterized PCR provider contract coverage across the mock provider and ESYS fake-TCTI adapter path.
